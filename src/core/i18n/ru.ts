@@ -1,0 +1,26 @@
+export const ru = {
+  appTitle: 'Слова',
+  play: 'Играть',
+  shuffle: 'Перемешать',
+  level: 'Уровень {n}',
+  levelComplete: 'Уровень пройден!',
+  coins: 'Монеты',
+  next: 'Далее',
+  double: 'Удвоить',
+  hintBulb: 'Буква',
+  hintHammer: 'Слово',
+  bonusWords: 'Бонусные слова',
+  map: 'Карта',
+  shop: 'Магазин',
+  daily: 'Пазл дня',
+  wheel: 'Колесо',
+  collection: 'Коллекция',
+  leaderboard: 'Лидеры',
+  events: 'События',
+  teams: 'Команды',
+  profile: 'Профиль',
+  settings: 'Настройки',
+  comingSoon: 'Скоро',
+} as const;
+
+export type I18nKey = keyof typeof ru;

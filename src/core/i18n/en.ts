@@ -1,0 +1,26 @@
+import type { I18nKey } from './ru';
+
+export const en: Record<I18nKey, string> = {
+  appTitle: 'Words',
+  play: 'Play',
+  shuffle: 'Shuffle',
+  level: 'Level {n}',
+  levelComplete: 'Level complete!',
+  coins: 'Coins',
+  next: 'Next',
+  double: 'Double',
+  hintBulb: 'Letter',
+  hintHammer: 'Word',
+  bonusWords: 'Bonus words',
+  map: 'Map',
+  shop: 'Shop',
+  daily: 'Daily puzzle',
+  wheel: 'Wheel',
+  collection: 'Collection',
+  leaderboard: 'Leaders',
+  events: 'Events',
+  teams: 'Teams',
+  profile: 'Profile',
+  settings: 'Settings',
+  comingSoon: 'Coming soon',
+};

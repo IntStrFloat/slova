@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Слова: Игра в слова",
+    "slug": "slova",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "slova",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#101826",
+    "android": {
+      "package": "com.intstrfloat.slova",
+      "versionCode": 1,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#101826",
+          "imageWidth": 160
+        }
+      ],
+      "expo-audio",
+      "expo-localization",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

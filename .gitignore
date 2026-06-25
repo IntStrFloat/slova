@@ -1,0 +1,21 @@
+# deps
+node_modules/
+# expo / native
+.expo/
+android/
+ios/
+dist/
+web-dist/
+*.log
+# env & credentials — НИКОГДА не коммитить
+.env
+.env.local
+.env.*.local
+credentials/
+*.jks
+*.keystore
+backend.env
+deploy.secrets
+# os
+.DS_Store
+Thumbs.db

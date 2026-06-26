@@ -13,6 +13,7 @@ export interface SavedProfile {
 interface Store {
   profile: SavedProfile | null;
   busy: boolean;
+  error: string | null;
   ensure: (nickname: string) => Promise<boolean>;
 }
 
@@ -21,9 +22,10 @@ const init = getJSON<SavedProfile | null>(KEYS.profile, null);
 export const useProfile = create<Store>((set, get) => ({
   profile: init,
   busy: false,
+  error: null,
   ensure: async (nickname) => {
     if (get().profile) return true;
-    set({ busy: true });
+    set({ busy: true, error: null });
     try {
       const { profile, authToken } = await getBackend().bootstrap(nickname);
       const saved: SavedProfile = {
@@ -35,8 +37,8 @@ export const useProfile = create<Store>((set, get) => ({
       set({ profile: saved, busy: false });
       setJSON(KEYS.profile, saved);
       return true;
-    } catch {
-      set({ busy: false });
+    } catch (e) {
+      set({ busy: false, error: String(e && (e as Error).message) });
       return false;
     }
   },

@@ -36,6 +36,7 @@ export default function Leaderboard() {
   const profile = useProfile((s) => s.profile);
   const ensure = useProfile((s) => s.ensure);
   const busy = useProfile((s) => s.busy);
+  const error = useProfile((s) => s.error);
   const { snapshot, loading, offline, load } = useLeaderboard();
   const [scope, setScope] = useState<'global' | 'weekly'>('global');
 
@@ -64,6 +65,9 @@ export default function Leaderboard() {
               Создайте профиль, чтобы соревноваться в таблице лидеров.
             </AppText>
             <AppButton label={busy ? '...' : 'Создать профиль'} icon="profile" large onPress={createProfile} />
+            {error ? (
+              <AppText preset="body" style={{ color: colors.danger, textAlign: 'center' }}>err: {error}</AppText>
+            ) : null}
           </View>
         ) : (
           <View style={{ flex: 1, padding: 16, gap: 12 }}>

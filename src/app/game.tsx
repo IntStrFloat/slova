@@ -12,6 +12,7 @@ import { useCurrency } from '@/features/currency';
 import { useDailyPuzzle, dailySeed } from '@/features/dailypuzzle';
 import { CrosswordGrid, LetterDisk, LevelComplete, useGame } from '@/features/game';
 import { hintCost } from '@/features/hints';
+import { useLeaderboard } from '@/features/leaderboard';
 import { DEFAULT_WORLD, loadLevel, useLevels, worldLevelCount } from '@/features/levels';
 import {
   getAds,
@@ -133,6 +134,7 @@ export default function GameScreen() {
       return;
     }
     completeLevel(level.id);
+    void useLeaderboard.getState().syncProgress(useLevels.getState().completed.length);
     const unlockedId = maybeUnlock(level.world, level.id);
     setDone(false);
     if (unlockedId) {

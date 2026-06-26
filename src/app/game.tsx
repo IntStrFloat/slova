@@ -7,8 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { landmarksForWorld, type Landmark } from '@/core/config/worlds';
 import { t } from '@/core/i18n';
 import type { HintType } from '@/core/engine/types';
+import { track } from '@/features/analytics';
 import { LandmarkReveal, useCollection } from '@/features/collection';
 import { useCurrency } from '@/features/currency';
+import { useSettings } from '@/features/settings';
 import { useDailyPuzzle, dailySeed } from '@/features/dailypuzzle';
 import { CrosswordGrid, LetterDisk, LevelComplete, useGame } from '@/features/game';
 import { hintCost } from '@/features/hints';
@@ -68,6 +70,7 @@ export default function GameScreen() {
   const removeAds = useEntitlements((s) => s.removeAds);
   const completeDaily = useDailyPuzzle((s) => s.complete);
   const maybeUnlock = useCollection((s) => s.maybeUnlockAtLevel);
+  const haptics = useSettings((s) => s.haptics);
   const [done, setDone] = useState(false);
   const [reveal, setReveal] = useState<Landmark | null>(null);
 
@@ -98,12 +101,12 @@ export default function GameScreen() {
   const onWord = (w: string) => {
     const r = submit(w);
     if (r.kind === 'grid') {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (r.levelComplete) setTimeout(() => setDone(true), 450);
     } else if (r.kind === 'bonus') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (haptics) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } else if (r.kind === 'invalid') {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
   };
 
@@ -111,7 +114,7 @@ export default function GameScreen() {
     const cost = hintCost(type);
     if (spend('coins', cost)) {
       applyHint(type);
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (haptics) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } else {
       router.push('/shop' as never);
     }
@@ -128,6 +131,7 @@ export default function GameScreen() {
 
   const onNext = async () => {
     addCoins('coins', sessionCoins);
+    track('level_complete', { id: level.id, daily: isDaily });
     if (isDaily) {
       completeDaily();
       router.back();

@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { track } from '@/features/analytics';
 import { getAds } from '@/features/monetization';
 import { getPush } from '@/features/notifications';
 import { colors } from '@/ui';
@@ -33,6 +34,7 @@ export default function RootLayout() {
   useEffect(() => {
     void getAds().init();
     void getPush().init();
+    track('app_open');
   }, []);
 
   if (!loaded) return null;

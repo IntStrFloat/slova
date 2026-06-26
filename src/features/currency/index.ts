@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-import { getJSON, KEYS, setJSON } from '@/core/storage';
+import { ECONOMY } from '@/core/config/economy';
+import { getJSON, getString, KEYS, setJSON } from '@/core/storage';
 
 type Kind = 'coins' | 'gems';
 
@@ -14,7 +15,11 @@ interface CurrencyState extends Saved {
   spend: (kind: Kind, n: number) => boolean;
 }
 
-const init = getJSON<Saved>(KEYS.currency, { coins: 0, gems: 0 });
+const firstRun = getString(KEYS.currency) === null;
+const init: Saved = firstRun
+  ? { coins: ECONOMY.starterCoins, gems: 0 }
+  : getJSON<Saved>(KEYS.currency, { coins: 0, gems: 0 });
+if (firstRun) setJSON(KEYS.currency, init);
 
 export const useCurrency = create<CurrencyState>((set, get) => ({
   coins: init.coins,

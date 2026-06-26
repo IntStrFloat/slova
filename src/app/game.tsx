@@ -1,13 +1,16 @@
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { t } from '@/core/i18n';
+import type { HintType } from '@/core/engine/types';
 import { useCurrency } from '@/features/currency';
+import { useDailyPuzzle, dailySeed } from '@/features/dailypuzzle';
 import { CrosswordGrid, LetterDisk, LevelComplete, useGame } from '@/features/game';
-import { DEFAULT_WORLD, loadLevel, useLevels } from '@/features/levels';
+import { hintCost } from '@/features/hints';
+import { DEFAULT_WORLD, loadLevel, useLevels, worldLevelCount } from '@/features/levels';
 import {
   getAds,
   loadAdsMeta,
@@ -44,20 +47,29 @@ function IconButton({ name, onPress }: { name: 'back'; onPress: () => void }) {
 
 export default function GameScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const isDaily = mode === 'daily';
+
   const currentLevel = useLevels((s) => s.currentLevel);
   const completeLevel = useLevels((s) => s.completeLevel);
   const start = useGame((s) => s.start);
   const submit = useGame((s) => s.submit);
   const doShuffle = useGame((s) => s.doShuffle);
-  const hint = useGame((s) => s.hint);
+  const applyHint = useGame((s) => s.hint);
   const disk = useGame((s) => s.disk);
   const play = useGame((s) => s.play);
   const sessionCoins = useGame((s) => s.coins);
+  const coins = useCurrency((s) => s.coins);
   const addCoins = useCurrency((s) => s.add);
+  const spend = useCurrency((s) => s.spend);
   const removeAds = useEntitlements((s) => s.removeAds);
+  const completeDaily = useDailyPuzzle((s) => s.complete);
   const [done, setDone] = useState(false);
 
-  const level = useMemo(() => loadLevel(DEFAULT_WORLD, currentLevel), [currentLevel]);
+  const levelId = isDaily
+    ? (dailySeed() % Math.max(1, worldLevelCount(DEFAULT_WORLD))) + 1
+    : currentLevel;
+  const level = useMemo(() => loadLevel(DEFAULT_WORLD, levelId), [levelId]);
 
   useEffect(() => {
     if (level) {
@@ -90,8 +102,23 @@ export default function GameScreen() {
     }
   };
 
+  const tryHint = (type: HintType) => {
+    const cost = hintCost(type);
+    if (spend('coins', cost)) {
+      applyHint(type);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else {
+      router.push('/shop' as never);
+    }
+  };
+
   const onNext = async () => {
     addCoins('coins', sessionCoins);
+    if (isDaily) {
+      completeDaily();
+      router.back();
+      return;
+    }
     completeLevel(level.id);
     let meta = recordLevelComplete(loadAdsMeta());
     if (shouldShowInterstitial(meta, { enabled: true, removeAds, nowMs: Date.now() })) {
@@ -108,8 +135,8 @@ export default function GameScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}>
           <IconButton name="back" onPress={() => router.back()} />
-          <AppText preset="title">{t('level', { n: level.id })}</AppText>
-          <CoinBadge value={sessionCoins} />
+          <AppText preset="title">{isDaily ? t('daily') : t('level', { n: level.id })}</AppText>
+          <CoinBadge value={coins} />
         </View>
 
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
@@ -124,9 +151,9 @@ export default function GameScreen() {
 
           <View style={{ alignItems: 'center', gap: 14 }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <AppButton label={t('hintBulb')} variant="glass" icon="bulb" onPress={() => hint('bulb')} />
+              <AppButton label={`${t('hintBulb')} · ${hintCost('bulb')}`} variant="glass" icon="bulb" onPress={() => tryHint('bulb')} />
               <AppButton label={t('shuffle')} variant="glass" icon="shuffle" onPress={() => doShuffle()} />
-              <AppButton label={t('hintHammer')} variant="glass" icon="wand" onPress={() => hint('revealWord')} />
+              <AppButton label={`${t('hintHammer')} · ${hintCost('revealWord')}`} variant="glass" icon="wand" onPress={() => tryHint('revealWord')} />
             </View>
             <LetterDisk letters={disk} onWord={onWord} />
           </View>

@@ -17,7 +17,7 @@ import { colors } from '@/ui';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [loaded] = useFonts({
     Unbounded_700Bold,
     Unbounded_800ExtraBold,
     Fredoka_500Medium,
@@ -25,15 +25,15 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded]);
+    if (loaded) SplashScreen.hideAsync().catch(() => {});
+  }, [loaded]);
 
   useEffect(() => {
     void getAds().init();
     void getPush().init();
   }, []);
 
-  if (!fontsLoaded) return null;
+  if (!loaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bgBottom }}>
@@ -41,7 +41,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.bgBottom },
+          contentStyle: { backgroundColor: 'transparent' },
           animation: 'fade',
         }}
       />

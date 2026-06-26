@@ -1,38 +1,28 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { t } from '@/core/i18n';
-import { AppText, colors, radius } from '@/ui';
+import { AppButton, AppText, colors, GlassPanel, Icon } from '@/ui';
 
 export function LevelComplete({ coins, onNext }: { coins: number; onNext: () => void }) {
   return (
     <View style={[StyleSheet.absoluteFill, styles.scrim]}>
-      <View style={styles.card}>
+      <GlassPanel strong style={styles.card}>
+        <Icon name="check" size={56} color={colors.success} />
         <AppText preset="display">{t('levelComplete')}</AppText>
-        <AppText preset="coin">+{coins} {t('coins')}</AppText>
-        <Pressable onPress={onNext} style={styles.btn}>
-          <AppText preset="label" style={{ color: colors.primaryText }}>
-            {t('next')}
+        <View style={styles.coins}>
+          <Icon name="coin" size={22} color={colors.amber} />
+          <AppText preset="title" style={{ color: colors.amber }}>
+            +{coins}
           </AppText>
-        </Pressable>
-      </View>
+        </View>
+        <AppButton label={t('next')} icon="play" large onPress={onNext} />
+      </GlassPanel>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrim: { backgroundColor: 'rgba(8,12,20,0.82)', alignItems: 'center', justifyContent: 'center' },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 28,
-    alignItems: 'center',
-    gap: 16,
-    minWidth: 240,
-  },
-  btn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-  },
+  scrim: { backgroundColor: colors.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  card: { alignItems: 'center', gap: 14, paddingVertical: 32, paddingHorizontal: 32, minWidth: 270 },
+  coins: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

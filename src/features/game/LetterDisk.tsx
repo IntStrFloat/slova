@@ -7,10 +7,10 @@ import { colors, fonts } from '@/ui';
 
 import { hitTile, tilePositions, wordFromSelection, type TilePos } from './geometry';
 
-const SIZE = 280;
-const TILE_R = 30;
-const HIT_R = 36;
-const RADIUS = SIZE / 2 - TILE_R - 6;
+const SIZE = 300;
+const TILE_R = 32;
+const HIT_R = 40;
+const RADIUS = SIZE / 2 - TILE_R - 10;
 
 export function LetterDisk({
   letters,
@@ -53,38 +53,31 @@ export function LetterDisk({
     <GestureDetector gesture={pan}>
       <View style={{ width: SIZE, height: SIZE }}>
         <Svg width={SIZE} height={SIZE}>
+          {/* стеклянная подложка диска */}
+          <Circle cx={center} cy={center} r={RADIUS + TILE_R + 6} fill={colors.glass} stroke={colors.glassBorder} strokeWidth={1.5} />
+
+          {/* линия связи выбранных букв */}
           {selected.slice(1).map((idx, i) => {
             const a = positions[selected[i]];
             const b = positions[idx];
             return (
-              <Line
-                key={`l${i}`}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke={colors.linkLine}
-                strokeWidth={6}
-                strokeLinecap="round"
-              />
+              <Line key={`l${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={colors.linkLine} strokeWidth={9} strokeLinecap="round" opacity={0.92} />
             );
           })}
+
           {positions.map((p, i) => {
             const active = selected.includes(i);
+            const r = active ? TILE_R + 1 : TILE_R;
             return (
               <Fragment key={`t${i}`}>
-                <Circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={TILE_R}
-                  fill={active ? colors.diskTileActive : colors.diskTile}
-                />
+                <Circle cx={p.x} cy={p.y + 3} r={r} fill={colors.tileShadow} />
+                <Circle cx={p.x} cy={p.y} r={r} fill={active ? colors.tileActive : colors.tile} />
                 <SvgText
                   x={p.x}
-                  y={p.y + 9}
-                  fontSize={26}
+                  y={p.y + 10}
+                  fontSize={28}
                   fontFamily={fonts.title}
-                  fill={colors.primaryText}
+                  fill={colors.tileInk}
                   textAnchor="middle"
                 >
                   {letters[i].toUpperCase()}

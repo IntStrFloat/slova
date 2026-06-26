@@ -17,7 +17,29 @@ import {
   shouldShowInterstitial,
   useEntitlements,
 } from '@/features/monetization';
-import { AppText, colors, radius } from '@/ui';
+import { AppButton, AppText, CoinBadge, colors, GlassPanel, Icon, radius, WorldBackground } from '@/ui';
+
+function IconButton({ name, onPress }: { name: 'back'; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={({ pressed }) => ({
+        width: 44,
+        height: 44,
+        borderRadius: radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.glass,
+        borderWidth: 1,
+        borderColor: colors.glassBorder,
+        transform: [{ scale: pressed ? 0.94 : 1 }],
+      })}
+    >
+      <Icon name={name} size={24} color={colors.text} />
+    </Pressable>
+  );
+}
 
 export default function GameScreen() {
   const router = useRouter();
@@ -45,12 +67,13 @@ export default function GameScreen() {
 
   if (!level || !play) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgBottom, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <AppText preset="title">{t('comingSoon')}</AppText>
-        <Pressable onPress={() => router.back()} style={btnAlt}>
-          <AppText preset="label">← {t('map')}</AppText>
-        </Pressable>
-      </SafeAreaView>
+      <View style={{ flex: 1 }}>
+        <WorldBackground world={DEFAULT_WORLD} dim />
+        <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <AppText preset="title">{t('comingSoon')}</AppText>
+          <AppButton label={t('map')} variant="glass" icon="back" onPress={() => router.back()} />
+        </SafeAreaView>
+      </View>
     );
   }
 
@@ -79,56 +102,37 @@ export default function GameScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgBottom }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}>
-        <Pressable onPress={() => router.back()} style={btnAlt}>
-          <AppText preset="label">←</AppText>
-        </Pressable>
-        <AppText preset="title">{t('level', { n: level.id })}</AppText>
-        <View style={{ backgroundColor: colors.surface, borderRadius: radius.pill, paddingVertical: 6, paddingHorizontal: 14 }}>
-          <AppText preset="coin">🪙 {sessionCoins}</AppText>
-        </View>
-      </View>
-
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <CrosswordGrid level={level} filled={play.filled} />
-          <AppText preset="body" style={{ color: colors.textMuted, marginTop: 10 }}>
-            {t('bonusWords')}: {play.foundBonus.length}
-          </AppText>
+    <View style={{ flex: 1 }}>
+      <WorldBackground world={level.world} dim />
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}>
+          <IconButton name="back" onPress={() => router.back()} />
+          <AppText preset="title">{t('level', { n: level.id })}</AppText>
+          <CoinBadge value={sessionCoins} />
         </View>
 
-        <View style={{ alignItems: 'center', gap: 12 }}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable onPress={() => hint('bulb')} style={btnHint}>
-              <AppText preset="label">💡 {t('hintBulb')}</AppText>
-            </Pressable>
-            <Pressable onPress={() => doShuffle()} style={btnHint}>
-              <AppText preset="label">🔀 {t('shuffle')}</AppText>
-            </Pressable>
-            <Pressable onPress={() => hint('revealWord')} style={btnHint}>
-              <AppText preset="label">🔨 {t('hintHammer')}</AppText>
-            </Pressable>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+            <CrosswordGrid level={level} filled={play.filled} />
+            <GlassPanel style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: radius.pill }}>
+              <AppText preset="body" style={{ color: colors.textMuted }}>
+                {t('bonusWords')}: {play.foundBonus.length}
+              </AppText>
+            </GlassPanel>
           </View>
-          <LetterDisk letters={disk} onWord={onWord} />
+
+          <View style={{ alignItems: 'center', gap: 14 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <AppButton label={t('hintBulb')} variant="glass" icon="bulb" onPress={() => hint('bulb')} />
+              <AppButton label={t('shuffle')} variant="glass" icon="shuffle" onPress={() => doShuffle()} />
+              <AppButton label={t('hintHammer')} variant="glass" icon="wand" onPress={() => hint('revealWord')} />
+            </View>
+            <LetterDisk letters={disk} onWord={onWord} />
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       {done ? <LevelComplete coins={sessionCoins} onNext={onNext} /> : null}
-    </SafeAreaView>
+    </View>
   );
 }
-
-const btnAlt = {
-  backgroundColor: colors.surfaceAlt,
-  borderRadius: radius.pill,
-  paddingVertical: 10,
-  paddingHorizontal: 16,
-} as const;
-
-const btnHint = {
-  backgroundColor: colors.surface,
-  borderRadius: radius.md,
-  paddingVertical: 10,
-  paddingHorizontal: 14,
-} as const;

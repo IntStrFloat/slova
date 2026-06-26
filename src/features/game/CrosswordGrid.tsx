@@ -15,8 +15,8 @@ export function CrosswordGrid({
   maxWidth?: number;
 }) {
   const { cols, cells } = level.grid;
-  const gap = 4;
-  const cell = Math.min(40, Math.floor((maxWidth - (cols + 1) * gap) / cols));
+  const gap = 5;
+  const cell = Math.min(42, Math.floor((maxWidth - (cols + 1) * gap) / cols));
   const w = cols * cell + (cols + 1) * gap;
   const h = level.grid.rows * cell + (level.grid.rows + 1) * gap;
 
@@ -34,16 +34,18 @@ export function CrosswordGrid({
                 y={y}
                 width={cell}
                 height={cell}
-                rx={6}
-                fill={has ? colors.gridFilled : colors.gridCell}
+                rx={8}
+                fill={has ? colors.gridFilled : colors.gridEmpty}
+                stroke={has ? colors.gridFilled : colors.gridStroke}
+                strokeWidth={1.5}
               />
               {has ? (
                 <SvgText
                   x={x + cell / 2}
                   y={y + cell / 2 + cell * 0.2}
-                  fontSize={cell * 0.6}
+                  fontSize={cell * 0.58}
                   fontFamily={fonts.title}
-                  fill={colors.primaryText}
+                  fill={colors.gridText}
                   textAnchor="middle"
                 >
                   {c.ch.toUpperCase()}

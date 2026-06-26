@@ -79,3 +79,37 @@ test('division по очкам', () => {
 test('weekKey — понедельник недели (UTC)', () => {
   assert.equal(weekKey('2026-06-26T10:00:00Z'), '2026-06-22'); // пятница → пн 22 июня
 });
+
+async function boot(api, nick) {
+  const b = J(await api.handle({ method: 'POST', url: '/api/profile/bootstrap', body: JSON.stringify({ nickname: nick }) }));
+  return { token: b.authToken, auth: { authorization: `Bearer ${b.authToken}` } };
+}
+
+test('событие недели: board + me', async () => {
+  const api = mkApi();
+  const { auth } = await boot(api, 'Эвент');
+  await api.handle({ method: 'POST', url: '/api/progress', headers: auth, body: JSON.stringify({ levels: 3 }) });
+  const ev = J(await api.handle({ method: 'GET', url: '/api/events/current', headers: auth }));
+  assert.ok(ev.event.id.startsWith('weekly-'));
+  assert.equal(ev.me.score, 300);
+});
+
+test('команды: создание, вступление, сумма очков, выход', async () => {
+  const api = mkApi();
+  const a = await boot(api, 'Лидер');
+  const b = await boot(api, 'Участник');
+  // прогресс для суммы
+  await api.handle({ method: 'POST', url: '/api/progress', headers: a.auth, body: JSON.stringify({ levels: 5 }) });
+  await api.handle({ method: 'POST', url: '/api/progress', headers: b.auth, body: JSON.stringify({ levels: 2 }) });
+  const created = J(await api.handle({ method: 'POST', url: '/api/teams', headers: a.auth, body: JSON.stringify({ name: 'Знатоки' }) }));
+  const teamId = created.team.id;
+  // повторное создание — already_in_team
+  assert.equal((await api.handle({ method: 'POST', url: '/api/teams', headers: a.auth, body: JSON.stringify({ name: 'Ещё' }) })).status, 400);
+  await api.handle({ method: 'POST', url: `/api/teams/${teamId}/join`, headers: b.auth });
+  const mine = J(await api.handle({ method: 'GET', url: '/api/teams/mine', headers: b.auth }));
+  assert.equal(mine.team.memberCount, 2);
+  assert.equal(mine.team.totalScore, 700); // 500 + 200
+  await api.handle({ method: 'POST', url: `/api/teams/${teamId}/leave`, headers: b.auth });
+  const after = J(await api.handle({ method: 'GET', url: '/api/teams/mine', headers: b.auth }));
+  assert.equal(after.team, null);
+});

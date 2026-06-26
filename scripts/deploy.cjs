@@ -39,6 +39,20 @@ async function main() {
   };
   const log = (label, r) => console.log(`• ${label}: ${r.out || ''}${r.err ? ' [err] ' + r.err : ''}`);
 
+  if (process.argv.includes('--code')) {
+    console.log('=== CODE REDEPLOY (upload + restart) ===');
+    await ssh.putDirectory(path.join(ROOT, 'backend'), '/opt/slova/backend', {
+      recursive: true,
+      concurrency: 4,
+      validate: (p) => !p.includes('node_modules') && !p.includes('__tests__'),
+    });
+    await run('chown -R slova:slova /opt/slova');
+    log('restart', await run('systemctl restart slova-backend && sleep 1 && systemctl is-active slova-backend'));
+    log('health', await run('curl -fs http://127.0.0.1:8788/api/health || echo FAIL'));
+    ssh.dispose();
+    return;
+  }
+
   console.log('=== PREFLIGHT ===');
   log('node', await run('node -v 2>/dev/null || echo NO_NODE'));
   log('opt dirs', await run('ls -1 /opt 2>/dev/null | tr "\\n" " "'));

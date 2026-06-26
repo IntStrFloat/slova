@@ -56,6 +56,40 @@ function publicProfile(u) {
   };
 }
 
+function teamPublic(data, t) {
+  const members = t.members.map((m) => ({
+    nickname: data.users[m] ? data.users[m].nickname : '—',
+    score: data.users[m] ? data.users[m].score : 0,
+  }));
+  return {
+    id: t.id,
+    name: t.name,
+    leaderId: t.leaderId,
+    memberCount: t.members.length,
+    totalScore: members.reduce((s, m) => s + m.score, 0),
+    members,
+  };
+}
+
+function eventBoard(data, userId, nowDate) {
+  const week = weekKey(nowDate);
+  const rows = Object.values(data.users)
+    .map((u) => ({
+      userId: u.id,
+      nickname: u.nickname,
+      tag: u.tag,
+      score: u.weekly && u.weekly.week === week ? Math.max(0, u.score - u.weekly.base) : 0,
+    }))
+    .sort((a, b) => b.score - a.score || a.userId.localeCompare(b.userId));
+  rows.forEach((r, i) => (r.rank = i + 1));
+  const me = rows.find((r) => r.userId === userId) || null;
+  return {
+    event: { id: `weekly-${week}`, title: 'Турнир недели', metric: 'Очки за неделю', week },
+    board: rows.slice(0, 50),
+    me,
+  };
+}
+
 function buildSnapshot(data, userId, scope, nowDate) {
   const week = weekKey(nowDate);
   const rows = Object.values(data.users).map((u) => {
@@ -138,6 +172,7 @@ function createApi(options) {
         score: 0,
         weekly: { week: weekKey(now()), base: 0 },
         save: null,
+        teamId: null,
         createdAt: now().toISOString(),
       };
       store.write(data);
@@ -193,6 +228,56 @@ function createApi(options) {
         }
         return json(200, { save: user.save });
       }
+    }
+
+    // ── События/турниры (спека 10) ──
+    if (method === 'GET' && p === '/api/events/current') {
+      return json(200, eventBoard(data, user.id, now()));
+    }
+
+    // ── Команды/клубы (спека 10) ──
+    data.teams = data.teams || {};
+    if (method === 'POST' && p === '/api/teams') {
+      if (user.teamId) return json(400, { error: 'already_in_team' });
+      const name = String(body.name ?? '').trim();
+      if (name.length < 2 || name.length > 20) return json(400, { error: 'bad_name' });
+      const id = crypto.randomUUID();
+      data.teams[id] = { id, name, leaderId: user.id, members: [user.id], createdAt: now().toISOString() };
+      user.teamId = id;
+      store.write(data);
+      return json(200, { team: teamPublic(data, data.teams[id]) });
+    }
+    if (method === 'GET' && p === '/api/teams') {
+      const teams = Object.values(data.teams)
+        .map((t) => teamPublic(data, t))
+        .sort((a, b) => b.totalScore - a.totalScore)
+        .slice(0, 50);
+      return json(200, { teams });
+    }
+    if (method === 'GET' && p === '/api/teams/mine') {
+      const t = user.teamId ? data.teams[user.teamId] : null;
+      return json(200, { team: t ? teamPublic(data, t) : null });
+    }
+    if (method === 'POST' && /^\/api\/teams\/[^/]+\/join$/.test(p)) {
+      if (user.teamId) return json(400, { error: 'already_in_team' });
+      const id = p.split('/')[3];
+      const t = data.teams[id];
+      if (!t) return json(404, { error: 'no_team' });
+      if (!t.members.includes(user.id)) t.members.push(user.id);
+      user.teamId = id;
+      store.write(data);
+      return json(200, { team: teamPublic(data, t) });
+    }
+    if (method === 'POST' && /^\/api\/teams\/[^/]+\/leave$/.test(p)) {
+      const t = user.teamId ? data.teams[user.teamId] : null;
+      if (t) {
+        t.members = t.members.filter((m) => m !== user.id);
+        if (t.members.length === 0) delete data.teams[t.id];
+        else if (t.leaderId === user.id) t.leaderId = t.members[0];
+      }
+      user.teamId = null;
+      store.write(data);
+      return json(200, { ok: true });
     }
 
     return json(404, { error: 'not_found' });

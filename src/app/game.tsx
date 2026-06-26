@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { landmarksForWorld, type Landmark } from '@/core/config/worlds';
 import { t } from '@/core/i18n';
 import type { HintType } from '@/core/engine/types';
+import { LandmarkReveal, useCollection } from '@/features/collection';
 import { useCurrency } from '@/features/currency';
 import { useDailyPuzzle, dailySeed } from '@/features/dailypuzzle';
 import { CrosswordGrid, LetterDisk, LevelComplete, useGame } from '@/features/game';
@@ -64,7 +66,9 @@ export default function GameScreen() {
   const spend = useCurrency((s) => s.spend);
   const removeAds = useEntitlements((s) => s.removeAds);
   const completeDaily = useDailyPuzzle((s) => s.complete);
+  const maybeUnlock = useCollection((s) => s.maybeUnlockAtLevel);
   const [done, setDone] = useState(false);
+  const [reveal, setReveal] = useState<Landmark | null>(null);
 
   const levelId = isDaily
     ? (dailySeed() % Math.max(1, worldLevelCount(DEFAULT_WORLD))) + 1
@@ -112,6 +116,15 @@ export default function GameScreen() {
     }
   };
 
+  const finalize = async () => {
+    let meta = recordLevelComplete(loadAdsMeta());
+    if (shouldShowInterstitial(meta, { enabled: true, removeAds, nowMs: Date.now() })) {
+      const res = await getAds().showInterstitial('level_complete');
+      if (res === 'shown') meta = recordInterstitialShown(meta, Date.now());
+    }
+    saveAdsMeta(meta);
+  };
+
   const onNext = async () => {
     addCoins('coins', sessionCoins);
     if (isDaily) {
@@ -120,13 +133,21 @@ export default function GameScreen() {
       return;
     }
     completeLevel(level.id);
-    let meta = recordLevelComplete(loadAdsMeta());
-    if (shouldShowInterstitial(meta, { enabled: true, removeAds, nowMs: Date.now() })) {
-      const res = await getAds().showInterstitial('level_complete');
-      if (res === 'shown') meta = recordInterstitialShown(meta, Date.now());
-    }
-    saveAdsMeta(meta);
+    const unlockedId = maybeUnlock(level.world, level.id);
     setDone(false);
+    if (unlockedId) {
+      const lm = landmarksForWorld(level.world).find((l) => l.id === unlockedId);
+      if (lm) {
+        setReveal(lm);
+        return;
+      }
+    }
+    await finalize();
+  };
+
+  const closeReveal = async () => {
+    setReveal(null);
+    await finalize();
   };
 
   return (
@@ -160,7 +181,8 @@ export default function GameScreen() {
         </View>
       </SafeAreaView>
 
-      {done ? <LevelComplete coins={sessionCoins} onNext={onNext} /> : null}
+      {done && !reveal ? <LevelComplete coins={sessionCoins} onNext={onNext} /> : null}
+      {reveal ? <LandmarkReveal landmark={reveal} onClose={closeReveal} /> : null}
     </View>
   );
 }

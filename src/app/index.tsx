@@ -1,8 +1,10 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { t } from '@/core/i18n';
+import { getString, KEYS } from '@/core/storage';
 import { useCurrency } from '@/features/currency';
 import { DEFAULT_WORLD, useLevels, worldLevelCount } from '@/features/levels';
 import { AdBanner } from '@/features/monetization';
@@ -39,6 +41,13 @@ export default function Home() {
   const coins = useCurrency((s) => s.coins);
   const total = worldLevelCount(DEFAULT_WORLD);
   const theme = worldTheme(DEFAULT_WORLD);
+
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (getString(KEYS.onboardingDone) === null) router.replace('/onboarding' as never);
+    else setReady(true);
+  }, [router]);
+  if (!ready) return null;
 
   return (
     <View style={{ flex: 1 }}>

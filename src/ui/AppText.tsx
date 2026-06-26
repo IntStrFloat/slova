@@ -4,13 +4,20 @@ import { colors, fonts } from './theme';
 
 type Preset = 'display' | 'title' | 'body' | 'label' | 'tileLetter' | 'coin';
 
+// Тень для белого текста поверх фото — гарантирует читаемость (аудитория 35+).
+const onPhotoShadow = {
+  textShadowColor: 'rgba(6,11,20,0.55)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 6,
+} as const;
+
 const presets: Record<Preset, TextStyle> = {
-  display: { fontFamily: fonts.display, fontSize: 30, color: colors.text, letterSpacing: -0.5 },
-  title: { fontFamily: fonts.title, fontSize: 19, color: colors.text },
-  body: { fontFamily: fonts.body, fontSize: 16, color: colors.text },
-  label: { fontFamily: fonts.label, fontSize: 16, color: colors.text },
-  tileLetter: { fontFamily: fonts.title, fontSize: 26, color: colors.tileInk },
-  coin: { fontFamily: fonts.label, fontSize: 16, color: colors.amber },
+  display: { fontFamily: fonts.display, fontSize: 34, color: colors.text, ...onPhotoShadow },
+  title: { fontFamily: fonts.title, fontSize: 22, color: colors.text, ...onPhotoShadow },
+  body: { fontFamily: fonts.body, fontSize: 17, color: colors.text },
+  label: { fontFamily: fonts.label, fontSize: 17, color: colors.text },
+  tileLetter: { fontFamily: fonts.tile, fontSize: 30, color: colors.tileInk },
+  coin: { fontFamily: fonts.label, fontSize: 17, color: colors.amber },
 };
 
 export function AppText({

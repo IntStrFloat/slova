@@ -1,84 +1,89 @@
 /**
- * Дизайн-токены (спека 04, редизайн v2).
- * Направление: тёплый «travel»-каузальный word-game — живописный градиентный фон
- * (города/достопримечательности) + glass-панели + янтарные плитки-буквы.
- * Палитра: word-green #15803D + letter-amber #F4B740 (design-system ui-ux-pro-max).
+ * Дизайн-токены v3 — под аудиторию 30–35+ (спека 04).
+ * Принципы: спокойная премиальная палитра, высокий контраст (≥4.5:1), крупная
+ * типографика, тактильные «clay»-панели с мягкой тенью, реальные фото-фоны.
+ * Палитра: word-green + reward-gold (design-system ui-ux-pro-max).
  * Цвета — только отсюда.
  */
 export const colors = {
-  // бренд
-  green: '#1C8A4A',
-  greenDark: '#0F5C2E',
-  amber: '#F4B740',
-  amberDeep: '#D97706',
-  ink: '#10233A',
+  // бренд (спокойные, премиальные тона)
+  green: '#1E7A46',
+  greenDark: '#155C34',
+  amber: '#EBA63D',
+  amberDeep: '#C07A1E',
+  ink: '#13202F',
 
-  // текст
+  // текст (на фото/тёмных панелях — белый, высокий контраст)
   text: '#FFFFFF',
-  textInk: '#10233A',
-  textMuted: 'rgba(255,255,255,0.80)',
-  onAmber: '#10233A',
+  textInk: '#13202F',
+  textMuted: 'rgba(255,255,255,0.84)',
   onGreen: '#FFFFFF',
+  onAmber: '#13202F',
 
-  // glass-поверхности поверх живописного фона
-  glass: 'rgba(255,255,255,0.16)',
-  glassStrong: 'rgba(18,30,52,0.55)',
-  glassBorder: 'rgba(255,255,255,0.30)',
-  scrim: 'rgba(8,14,26,0.55)',
+  // «clay»-панели поверх фото (тёмное матовое стекло + мягкая тень + светлый кант)
+  glass: 'rgba(18,28,44,0.50)',
+  glassStrong: 'rgba(14,22,36,0.72)',
+  glassBorder: 'rgba(255,255,255,0.18)',
+  scrim: 'rgba(10,14,24,0.55)',
+  shadow: '#060B14',
 
   // статусы
-  success: '#34D27B',
+  success: '#3FD27E',
   danger: '#FF6B6B',
 
   // кроссворд
-  gridEmpty: 'rgba(255,255,255,0.15)',
-  gridStroke: 'rgba(255,255,255,0.32)',
-  gridFilled: '#F4B740',
-  gridText: '#10233A',
+  gridEmpty: 'rgba(255,251,242,0.20)',
+  gridStroke: 'rgba(255,255,255,0.46)',
+  gridFilled: '#EBA63D',
+  gridText: '#13202F',
 
   // диск букв
-  tile: '#FFFFFF',
-  tileActive: '#F4B740',
-  tileInk: '#10233A',
-  tileShadow: 'rgba(8,14,26,0.35)',
+  tile: '#FFFDF7',
+  tileActive: '#EBA63D',
+  tileInk: '#13202F',
+  tileShadow: 'rgba(6,11,20,0.45)',
   linkLine: '#FFFFFF',
 
-  // легаси-алиасы (на случай старых ссылок)
+  // легаси-алиасы
   bgTop: '#2A3F6B',
-  bgBottom: '#101826',
-  surface: 'rgba(18,30,52,0.55)',
-  surfaceAlt: 'rgba(255,255,255,0.16)',
-  primary: '#1C8A4A',
+  bgBottom: '#0E1624',
+  surface: 'rgba(14,22,36,0.72)',
+  surfaceAlt: 'rgba(18,28,44,0.50)',
+  primary: '#1E7A46',
   primaryText: '#FFFFFF',
-  accent: '#F4B740',
-  gridCell: 'rgba(255,255,255,0.15)',
-  diskTile: '#FFFFFF',
-  diskTileActive: '#F4B740',
+  accent: '#EBA63D',
+  gridCell: 'rgba(255,251,242,0.20)',
+  diskTile: '#FFFDF7',
+  diskTileActive: '#EBA63D',
 } as const;
 
 export const space = [0, 4, 8, 12, 16, 24, 32, 48] as const;
-export const radius = { sm: 10, md: 16, lg: 24, xl: 32, pill: 999 } as const;
+export const radius = { sm: 12, md: 18, lg: 26, xl: 34, pill: 999 } as const;
 
-export const fonts = {
-  display: 'Unbounded_800ExtraBold',
-  title: 'Unbounded_700Bold',
-  body: 'Fredoka_500Medium',
-  label: 'Fredoka_600SemiBold',
+/** Мягкая «clay»-тень для панелей и кнопок (тактильность для 35+). */
+export const shadowCard = {
+  shadowColor: colors.shadow,
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.32,
+  shadowRadius: 14,
+  elevation: 8,
 } as const;
 
-export type WorldTheme = {
-  name: string;
-  sky: [string, string, string];
-  silhouette: string;
-  sun: string;
-  landmark: 'paris' | 'city' | 'kremlin';
-};
+export const fonts = {
+  display: 'Lora_700Bold',
+  title: 'Lora_600SemiBold',
+  body: 'Nunito_500Medium',
+  label: 'Nunito_700Bold',
+  tile: 'Nunito_800ExtraBold',
+} as const;
 
-/** Темы миров: градиент неба + цвет силуэта + достопримечательность (спека 07). */
+export type WorldTheme = { name: string };
+
+/** Темы миров: название (фон — реальное фото, см. WorldBackground). */
 export const worldThemes: Record<string, WorldTheme> = {
-  world1: { name: 'Париж', sky: ['#F7B05B', '#E87A5D', '#6B3A86'], silhouette: '#241634', sun: '#FFE7A6', landmark: 'paris' },
-  world2: { name: 'Нью-Йорк', sky: ['#5AA9E6', '#3B6FB0', '#152A47'], silhouette: '#0E1D33', sun: '#FFF2C2', landmark: 'city' },
-  world3: { name: 'Москва', sky: ['#8A86D6', '#5B4E8C', '#221A39'], silhouette: '#181230', sun: '#FFE7A6', landmark: 'kremlin' },
+  world1: { name: 'Париж' },
+  world2: { name: 'Нью-Йорк' },
+  world3: { name: 'Москва' },
 };
 
 export function worldTheme(world: string): WorldTheme {

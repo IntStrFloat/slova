@@ -17,22 +17,23 @@ import {
   shouldShowInterstitial,
   useEntitlements,
 } from '@/features/monetization';
-import { AppButton, AppText, CoinBadge, colors, GlassPanel, Icon, radius, WorldBackground } from '@/ui';
+import { AppButton, AppText, CoinBadge, colors, GlassPanel, Icon, radius, shadowCard, WorldBackground } from '@/ui';
 
 function IconButton({ name, onPress }: { name: 'back'; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={8}
+      hitSlop={10}
       style={({ pressed }) => ({
-        width: 44,
-        height: 44,
+        width: 48,
+        height: 48,
         borderRadius: radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colors.glass,
+        backgroundColor: colors.glassStrong,
         borderWidth: 1,
         borderColor: colors.glassBorder,
+        ...shadowCard,
         transform: [{ scale: pressed ? 0.94 : 1 }],
       })}
     >

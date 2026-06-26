@@ -3,14 +3,14 @@ import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native'
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
-import { colors, radius } from './theme';
+import { colors, radius, shadowCard } from './theme';
 
 type ButtonVariant = 'primary' | 'accent' | 'glass';
 
 const VARIANT_BG: Record<ButtonVariant, string> = {
   primary: colors.green,
   accent: colors.amber,
-  glass: colors.glass,
+  glass: colors.glassStrong,
 };
 const VARIANT_FG: Record<ButtonVariant, string> = {
   primary: colors.onGreen,
@@ -18,7 +18,7 @@ const VARIANT_FG: Record<ButtonVariant, string> = {
   glass: colors.text,
 };
 
-/** Основная кнопка-пилюля с press-scale (спека 04: scale-feedback, primary-action). */
+/** Кнопка-пилюля: крупная, тактильная (тень + press-scale). Тач-таргет ≥52. */
 export function AppButton({
   label,
   onPress,
@@ -39,19 +39,21 @@ export function AppButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.btn,
+        shadowCard,
         {
           backgroundColor: VARIANT_BG[variant],
-          paddingVertical: large ? 18 : 13,
-          paddingHorizontal: large ? 48 : 22,
+          minHeight: large ? 62 : 52,
+          paddingVertical: large ? 18 : 14,
+          paddingHorizontal: large ? 52 : 22,
           borderWidth: variant === 'glass' ? 1 : 0,
           borderColor: colors.glassBorder,
           transform: [{ scale: pressed ? 0.96 : 1 }],
-          opacity: pressed ? 0.92 : 1,
+          opacity: pressed ? 0.94 : 1,
         },
         style,
       ]}
     >
-      {icon ? <Icon name={icon} size={large ? 24 : 20} color={VARIANT_FG[variant]} /> : null}
+      {icon ? <Icon name={icon} size={large ? 26 : 22} color={VARIANT_FG[variant]} /> : null}
       <AppText preset={large ? 'title' : 'label'} style={{ color: VARIANT_FG[variant] }}>
         {label}
       </AppText>
@@ -59,7 +61,7 @@ export function AppButton({
   );
 }
 
-/** Стеклянная панель поверх живописного фона. */
+/** Тактильная «clay»-панель поверх фото (матовое стекло + кант + мягкая тень). */
 export function GlassPanel({
   children,
   style,
@@ -73,6 +75,7 @@ export function GlassPanel({
     <View
       style={[
         styles.glass,
+        shadowCard,
         { backgroundColor: strong ? colors.glassStrong : colors.glass },
         style,
       ]}
@@ -82,11 +85,11 @@ export function GlassPanel({
   );
 }
 
-/** Бейдж валюты (glass-пилюля + иконка + число). */
+/** Бейдж валюты. */
 export function CoinBadge({ value }: { value: number }) {
   return (
-    <View style={styles.coin}>
-      <Icon name="coin" size={18} color={colors.amber} />
+    <View style={[styles.coin, shadowCard]}>
+      <Icon name="coin" size={20} color={colors.amber} />
       <AppText preset="coin">{value}</AppText>
     </View>
   );
@@ -97,24 +100,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     borderRadius: radius.pill,
   },
   glass: {
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.glassBorder,
-    padding: 16,
+    padding: 18,
   },
   coin: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
     backgroundColor: colors.glassStrong,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.glassBorder,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
   },
 });

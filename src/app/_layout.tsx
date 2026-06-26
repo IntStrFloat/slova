@@ -1,9 +1,10 @@
-import { Fredoka_500Medium, Fredoka_600SemiBold } from '@expo-google-fonts/fredoka';
+import { Lora_600SemiBold, Lora_700Bold } from '@expo-google-fonts/lora';
 import {
-  Unbounded_700Bold,
-  Unbounded_800ExtraBold,
+  Nunito_500Medium,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
   useFonts,
-} from '@expo-google-fonts/unbounded';
+} from '@expo-google-fonts/nunito';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -18,10 +19,11 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [loaded] = useFonts({
-    Unbounded_700Bold,
-    Unbounded_800ExtraBold,
-    Fredoka_500Medium,
-    Fredoka_600SemiBold,
+    Lora_600SemiBold,
+    Lora_700Bold,
+    Nunito_500Medium,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
   });
 
   useEffect(() => {

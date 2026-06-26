@@ -26,6 +26,7 @@
 | [docs/specs/15-localization-dictionary.md](docs/specs/15-localization-dictionary.md) | i18n ru/en, источник и обработка русского словаря |
 | [docs/specs/16-analytics.md](docs/specs/16-analytics.md) | AppMetrica: воронки, события, KPI |
 | [docs/specs/17-nfr-acceptance.md](docs/specs/17-nfr-acceptance.md) | Нефункциональные требования и критерии приёмки |
+| [docs/specs/18-audience.md](docs/specs/18-audience.md) | Целевая аудитория 30–35+ и дизайн-решения под неё (фото, читаемость, clay) |
 
 План реализации и задачи: [docs/plans/](docs/plans/) — выполнять по нему.
 

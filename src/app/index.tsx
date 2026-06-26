@@ -14,6 +14,7 @@ import {
   GlassPanel,
   Icon,
   radius,
+  shadowCard,
   WorldBackground,
   worldTheme,
   type IconName,
@@ -67,21 +68,22 @@ export default function Home() {
                 key={m.route}
                 onPress={() => router.push(m.route as never)}
                 style={({ pressed }) => [
+                  shadowCard,
                   {
-                    backgroundColor: colors.glass,
+                    backgroundColor: colors.glassStrong,
                     borderColor: colors.glassBorder,
                     borderWidth: 1,
                     borderRadius: radius.lg,
-                    paddingVertical: 14,
-                    width: 104,
+                    paddingVertical: 16,
+                    width: 108,
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 8,
                     transform: [{ scale: pressed ? 0.96 : 1 }],
                   },
                 ]}
               >
-                <Icon name={m.icon} size={24} color={colors.amber} />
-                <AppText preset="label" style={{ fontSize: 13 }}>
+                <Icon name={m.icon} size={26} color={colors.amber} />
+                <AppText preset="label" style={{ fontSize: 14 }}>
                   {t(m.key)}
                 </AppText>
               </Pressable>

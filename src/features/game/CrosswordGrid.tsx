@@ -44,7 +44,7 @@ export function CrosswordGrid({
                   x={x + cell / 2}
                   y={y + cell / 2 + cell * 0.2}
                   fontSize={cell * 0.58}
-                  fontFamily={fonts.title}
+                  fontFamily={fonts.tile}
                   fill={colors.gridText}
                   textAnchor="middle"
                 >

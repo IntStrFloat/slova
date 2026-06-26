@@ -76,7 +76,7 @@ export function LetterDisk({
                   x={p.x}
                   y={p.y + 10}
                   fontSize={28}
-                  fontFamily={fonts.title}
+                  fontFamily={fonts.tile}
                   fill={colors.tileInk}
                   textAnchor="middle"
                 >

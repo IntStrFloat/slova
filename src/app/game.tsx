@@ -25,7 +25,53 @@ import {
   shouldShowInterstitial,
   useEntitlements,
 } from '@/features/monetization';
-import { AppButton, AppText, CoinBadge, colors, GlassPanel, Icon, radius, shadowCard, WorldBackground } from '@/ui';
+import { AppButton, AppText, CoinBadge, colors, GlassPanel, Icon, radius, shadowCard, WorldBackground, type IconName } from '@/ui';
+
+function HintChip({
+  icon,
+  label,
+  cost,
+  onPress,
+}: {
+  icon: IconName;
+  label: string;
+  cost?: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        shadowCard,
+        {
+          flex: 1,
+          backgroundColor: colors.glassStrong,
+          borderWidth: 1,
+          borderColor: colors.glassBorder,
+          borderRadius: radius.md,
+          paddingVertical: 10,
+          paddingHorizontal: 4,
+          alignItems: 'center',
+          gap: 3,
+          transform: [{ scale: pressed ? 0.95 : 1 }],
+        },
+      ]}
+    >
+      <Icon name={icon} size={22} color={colors.amber} />
+      <AppText preset="label" style={{ fontSize: 13 }} numberOfLines={1}>
+        {label}
+      </AppText>
+      {cost != null ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+          <Icon name="coin" size={12} color={colors.amber} />
+          <AppText preset="body" style={{ fontSize: 12, color: colors.amber }}>{cost}</AppText>
+        </View>
+      ) : (
+        <View style={{ height: 15 }} />
+      )}
+    </Pressable>
+  );
+}
 
 function IconButton({ name, onPress }: { name: 'back'; onPress: () => void }) {
   return (

@@ -1,10 +1,10 @@
-import { Lora_600SemiBold, Lora_700Bold } from '@expo-google-fonts/lora';
 import {
-  Nunito_500Medium,
-  Nunito_700Bold,
-  Nunito_800ExtraBold,
   useFonts,
-} from '@expo-google-fonts/nunito';
+  Unbounded_400Regular,
+  Unbounded_500Medium,
+  Unbounded_600SemiBold,
+  Unbounded_700Bold,
+} from '@expo-google-fonts/unbounded';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -14,17 +14,17 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { track } from '@/features/analytics';
 import { getAds } from '@/features/monetization';
 import { getPush } from '@/features/notifications';
+import { useProfile } from '@/features/profile';
 import { colors } from '@/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [loaded] = useFonts({
-    Lora_600SemiBold,
-    Lora_700Bold,
-    Nunito_500Medium,
-    Nunito_700Bold,
-    Nunito_800ExtraBold,
+    Unbounded_400Regular,
+    Unbounded_500Medium,
+    Unbounded_600SemiBold,
+    Unbounded_700Bold,
   });
 
   useEffect(() => {
@@ -34,7 +34,9 @@ export default function RootLayout() {
   useEffect(() => {
     void getAds().init();
     void getPush().init();
-    track('app_open');
+    // Профиль создаём автоматически для каждого игрока сразу (без отдельной кнопки).
+    void useProfile.getState().ensure();
+    track('session_start');
   }, []);
 
   if (!loaded) return null;

@@ -1,2 +1,9 @@
 export { useLevels } from './store';
-export { loadLevel, worldLevelCount, DEFAULT_WORLD } from './loader';
+export {
+  loadGlobalLevel,
+  loadLevel,
+  totalLevelCount,
+  worldForGlobalLevel,
+  worldLevelCount,
+  DEFAULT_WORLD,
+} from './loader';

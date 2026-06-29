@@ -12,12 +12,12 @@ const onPhotoShadow = {
 } as const;
 
 const presets: Record<Preset, TextStyle> = {
-  display: { fontFamily: fonts.display, fontSize: 34, color: colors.text, ...onPhotoShadow },
-  title: { fontFamily: fonts.title, fontSize: 22, color: colors.text, ...onPhotoShadow },
-  body: { fontFamily: fonts.body, fontSize: 17, color: colors.text },
-  label: { fontFamily: fonts.label, fontSize: 17, color: colors.text },
-  tileLetter: { fontFamily: fonts.tile, fontSize: 30, color: colors.tileInk },
-  coin: { fontFamily: fonts.label, fontSize: 17, color: colors.amber },
+  display: { fontFamily: fonts.display, fontSize: 30, color: colors.text, ...onPhotoShadow },
+  title: { fontFamily: fonts.title, fontSize: 20, color: colors.text, ...onPhotoShadow },
+  body: { fontFamily: fonts.body, fontSize: 15, color: colors.text },
+  label: { fontFamily: fonts.label, fontSize: 15, color: colors.text },
+  tileLetter: { fontFamily: fonts.tile, fontSize: 28, color: colors.tileInk },
+  coin: { fontFamily: fonts.label, fontSize: 15, color: colors.amber },
 };
 
 export function AppText({

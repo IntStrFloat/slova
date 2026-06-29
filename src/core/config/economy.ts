@@ -3,6 +3,8 @@ export const ECONOMY = {
   hints: { bulb: 50, hammer: 120, revealWord: 300 },
   chest: [50, 120, 300],
   starterCoins: 200,
+  // Награда за просмотр rewarded-рекламы «за монеты» (спека 05/06).
+  rewardedCoins: 60,
   wheel: {
     freeSpinsPerDay: 1,
     maxRewardedSpins: 5,

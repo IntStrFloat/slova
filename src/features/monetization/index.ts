@@ -3,12 +3,12 @@ import { getJSON, KEYS, setJSON } from '@/core/storage';
 
 import { EMPTY_ADS_META } from './frequency';
 import type { AdsMeta } from './frequency';
-import { NoopAdsProvider, NoopIapProvider } from './noop';
-import type { AdsProvider, IapProvider } from './types';
-import { YandexAdsProvider } from './yandexAds';
 
 export { MONETIZATION, PRODUCT_IDS };
 export { AdBanner } from './AdBanner';
+export { NoCoinsModal } from './NoCoinsModal';
+export { requestRewarded, isRewardedReady } from './rewarded';
+export { getAds, getIap } from './providers';
 export { useEntitlements } from './entitlements';
 export {
   EMPTY_ADS_META,
@@ -25,18 +25,6 @@ export type {
   PurchaseResult,
   RewardedResult,
 } from './types';
-
-export function getAds(): AdsProvider {
-  return MONETIZATION.adsEnabled ? YandexAdsProvider : NoopAdsProvider;
-}
-
-export function getIap(): IapProvider {
-  if (MONETIZATION.iapEnabled) {
-    // RuStoreIapProvider подключается здесь после регистрации продуктов в RuStore Console (спека 05).
-    // SDK: react-native-rustore-billing-sdk (GitFlic). Поток: init → getProducts → purchaseProduct.
-  }
-  return NoopIapProvider;
-}
 
 /** Персист счётчиков частоты (KEYS.adsMeta). */
 export function loadAdsMeta(): AdsMeta {

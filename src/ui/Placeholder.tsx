@@ -1,8 +1,8 @@
-import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { t } from '@/core/i18n';
+import { useGoBack } from '@/core/nav';
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
@@ -12,7 +12,7 @@ import { WorldBackground } from './WorldBackground';
 
 /** Заглушка мета-экранов (M2–M5). Навигация работает, контент — «Скоро». */
 export function Placeholder({ title, icon = 'wand' }: { title: string; icon?: IconName }) {
-  const router = useRouter();
+  const goBack = useGoBack();
   return (
     <View style={{ flex: 1 }}>
       <WorldBackground world="world1" dim />
@@ -23,7 +23,7 @@ export function Placeholder({ title, icon = 'wand' }: { title: string; icon?: Ic
           <AppText preset="body" style={{ color: colors.textMuted }}>
             {t('comingSoon')}
           </AppText>
-          <AppButton label={t('map')} variant="glass" icon="back" onPress={() => router.back()} />
+          <AppButton label={t('map')} variant="glass" icon="back" onPress={goBack} />
         </GlassPanel>
       </SafeAreaView>
     </View>

@@ -19,7 +19,13 @@ export type IconName =
   | 'teams'
   | 'profile'
   | 'settings'
-  | 'check';
+  | 'check'
+  | 'lock'
+  | 'star'
+  | 'sound'
+  | 'music'
+  | 'haptics'
+  | 'privacy';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -40,6 +46,12 @@ const MAP: Record<IconName, IoniconName> = {
   profile: 'person',
   settings: 'settings',
   check: 'checkmark-circle',
+  lock: 'lock-closed',
+  star: 'star',
+  sound: 'volume-high',
+  music: 'musical-notes',
+  haptics: 'phone-portrait',
+  privacy: 'shield-checkmark',
 };
 
 /** Единый источник иконок (векторные, без эмодзи — спека 04). */

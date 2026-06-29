@@ -33,10 +33,21 @@ function weekKey(date) {
   return d.toISOString().slice(0, 10);
 }
 
+// U+FFFD появляется только при декодировании битого UTF-8 — в корректном вводе его нет.
+const BROKEN_NICK = /[\uFFFD\u0000-\u001F\u007F]/;
+
 function validateNickname(raw) {
   const v = String(raw ?? '').trim();
   if (v.length < 2 || v.length > 16) return { ok: false, error: 'bad_nickname' };
+  if (BROKEN_NICK.test(v)) return { ok: false, error: 'bad_nickname' };
   return { ok: true, value: v };
+}
+
+// Защита на выдаче: уже сохранённые битые ники не должны утекать в клиент «кракозябрами».
+function safeNick(nickname) {
+  const v = String(nickname ?? '');
+  if (!v || BROKEN_NICK.test(v)) return 'Игрок';
+  return v;
 }
 
 function lowerHeaders(h) {
@@ -48,7 +59,7 @@ function lowerHeaders(h) {
 function publicProfile(u) {
   return {
     userId: u.id,
-    nickname: u.nickname,
+    nickname: safeNick(u.nickname),
     tag: u.tag,
     levels: u.levels,
     score: u.score,
@@ -58,7 +69,7 @@ function publicProfile(u) {
 
 function teamPublic(data, t) {
   const members = t.members.map((m) => ({
-    nickname: data.users[m] ? data.users[m].nickname : '—',
+    nickname: data.users[m] ? safeNick(data.users[m].nickname) : '—',
     score: data.users[m] ? data.users[m].score : 0,
   }));
   return {
@@ -76,7 +87,7 @@ function eventBoard(data, userId, nowDate) {
   const rows = Object.values(data.users)
     .map((u) => ({
       userId: u.id,
-      nickname: u.nickname,
+      nickname: safeNick(u.nickname),
       tag: u.tag,
       score: u.weekly && u.weekly.week === week ? Math.max(0, u.score - u.weekly.base) : 0,
     }))
@@ -96,7 +107,7 @@ function buildSnapshot(data, userId, scope, nowDate) {
     const weekly = u.weekly && u.weekly.week === week ? u.score - u.weekly.base : 0;
     return {
       userId: u.id,
-      nickname: u.nickname,
+      nickname: safeNick(u.nickname),
       tag: u.tag,
       score: scope === 'weekly' ? Math.max(0, weekly) : u.score,
       division: divisionFor(u.score),

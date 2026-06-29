@@ -55,6 +55,9 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "gen:levels": "node scripts/gen-levels.js",
+    "fill:bonus": "node scripts/fill-bonus.js",
+    "build:apk": "bash scripts/build-apk.sh",
+    "build:apk:cloud": "eas build -p android --profile preview",
     "backend:test": "node --test backend/__tests__/*.test.cjs"
   },
   "jest": {

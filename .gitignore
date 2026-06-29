@@ -27,3 +27,5 @@ expo-env.d.ts
 # @end expo-cli
 # local build screenshots
 .shot-*.png
+.omx/
+.dict-sources/

@@ -1,7 +1,7 @@
 /**
  * Дизайн-токены v3 — под аудиторию 30–35+ (спека 04).
- * Принципы: спокойная премиальная палитра, высокий контраст (≥4.5:1), крупная
- * типографика, тактильные «clay»-панели с мягкой тенью, реальные фото-фоны.
+ * Принципы: игровой word-puzzle вид, высокий контраст (≥4.5:1), крупная
+ * типографика, тактильные «clay»-панели с мягкой тенью, иллюстративные фоны.
  * Палитра: word-green + reward-gold (design-system ui-ux-pro-max).
  * Цвета — только отсюда.
  */
@@ -33,8 +33,10 @@ export const colors = {
 
   // кроссворд
   gridEmpty: 'rgba(255,251,242,0.20)',
+  gridEmptyStrong: 'rgba(255,251,242,0.34)',
   gridStroke: 'rgba(255,255,255,0.46)',
   gridFilled: '#EBA63D',
+  gridHint: '#FFD37A',
   gridText: '#13202F',
 
   // диск букв
@@ -43,6 +45,8 @@ export const colors = {
   tileInk: '#13202F',
   tileShadow: 'rgba(6,11,20,0.45)',
   linkLine: '#FFFFFF',
+  disabled: 'rgba(255,255,255,0.36)',
+  offline: 'rgba(235,166,61,0.18)',
 
   // легаси-алиасы
   bgTop: '#2A3F6B',
@@ -70,16 +74,16 @@ export const shadowCard = {
 } as const;
 
 export const fonts = {
-  display: 'Lora_700Bold',
-  title: 'Lora_600SemiBold',
-  body: 'Nunito_500Medium',
-  label: 'Nunito_700Bold',
-  tile: 'Nunito_800ExtraBold',
+  display: 'Unbounded_700Bold',
+  title: 'Unbounded_600SemiBold',
+  body: 'Unbounded_400Regular',
+  label: 'Unbounded_500Medium',
+  tile: 'Unbounded_700Bold',
 } as const;
 
 export type WorldTheme = { name: string };
 
-/** Темы миров: название (фон — реальное фото, см. WorldBackground). */
+/** Темы миров: название (фон — игровой арт, см. WorldBackground). */
 export const worldThemes: Record<string, WorldTheme> = {
   world1: { name: 'Париж' },
   world2: { name: 'Нью-Йорк' },

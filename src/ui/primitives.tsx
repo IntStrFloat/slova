@@ -25,6 +25,7 @@ export function AppButton({
   variant = 'primary',
   icon,
   large = false,
+  disabled = false,
   style,
 }: {
   label: string;
@@ -32,29 +33,33 @@ export function AppButton({
   variant?: ButtonVariant;
   icon?: IconName;
   large?: boolean;
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.btn,
         shadowCard,
         {
-          backgroundColor: VARIANT_BG[variant],
+          backgroundColor: disabled ? colors.glass : VARIANT_BG[variant],
           minHeight: large ? 62 : 52,
           paddingVertical: large ? 18 : 14,
           paddingHorizontal: large ? 52 : 22,
           borderWidth: variant === 'glass' ? 1 : 0,
           borderColor: colors.glassBorder,
-          transform: [{ scale: pressed ? 0.96 : 1 }],
-          opacity: pressed ? 0.94 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.96 : 1 }],
+          opacity: disabled ? 0.62 : pressed ? 0.94 : 1,
         },
         style,
       ]}
     >
-      {icon ? <Icon name={icon} size={large ? 26 : 22} color={VARIANT_FG[variant]} /> : null}
-      <AppText preset={large ? 'title' : 'label'} style={{ color: VARIANT_FG[variant] }}>
+      {icon ? <Icon name={icon} size={large ? 26 : 22} color={disabled ? colors.disabled : VARIANT_FG[variant]} /> : null}
+      <AppText preset={large ? 'title' : 'label'} style={{ color: disabled ? colors.disabled : VARIANT_FG[variant] }}>
         {label}
       </AppText>
     </Pressable>

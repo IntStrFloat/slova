@@ -22,6 +22,11 @@ jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageCode: 'ru', languageTag: 'ru-RU' }],
 }));
 
+/* expo-audio: стаб плеера для тестов, импортирующих аудио-модуль/компоненты. */
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: () => ({ play: () => {}, seekTo: () => {}, remove: () => {} }),
+}));
+
 /* react-native-svg: лёгкие host-стабы для UI-импортов в jest. */
 jest.mock('react-native-svg', () => {
   const React = require('react');

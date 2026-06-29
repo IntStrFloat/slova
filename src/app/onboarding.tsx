@@ -9,6 +9,8 @@ import { AppButton, AppText, colors, GlassPanel, Icon, WorldBackground, type Ico
 const STEPS: { icon: IconName; title: string; text: string }[] = [
   { icon: 'wand', title: 'Составляйте слова', text: 'Проводите пальцем по буквам на диске, чтобы собрать слово.' },
   { icon: 'collection', title: 'Заполняйте кроссворд', text: 'Верные слова встают в сетку. Найдите все — и уровень пройден.' },
+  { icon: 'bulb', title: 'Подсказки выручат', text: 'Застряли? Подсказка откроет букву или целое слово — за монеты.' },
+  { icon: 'coin', title: 'Монеты и бонусы', text: 'Зарабатывайте монеты за уровни и бонусные слова, тратьте на подсказки.' },
   { icon: 'leaderboard', title: 'Путешествуйте по миру', text: 'Открывайте достопримечательности и соревнуйтесь с другими игроками.' },
 ];
 

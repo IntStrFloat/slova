@@ -1,0 +1,26 @@
+{
+  "builtAt": "2026-06-29",
+  "commonFreq": 40,
+  "validCount": 22448,
+  "commonCount": 10533,
+  "validByLen": {
+    "3": 498,
+    "4": 1388,
+    "5": 2897,
+    "6": 4263,
+    "7": 5990,
+    "8": 7412
+  },
+  "commonByLen": {
+    "3": 375,
+    "4": 983,
+    "5": 1677,
+    "6": 2254,
+    "7": 2542,
+    "8": 2702
+  },
+  "sources": [
+    "Badestrand/russian-dictionary (Wiktionary)",
+    "hermitdave/FrequencyWords ru 2018"
+  ]
+}

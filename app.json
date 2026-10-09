@@ -2,14 +2,19 @@
   "expo": {
     "name": "Слова: Игра в слова",
     "slug": "slova",
-    "version": "0.1.0",
+    "version": "0.1.14",
     "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
     "scheme": "slova",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#101826",
     "android": {
       "package": "com.intstrfloat.slova",
-      "versionCode": 1,
+      "versionCode": 18,
+      "adaptiveIcon": {
+        "backgroundColor": "#101826",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -20,12 +25,26 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#101826"
+          "backgroundColor": "#101826",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 160
         }
       ],
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
       "expo-localization",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withAndroidResourceFallbacks",
+      "./plugins/withAppMetrica",
+      "./plugins/withYandexMediationVk",
+      "./plugins/withRuStorePush",
+      "./plugins/withRuStoreReview"
     ],
     "experiments": {
       "typedRoutes": true,

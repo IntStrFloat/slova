@@ -1,0 +1,24 @@
+{
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.13",
+  "versionCode": 17,
+  "build": "assembleRelease",
+  "debuggable": false,
+  "architectures": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
+  "sizeBytes": 165803582,
+  "sha256": "ccee831123adad8392657c697eb9f99cfceda546b618852c9cdf379fc3659f98",
+  "certificateSha256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "signatureVerified": true,
+  "matchesReleaseKeystore": true,
+  "matchesPreviousReleaseCertificate": true,
+  "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.13-vc17-release.apk",
+  "productionBundleMatchesPackaged": true,
+  "productionPublicConfigVerified": true,
+  "typecheck": "passed",
+  "lint": "passed"
+}

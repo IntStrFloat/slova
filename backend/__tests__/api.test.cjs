@@ -3,13 +3,50 @@ const assert = require('node:assert');
 const crypto = require('node:crypto');
 
 const { createApi, divisionFor, weekKey } = require('../runtime/api.cjs');
+const { createCatalogValidators, INTRO_CATALOG, INTRO_CATALOGS } = require('../runtime/content-catalog.cjs');
 const { createMemoryStore } = require('../runtime/store.cjs');
+const { checksumForManifest, publishWordPolicy } = require('../runtime/word-policy.cjs');
 
 const REPLACEMENT = String.fromCharCode(0xfffd); // символ-замена битого UTF-8
 const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
 
 function mkApi() {
   return createApi({ store: createMemoryStore(), now: () => new Date('2026-06-26T10:00:00Z') });
+}
+
+function policyManifest(revision = 1) {
+  const manifest = {
+    schemaVersion: 1,
+    locale: 'ru',
+    contentVersion: '2026.07.13',
+    revision,
+    publishedAt: '2026-07-13T00:00:00.000Z',
+    expiresAt: '2026-08-13T00:00:00.000Z',
+    checksum: '',
+    allow: [{ word: 'слово', rewardEligible: true }],
+    deny: [{ word: 'брань', reason: 'profanity' }],
+    fallbackByGlobalLevel: {},
+  };
+  manifest.checksum = checksumForManifest(manifest);
+  return manifest;
+}
+
+function wordReport(reportId = crypto.randomUUID(), word = 'слово') {
+  return {
+    reportId,
+    createdAt: '2026-06-26T10:00:00.000Z',
+    locale: 'ru',
+    normalizedWord: word,
+    reportKind: 'missing_valid',
+    currentClassification: 'invalid',
+    globalLevel: 1,
+    world: 'world1',
+    mode: 'normal',
+    contentVersion: '2026.07.13',
+    levelFingerprint: 'a'.repeat(64),
+    policyRevision: null,
+    appVersion: '0.1.0',
+  };
 }
 const J = (r) => JSON.parse(r.body);
 
@@ -18,6 +55,155 @@ test('health без авторизации', async () => {
   const r = await api.handle({ method: 'GET', url: '/api/health' });
   assert.equal(r.status, 200);
   assert.equal(J(r).ok, true);
+});
+
+test('word policy выдаётся публично с ETag и не публикует невалидную revision', async () => {
+  const store = createMemoryStore();
+  const manifest = policyManifest();
+  assert.equal((await publishWordPolicy(store, manifest)).ok, true);
+  assert.equal((await publishWordPolicy(store, manifest)).error, 'non_monotonic_policy_revision');
+  const api = createApi({ store, featureFlags: { remoteWordPolicy: true } });
+  const first = await api.handle({ method: 'GET', url: '/api/content/word-policy?locale=ru&contentVersion=2026.07.13' });
+  assert.equal(first.status, 200);
+  assert.equal(J(first).checksum, manifest.checksum);
+  const cached = await api.handle({ method: 'GET', url: '/api/content/word-policy?locale=ru&contentVersion=2026.07.13', headers: { 'if-none-match': first.headers.etag } });
+  assert.equal(cached.status, 304);
+});
+
+test('word reports validate content, are idempotent, and stay in moderation storage', async () => {
+  const store = createMemoryStore();
+  const moderationStore = createMemoryStore();
+  const api = createApi({
+    store,
+    moderationStore,
+    featureFlags: { wordReports: true },
+    validateReportContext: (report) => report.globalLevel === 1,
+    now: () => new Date('2026-06-26T10:00:00Z'),
+  });
+  const { auth } = await boot(api, 'Репорт');
+  const report = wordReport();
+  const headers = { ...auth, 'idempotency-key': report.reportId };
+  const submitted = await Promise.all([
+    api.handle({ method: 'POST', url: '/api/word-reports', headers, body: JSON.stringify(report), ip: '203.0.113.10' }),
+    api.handle({ method: 'POST', url: '/api/word-reports', headers, body: JSON.stringify(report), ip: '203.0.113.10' }),
+  ]);
+  assert.deepEqual(submitted.map((response) => response.status).sort(), [200, 201]);
+  const replay = await api.handle({ method: 'POST', url: '/api/word-reports', headers, body: JSON.stringify(report), ip: '203.0.113.10' });
+  assert.equal(replay.status, 200);
+  assert.equal(J(replay).duplicate, true);
+  assert.equal(store.read().wordReports, undefined);
+  assert.equal(moderationStore.read().wordReports.byId[report.reportId].normalizedWord, 'слово');
+});
+
+test('word reports accept exactly the shipped intro fingerprints and retain legacy SHA levels', async () => {
+  const catalog = {
+    contentVersions: {
+      '2026.07.13': {
+        levels: { 1: { world: 'world1', fingerprint: 'a'.repeat(64), letters: [...'слово'] } },
+      },
+      'intro-v1': { levels: { 1: { world: 'world1', fingerprint: 'tampered', letters: [...'кот'] } } },
+    },
+  };
+  const moderationStore = createMemoryStore();
+  const api = createApi({
+    store: createMemoryStore(), moderationStore,
+    featureFlags: { wordReports: true },
+    ...createCatalogValidators(catalog),
+    now: () => new Date('2026-06-26T10:00:00Z'),
+  });
+  const { auth } = await boot(api, 'Вводные');
+  const words = ['кот', 'сон', 'дело', 'рост', 'клуб'];
+  for (const [version, introCatalog] of Object.entries(INTRO_CATALOGS)) {
+    const { auth: introAuth } = await boot(api, `Вводные ${version}`);
+    for (let id = 1; id <= 5; id += 1) {
+    const report = {
+      ...wordReport(crypto.randomUUID(), words[id - 1]),
+      globalLevel: id, contentVersion: version,
+      levelFingerprint: introCatalog.levels[id].fingerprint,
+    };
+    const headers = { ...introAuth, 'idempotency-key': report.reportId };
+    const accepted = await api.handle({ method: 'POST', url: '/api/word-reports', headers, body: JSON.stringify(report) });
+    assert.equal(accepted.status, 201);
+    const replay = await api.handle({ method: 'POST', url: '/api/word-reports', headers, body: JSON.stringify(report) });
+    assert.equal(replay.status, 200);
+    assert.equal(J(replay).duplicate, true);
+    }
+  }
+  assert.equal(Object.keys(moderationStore.read().wordReports.byId).length, 10);
+
+  const legacy = wordReport(crypto.randomUUID(), 'слово');
+  const legacyResponse = await api.handle({
+    method: 'POST', url: '/api/word-reports',
+    headers: { ...auth, 'idempotency-key': legacy.reportId }, body: JSON.stringify(legacy),
+  });
+  assert.equal(legacyResponse.status, 201);
+
+  for (const altered of [
+    { contentVersion: 'intro-v1', levelFingerprint: 'intro-v1:1:кот:ток,кот' },
+    { contentVersion: 'intro-v1', globalLevel: 2, levelFingerprint: INTRO_CATALOG.levels[1].fingerprint },
+    { contentVersion: 'intro-v1', mode: 'daily', levelFingerprint: INTRO_CATALOG.levels[1].fingerprint },
+    { contentVersion: 'intro-v2', mode: 'daily', levelFingerprint: INTRO_CATALOG.levels[1].fingerprint },
+    { contentVersion: 'other', levelFingerprint: 'arbitrary-non-sha' },
+  ]) {
+    const invalid = { ...wordReport(crypto.randomUUID(), 'кот'), ...altered };
+    const rejected = await api.handle({
+      method: 'POST', url: '/api/word-reports',
+      headers: { ...auth, 'idempotency-key': invalid.reportId }, body: JSON.stringify(invalid),
+    });
+    assert.equal(rejected.status, 400);
+    assert.equal(J(rejected).error, 'bad_report_content');
+  }
+});
+
+test('word reports accept level 1000 and reject levels beyond the campaign', async () => {
+  const api = createApi({
+    store: createMemoryStore(),
+    moderationStore: createMemoryStore(),
+    featureFlags: { wordReports: true },
+    validateReportContext: (report) => report.world === 'world14',
+    now: () => new Date('2026-06-26T10:00:00Z'),
+  });
+  const { auth } = await boot(api, 'Путешественник');
+  const report = wordReport();
+  report.globalLevel = 1000;
+  report.world = 'world14';
+  const response = await api.handle({
+    method: 'POST',
+    url: '/api/word-reports',
+    headers: { ...auth, 'idempotency-key': report.reportId },
+    body: JSON.stringify(report),
+  });
+  assert.equal(response.status, 201);
+  const invalid = { ...wordReport(), globalLevel: 1001, world: 'world14' };
+  const rejected = await api.handle({
+    method: 'POST',
+    url: '/api/word-reports',
+    headers: { ...auth, 'idempotency-key': invalid.reportId },
+    body: JSON.stringify(invalid),
+  });
+  assert.equal(rejected.status, 400);
+  assert.equal(J(rejected).error, 'bad_report_context');
+});
+
+test('word reports reject invalid context and enforce daily user cap', async () => {
+  const api = createApi({
+    store: createMemoryStore(),
+    moderationStore: createMemoryStore(),
+    featureFlags: { wordReports: true },
+    validateReportContext: (report) => report.world === 'world1',
+    now: () => new Date('2026-06-26T10:00:00Z'),
+  });
+  const { auth } = await boot(api, 'Лимиты');
+  const invalid = wordReport();
+  invalid.world = 'other';
+  assert.equal((await api.handle({ method: 'POST', url: '/api/word-reports', headers: { ...auth, 'idempotency-key': invalid.reportId }, body: JSON.stringify(invalid) })).status, 400);
+  const words = ['слово', 'берег', 'ветер', 'город', 'дорога', 'земля', 'камень', 'лампа', 'море', 'небо', 'остров'];
+  for (const word of words.slice(0, 10)) {
+    const report = wordReport(crypto.randomUUID(), word);
+    assert.equal((await api.handle({ method: 'POST', url: '/api/word-reports', headers: { ...auth, 'idempotency-key': report.reportId }, body: JSON.stringify(report), ip: '198.51.100.2' })).status, 201);
+  }
+  const overLimit = wordReport(crypto.randomUUID(), words[10]);
+  assert.equal((await api.handle({ method: 'POST', url: '/api/word-reports', headers: { ...auth, 'idempotency-key': overLimit.reportId }, body: JSON.stringify(overLimit), ip: '198.51.100.2' })).status, 429);
 });
 
 test('bootstrap создаёт профиль и токен', async () => {

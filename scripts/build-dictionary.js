@@ -21,11 +21,17 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const { FUNCTION_WORDS, isProfane } = require('./dict/stoplists');
+const { FUNCTION_WORDS, PROFANITY_EXACT, isProfane, isLowQualityWord } = require('./dict/stoplists');
+const { normalizeToken, sha256, writeJsonAtomic } = require('./dict/content');
 
 /** Нормализация: нижний регистр, ё→е, снять ударение (') и любую не-кириллицу. */
 function normalize(w) {
   return String(w).toLowerCase().replace(/ё/g, 'е').replace(/[^а-я]/g, '');
+}
+
+/** Strict source normalization. Invalid source tokens are rejected, never repaired. */
+function normalizeStrict(w) {
+  return normalizeToken(w);
 }
 
 /** Совместимость со старым API: фильтр длины + стоп-листа. */
@@ -34,7 +40,7 @@ function filterWords(words, { min = 3, max = 8, stop = [] } = {}) {
   const out = new Set();
   for (const raw of words) {
     const w = normalize(raw);
-    if (w.length >= min && w.length <= max && !stopSet.has(w) && !isProfane(w)) out.add(w);
+    if (w.length >= min && w.length <= max && !stopSet.has(w) && !isProfane(w) && !isLowQualityWord(w)) out.add(w);
   }
   return [...out].sort();
 }
@@ -55,52 +61,61 @@ const EXTRA = [
  * Извлечь только ЛЕММЫ (начальные формы) из CSV (TSV) Badestrand — колонка `bare`.
  * Склонения/спряжения из остальных колонок намеренно НЕ берём (см. спека 15).
  */
-function readLemmasFromCsv(file, into) {
+function readLemmasFromCsv(file, into, rejected) {
   const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
   for (let i = 1; i < lines.length; i++) {
     const tab = lines[i].indexOf('\t');
     const bare = tab < 0 ? lines[i] : lines[i].slice(0, tab);
     if (!bare) continue;
     for (const piece of bare.split(/[,;/]/)) {
-      const w = normalize(piece);
-      if (w.length >= MIN_LEN && w.length <= MAX_LEN && !isProfane(w)) into.add(w);
+      const w = normalizeStrict(piece);
+      if (!w) {
+        if (String(piece).trim()) rejected.push({ file: path.basename(file), token: String(piece).trim(), reason: 'malformed' });
+        continue;
+      }
+      if (!isProfane(w) && !isLowQualityWord(w)) into.add(w);
     }
   }
 }
 
 /** Чистый словарь лемм из всех источников-CSV + EXTRA. */
-function readClean(srcDir) {
+function readClean(srcDir, rejected = []) {
   const clean = new Set();
   for (const f of ['nouns.csv', 'adjectives.csv', 'verbs.csv']) {
     const p = path.join(srcDir, f);
-    if (fs.existsSync(p)) readLemmasFromCsv(p, clean);
+    if (fs.existsSync(p)) readLemmasFromCsv(p, clean, rejected);
   }
   for (const w of EXTRA) {
-    const n = normalize(w);
-    if (n.length >= MIN_LEN && n.length <= MAX_LEN && !isProfane(n)) clean.add(n);
+    const n = normalizeStrict(w);
+    if (n && !isProfane(n) && !isLowQualityWord(n)) clean.add(n);
   }
   return clean;
 }
 
 /** Частотный список → Map<word,{f,rank}>. */
-function readFreq(srcDir) {
+function readFreq(srcDir, rejected = []) {
   const text = fs.readFileSync(path.join(srcDir, 'ru_full.txt'), 'utf8');
   const freq = new Map();
   let rank = 0;
   for (const line of text.split(/\r?\n/)) {
     const sp = line.indexOf(' ');
     if (sp < 0) continue;
-    const w = normalize(line.slice(0, sp));
+    const raw = line.slice(0, sp);
+    const w = normalizeStrict(raw);
     const f = parseInt(line.slice(sp + 1), 10) || 0;
-    if (w.length < MIN_LEN || w.length > MAX_LEN) continue;
+    if (!w) {
+      if (raw.trim()) rejected.push({ file: 'ru_full.txt', token: raw.trim(), reason: 'malformed' });
+      continue;
+    }
     if (!freq.has(w)) freq.set(w, { f, rank: rank++ });
   }
   return freq;
 }
 
-function buildFromSources({ srcDir, commonFreq = 40 }) {
-  const clean = readClean(srcDir);
-  const freq = readFreq(srcDir);
+function buildFromSources({ srcDir, commonFreq = 40, sourceDateEpoch }) {
+  const rejected = [];
+  const clean = readClean(srcDir, rejected);
+  const freq = readFreq(srcDir, rejected);
 
   // Валидационный словарь: все чистые леммы.
   const validList = [...clean].sort();
@@ -124,18 +139,41 @@ function buildFromSources({ srcDir, commonFreq = 40 }) {
     return h;
   };
   const meta = {
-    builtAt: new Date().toISOString().slice(0, 10),
+    builtAt: sourceDateEpoch ? new Date(Number(sourceDateEpoch) * 1000).toISOString() : null,
     commonFreq,
     validCount: validList.length,
     commonCount: common.length,
     validByLen: byLen(validList),
     commonByLen: byLen(common),
     sources: ['Badestrand/russian-dictionary (Wiktionary)', 'hermitdave/FrequencyWords ru 2018'],
+    rejectedTokenCount: rejected.length,
   };
-  return { valid: validList, common, meta };
+  const blocked = [...PROFANITY_EXACT]
+    .map((word) => ({ word, reason: 'profanity' }))
+    .concat([...new Set([...FUNCTION_WORDS].filter((word) => word.length >= MIN_LEN && word.length <= MAX_LEN))]
+      .map((word) => ({ word, reason: 'low_quality' })))
+    .sort((a, b) => a.word.localeCompare(b.word));
+  return { valid: validList, common, blocked, meta, rejected };
 }
 
-module.exports = { normalize, filterWords, buildFromSources, MIN_LEN, MAX_LEN };
+function verifySourcesLock(srcDir, lockPath) {
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  if (lock.schemaVersion !== 1 || !Array.isArray(lock.files) || !lock.files.length) {
+    throw new Error(`Invalid sources lock: ${lockPath}`);
+  }
+  for (const source of lock.files) {
+    if (!source.path || !/^[a-f0-9]{64}$/.test(source.sha256 || '') || !source.url || !source.ref || !source.license) {
+      throw new Error(`Incomplete pinned source entry: ${JSON.stringify(source)}`);
+    }
+    const file = path.join(srcDir, source.path);
+    if (!fs.existsSync(file)) throw new Error(`Pinned source is missing: ${file}`);
+    const actual = sha256(fs.readFileSync(file));
+    if (actual !== source.sha256) throw new Error(`Checksum mismatch for ${source.path}: expected ${source.sha256}, got ${actual}`);
+  }
+  return lock;
+}
+
+module.exports = { normalize, normalizeStrict, filterWords, buildFromSources, verifySourcesLock, MIN_LEN, MAX_LEN };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
@@ -144,17 +182,31 @@ if (require.main === module) {
     return i >= 0 ? args[i + 1] : def;
   };
   const srcDir = get('--src', path.join(__dirname, '..', '.dict-sources'));
+  const lockPath = get('--sources-lock', path.join(__dirname, '..', 'assets', 'dict', 'sources.lock.json'));
   const commonFreq = parseInt(get('--common-freq', '40'), 10);
   if (!fs.existsSync(path.join(srcDir, 'nouns.csv'))) {
     console.error(`Не найдены источники в ${srcDir}. См. docs/runbooks/dictionary-sources.md`);
     process.exit(1);
   }
-  const { valid, common, meta } = buildFromSources({ srcDir, commonFreq });
+  if (!process.env.SOURCE_DATE_EPOCH) {
+    console.error('SOURCE_DATE_EPOCH is required; use a pinned source retrieval timestamp.');
+    process.exit(1);
+  }
+  try {
+    verifySourcesLock(srcDir, lockPath);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  const { valid, common, blocked, meta, rejected } = buildFromSources({ srcDir, commonFreq, sourceDateEpoch: process.env.SOURCE_DATE_EPOCH });
   const outDir = path.join(__dirname, '..', 'assets', 'dict');
   fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(path.join(outDir, 'ru.json'), JSON.stringify(valid));
-  fs.writeFileSync(path.join(outDir, 'ru-common.json'), JSON.stringify(common));
-  fs.writeFileSync(path.join(outDir, 'ru.meta.json'), JSON.stringify(meta, null, 2));
+  meta.hashes = { ru: sha256(JSON.stringify(valid)), common: sha256(JSON.stringify(common)), blocked: sha256(JSON.stringify(blocked)) };
+  writeJsonAtomic(path.join(outDir, 'ru.json'), valid);
+  writeJsonAtomic(path.join(outDir, 'ru-common.json'), common);
+  writeJsonAtomic(path.join(outDir, 'ru-blocked.json'), blocked);
+  writeJsonAtomic(path.join(outDir, 'ru.meta.json'), meta);
+  if (rejected.length) writeJsonAtomic(path.join(outDir, 'rejected-tokens.json'), rejected);
   console.log(`Словарь: valid=${meta.validCount}, common=${meta.commonCount}`);
   console.log('validByLen:', JSON.stringify(meta.validByLen));
   console.log('commonByLen:', JSON.stringify(meta.commonByLen));

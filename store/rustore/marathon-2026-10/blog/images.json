@@ -1,0 +1,44 @@
+{
+  "images": [
+    {
+      "filename": "01_обложка.jpg",
+      "source": "../art/marathon-article-cover-1568x882.jpg, standard APP0/JFIF metadata added for python-docx compatibility; decoded pixels verified identical to the source",
+      "alt": "Иллюстрация семи этапов словесного марафона на фоне путешествия"
+    },
+    {
+      "filename": "02_буквы_и_кроссворд.png",
+      "source": "output/marathon-2026-10/native/qa-level-one.png; actual Android capture from the current code, supplied and confirmed by the native QA agent through the leader",
+      "alt": "Реальный экран Android игры с буквами К О Т и незаполненными клетками кроссворда"
+    },
+    {
+      "filename": "03_марафон.png",
+      "source": "output/marathon-2026-10/native/production-active-final.png; actual emulator-5574 Android production interface in the event window 26 October 2026; provenance output/marathon-2026-10/native/production-final-verification.json; production APK SHA256 3dfddd7b2b5a6b1c7eea8d2b769206ff08f5882f4ec4c50ede624e365778e270",
+      "alt": "Реальный экран недельного марафона слов с датами 26 октября по 1 ноября 2026 года и семью этапами на 150 монет"
+    }
+  ],
+  "required": [
+    {
+      "kind": "cover",
+      "filename": "01_обложка.jpg",
+      "insertAfter": "intro",
+      "minimumWidth": 784,
+      "minimumHeight": 440
+    },
+    {
+      "kind": "androidScreenshot",
+      "filename": "02_буквы_и_кроссворд.png",
+      "insertAfter": "lettersExample",
+      "minimumWidth": 214,
+      "minimumHeight": 380,
+      "caption": "Буквы К О Т и клетки кроссворда в игре Слова"
+    },
+    {
+      "kind": "androidScreenshot",
+      "filename": "03_марафон.png",
+      "insertAfter": "marathon",
+      "minimumWidth": 214,
+      "minimumHeight": 380,
+      "caption": "Экран марафона слов с условиями участия и наградами"
+    }
+  ]
+}

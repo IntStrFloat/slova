@@ -14,6 +14,9 @@ export const NoopAdsProvider: AdsProvider = {
   async showRewarded() {
     return fakeRewarded() ? 'rewarded' : 'unavailable';
   },
+  isInterstitialReady() {
+    return false;
+  },
   isRewardedReady() {
     return fakeRewarded();
   },

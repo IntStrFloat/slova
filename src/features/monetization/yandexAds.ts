@@ -1,4 +1,2 @@
-import { NoopAdsProvider } from './noop';
-
-/** Web/test fallback. Metro резолвит yandexAds.native.ts на нативной сборке. */
-export const YandexAdsProvider = NoopAdsProvider;
+/** Web entrypoint. Metro resolves yandexAds.native.ts for the Android build. */
+export { YandexGamesAdsProvider as YandexAdsProvider } from './yandexGamesAds';

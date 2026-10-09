@@ -1,0 +1,10 @@
+{
+  "platform": "yandex-games",
+  "generatedAt": "2026-08-20T09:25:54.788Z",
+  "archive": "output/yandex-games/slova-yandex-games.zip",
+  "indexAtArchiveRoot": true,
+  "sdkLoader": "/sdk.js",
+  "fileCount": 96,
+  "unpackedBytes": 21124418,
+  "archiveBytes": 14012398
+}

@@ -1,0 +1,18 @@
+{
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.9",
+  "versionCode": 13,
+  "architectures": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
+  "build": "bundleRelease",
+  "sizeBytes": 126774319,
+  "sha256": "7dc361e8cdf2fa6bacfa1181ef4980c12fbc7e562a97849ff714785dd6d38644",
+  "certificateSha256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "signatureVerified": true,
+  "matchesPreviousReleaseCertificate": true,
+  "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.9-vc13-release.aab"
+}

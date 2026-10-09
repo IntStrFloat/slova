@@ -1,6 +1,7 @@
 import { initPlayState, submitWord, type Level } from '@/core/engine';
 
-import { restoreGame, serializeGame, SNAPSHOT_VERSION, type GameSnapshot } from '../persistence';
+import { clearGameSnapshot, loadGameSnapshot, restoreGame, saveGameSnapshot, serializeGame, type GameSnapshot } from '../persistence';
+import { KEYS, setString } from '@/core/storage';
 
 const level: Level = {
   id: 1,
@@ -79,10 +80,10 @@ describe('serializeGame/restoreGame', () => {
     expect(restored!.disk).toEqual(['т', 'к', 'о', 'р']);
   });
 
-  test('завершённый уровень не восстанавливается (играем заново)', () => {
+  test('completed-but-unclaimed snapshot восстанавливается для claim', () => {
     const { state } = submitWord(initPlayState(level), 'кот');
     const snap = serializeGame(level, state, level.letters, 'normal');
-    expect(restoreGame(level, 'normal', snap)).toBeNull();
+    expect(restoreGame(level, 'normal', snap)?.play.filled).toEqual(state.filled);
   });
 
   test('несовпадение уровня/режима/версии → null', () => {
@@ -94,11 +95,9 @@ describe('serializeGame/restoreGame', () => {
   });
 
   test('мусорные клетки и чужие слова отбрасываются', () => {
+    const base = serializeGame(level2, initPlayState(level2), level2.letters, 'normal');
     const snap: GameSnapshot = {
-      version: SNAPSHOT_VERSION,
-      mode: 'normal',
-      world: 'world1',
-      levelId: 2,
+      ...base,
       filled: { '0,0': 'к', '9,9': 'я', '0,1': 'я' },
       solvedWords: ['кот', 'чужое'],
       foundBonus: ['нет'],
@@ -116,5 +115,31 @@ describe('serializeGame/restoreGame', () => {
     const snap = serializeGame(level2, initPlayState(level2), ['x', 'y'], 'normal');
     const restored = restoreGame(level2, 'normal', snap);
     expect(restored!.disk).toEqual(level2.letters);
+  });
+
+  test('daily keeps a carried puzzle alongside today and clears only its own date', () => {
+    clearGameSnapshot('daily');
+    const yesterday = serializeGame(level, initPlayState(level), level.letters, 'daily', { status: 'playing' }, null, [], '2026-09-25');
+    const today = serializeGame(level2, initPlayState(level2), level2.letters, 'daily', { status: 'playing' }, null, [], '2026-09-26');
+    saveGameSnapshot('daily', yesterday);
+    saveGameSnapshot('daily', today);
+
+    expect(loadGameSnapshot('daily', level, '2026-09-25')?.attemptId).toBe(yesterday.attemptId);
+    expect(loadGameSnapshot('daily', level2, '2026-09-26')?.attemptId).toBe(today.attemptId);
+    clearGameSnapshot('daily', '2026-09-26');
+    expect(loadGameSnapshot('daily', level2, '2026-09-26')).toBeNull();
+    expect(loadGameSnapshot('daily', level, '2026-09-25')).not.toBeNull();
+    clearGameSnapshot('daily');
+  });
+
+  test('restores the last good normal snapshot if the newest write is corrupt', () => {
+    clearGameSnapshot('normal');
+    const first = serializeGame(level, initPlayState(level), level.letters, 'normal');
+    saveGameSnapshot('normal', first);
+    const second = serializeGame(level, initPlayState(level), level.letters, 'normal', { status: 'playing' }, first);
+    saveGameSnapshot('normal', second);
+    setString(KEYS.gameCurrentNormal, '{broken');
+    expect(loadGameSnapshot('normal', level)?.revision).toBe(first.revision);
+    clearGameSnapshot('normal');
   });
 });

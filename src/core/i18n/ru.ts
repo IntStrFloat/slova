@@ -13,7 +13,7 @@ export const ru = {
   notEnoughCoins: 'Не хватает монет',
   needCoins: 'Нужно ещё {n} монет',
   watchAdCoins: 'Смотреть рекламу +{n}',
-  doubleReward: 'Удвоить ×2',
+  doubleReward: 'Удвоить монеты за уровень ×2',
   doubled: 'Награда удвоена!',
   adUnavailable: 'Реклама недоступна',
   map: 'Карта',
@@ -26,6 +26,11 @@ export const ru = {
   teams: 'Команды',
   profile: 'Профиль',
   settings: 'Настройки',
+  notifications: 'Уведомления',
+  pushTitle: 'Не пропускай новые слова',
+  pushBody: 'Напомним о новом пазле дня, колесе и событиях.',
+  pushAllow: 'Включить',
+  pushLater: 'Не сейчас',
   comingSoon: 'Скоро',
 } as const;
 

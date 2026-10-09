@@ -1,0 +1,39 @@
+{
+  "asOf": "2026-10-05",
+  "audiencePeriod": {
+    "from": "2026-09-06",
+    "to": "2026-10-05"
+  },
+  "source": "https://appmetrica.yandex.ru/overview?appId=6321823&period=month&group=day&currency=rub&accuracy=medium",
+  "activeUsers": 1344,
+  "installs": 1031,
+  "assumptions": {
+    "priceRub": 99,
+    "periodDays": 30,
+    "cardFeeRate": 0.035,
+    "vatOnFeeRate": 0.22,
+    "npdRate": 0.04,
+    "measuredPurchaseConversion": null,
+    "recurringRetention": null,
+    "includesLostAdIncome": false,
+    "includesOperatingCosts": false
+  },
+  "netPerPaymentRub": 90.8127,
+  "scenarios": [
+    {
+      "assumedConversion": 0.005,
+      "expectedSubscribers": 6.72,
+      "expectedRevenueAfterFeeAndTaxRub": 610
+    },
+    {
+      "assumedConversion": 0.01,
+      "expectedSubscribers": 13.44,
+      "expectedRevenueAfterFeeAndTaxRub": 1221
+    },
+    {
+      "assumedConversion": 0.02,
+      "expectedSubscribers": 26.88,
+      "expectedRevenueAfterFeeAndTaxRub": 2441
+    }
+  ]
+}

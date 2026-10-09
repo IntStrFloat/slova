@@ -1,0 +1,19 @@
+Use case: ads-marketing
+Asset type: final editorial event cover for the Russian mobile word puzzle game «Слова» in RuStore.
+Create one polished, premium raster illustration. EXACT canvas size 2880 × 2160 pixels, aspect ratio 4:3. Opaque background, full bleed. This is finished campaign artwork, not a mockup or a screenshot.
+Brand reference appearance: glossy deep-violet circular word-game tokens with soft bevels and thick white raised detailing, amber-gold game rewards; sunset violet/pink landscape, mountains, a calm lake, cherry blossoms, warm travel scenery. Match this inviting, sophisticated casual puzzle feeling.
+Scene: a luminous illustrated sunset journey through a quiet mountain lake and blossom garden, with a faraway elegant stone travel arch and tiny warm lights. Use the entire lower half and far left/right as atmospheric scenery with calm water, paths, petals and depth, without essential objects or text.
+Primary subject: a compact, beautiful floating composition of glossy violet circular game tokens connected by smooth purple links, a few amber-gold blank crossword squares, a graceful seven-stop journey path of tiny gold dots, and two small embossed gold reward coins. The tokens and squares are completely blank: NO letters or numbers on them. This should evoke connecting words and advancing through a journey without fabricating game UI.
+CRITICAL COMPOSITION / CROPPING SAFETY: all essential artwork, reward coins, violet tokens, gold puzzle squares, journey path, AND the only text must be contained in the TOP-CENTRE safe area, x = 810 to 2070, y = 0 to 1030 of the 2880 × 2160 image. Leave generous interior margins: place the title at x ~1060–1820, y ~160–350; place the main token-and-puzzle artwork at x ~1000–1880, y ~460–930. The subject is concentrated in that upper-centre area; do not center the subject vertically in the whole image. Do not put any essential object beyond the safe area. A large amount of beautiful surrounding panorama below is intentional.
+Text (verbatim): “7 этапов”
+Exactly that phrase, Cyrillic lowercase, clear bold friendly sans-serif, warm ivory-white with extremely subtle depth and excellent contrast on a dark violet patch of sky. It must read 7, then a space, then э т а п о в. Only these two words may appear anywhere. No other text or letterforms. Do NOT write the event name.
+Style: high-quality illustrated casual game key art, restrained dimensional rendering, rich but controlled violet/indigo and sunset pink, gold highlights, refined lighting, clean contours, no visual clutter, legible at thumbnail size.
+Avoid: phone, device, app frame, fake UI, buttons, progress bar, store logo, watermark, border, poster frame, extra typography, decorative text, real-money symbols, human figures.
+
+FINAL TARGETED EDIT PROMPT:
+Use case: precise-object-edit
+Edit this event cover, keeping the landscape, overall colors, lighting and exact headline “7 этапов” unchanged.
+Single targeted correction: scale down the entire floating group consisting of ALL purple connected tokens, gold crossword squares, dotted journey path and BOTH gold coins uniformly to 80% of its current size, about its current group centre, without moving the headline. Reconstruct the quiet violet sky behind the old group edges.
+CRITICAL: after the correction the whole floating group must lie between 30% and 70% of the canvas width, in the top 43% of the canvas height. At a final 2880×2160 canvas, its bounding box should be approximately x870–2010 and y390–930. This is a crop-safe editorial cover. Keep the headline fully inside x810–2070 and y0–1030 too.
+Leave the original beautiful landscape and every other feature unchanged. Tokens and squares stay blank. The only text anywhere remains exactly “7 этапов”. No new text, letters, numbers, UI or phones.
+Return a final opaque raster illustration, EXACTLY 2880 × 2160 pixels, 4:3.

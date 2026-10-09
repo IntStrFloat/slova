@@ -1,18 +1,21 @@
 import { track } from '@/features/analytics';
 
 import { getAds } from './providers';
-import type { RewardedPlacement, RewardedResult } from './types';
+import type { RewardConfirmation, RewardedPlacement, RewardedResult } from './types';
 
 /**
  * Единая точка показа rewarded-рекламы (спека 05). Логирует воронку и гарантирует,
  * что вызывающий начисляет награду строго при результате 'rewarded'. Fallback:
  * при недоступности возвращает 'unavailable' — игра продолжает работать без награды.
  */
-export async function requestRewarded(placement: RewardedPlacement): Promise<RewardedResult> {
+export async function requestRewarded(
+  placement: RewardedPlacement,
+  confirmation?: RewardConfirmation,
+): Promise<RewardedResult> {
   track('rewarded_requested', { placement });
   let res: RewardedResult = 'unavailable';
   try {
-    res = await getAds().showRewarded(placement);
+    res = await getAds().showRewarded(placement, confirmation);
   } catch {
     res = 'unavailable';
   }

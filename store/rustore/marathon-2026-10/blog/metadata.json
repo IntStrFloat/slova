@@ -1,0 +1,13 @@
+{
+  "title": "Как находить слова из букв и заполнять кроссворд",
+  "seoTitle": "Поиск слов из букв без перебора советы для кроссвордов",
+  "description": "Как замечать короткие слова, использовать пересечения и выбирать подсказки. Разбираем приёмы на примере игры «Слова из букв — кроссворды».",
+  "category": "Игры",
+  "format": "Инструкция или советы",
+  "appName": "Слова из букв — кроссворды",
+  "appUrl": "https://www.rustore.ru/catalog/app/com.intstrfloat.slova",
+  "faqCount": 7,
+  "imageManifest": "images.json",
+  "requirementsSource": "https://www.rustore.ru/help/developers/advertising-and-promotion/blog-publication",
+  "requirementsCheckedAt": "2026-10-04"
+}

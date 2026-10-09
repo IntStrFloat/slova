@@ -27,6 +27,9 @@
 | [docs/specs/16-analytics.md](docs/specs/16-analytics.md) | AppMetrica: воронки, события, KPI |
 | [docs/specs/17-nfr-acceptance.md](docs/specs/17-nfr-acceptance.md) | Нефункциональные требования и критерии приёмки |
 | [docs/specs/18-audience.md](docs/specs/18-audience.md) | Целевая аудитория 30–35+ и дизайн-решения под неё (фото, читаемость, clay) |
+| [docs/specs/19-content-scale-quality.md](docs/specs/19-content-scale-quality.md) | Масштаб уровней, словарный pipeline и контроль качества контента |
+| [docs/specs/20-design-upgrade.md](docs/specs/20-design-upgrade.md) | План повышения визуального и интерактивного качества продукта |
+| [docs/specs/21-product-quality-hardening.md](docs/specs/21-product-quality-hardening.md) | Draft: P0 hardening словаря/completion/save и целевые контракты audio/push/events/teams/difficulty |
 
 План реализации и задачи: [docs/plans/](docs/plans/) — выполнять по нему.
 

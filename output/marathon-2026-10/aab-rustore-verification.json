@@ -1,0 +1,83 @@
+{
+  "status": "PASS",
+  "checkedAtUtc": "2026-10-04T12:08:54.9436792+00:00",
+  "purpose": "RuStore streaming-reader compatibility variant. The Console failure cause is unproven; this changes only ZIP entry order/offsets and makes both standard JAR readers verify the same signed bytes.",
+  "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.14-vc18-rustore.aab",
+  "sha256": "078c51cd643b29cbea76437560c8ab381d93fdadcae29b1011bab01d0cf12761",
+  "sizeBytes": 126791878,
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.14",
+  "versionCode": 18,
+  "minSdkVersion": 24,
+  "targetSdkVersion": 36,
+  "debuggable": false,
+  "certificateSha256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "originalArtifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.14-vc18-release.aab",
+  "originalSha256": "88e8a64df7e207aa621ce1a35284635ce75e2259831b732ee3f409dc8122e407",
+  "originalSizeBytes": 126791878,
+  "archiveEntries": 2142,
+  "payloadEntries": 2139,
+  "jarFileSignedPayloadEntries": 2139,
+  "jarInputStreamSignedPayloadEntries": 2139,
+  "checks": {
+    "originalReleaseAabUnchanged": true,
+    "sameEntryNamesAndCount": true,
+    "sameDecompressedEntryBytes": true,
+    "sameRawLocalRecordBytes": true,
+    "sameCompressedPayloadBytes": true,
+    "jarManifestFirst": true,
+    "signingMetadataBeforePayload": true,
+    "packageVersionSdkAndDebuggableUnchanged": true,
+    "certificateUnchanged": true,
+    "jarFileAllPayloadsSigned": true,
+    "jarInputStreamAllPayloadsSigned": true,
+    "jarsignerVerified": true,
+    "noStreamingInconsistencies": true,
+    "deterministicRebuildSameSha256": true
+  },
+  "changed": [
+    "local-record order",
+    "central-directory record order",
+    "central-directory local-record offsets"
+  ],
+  "firstEntries": [
+    "META-INF/MANIFEST.MF",
+    "META-INF/SLOVA.SF",
+    "META-INF/SLOVA.RSA",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libNitroMmkv.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libNitroModules.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libappmodules.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libc++_shared.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libexpo-modules-core.so.sym"
+  ],
+  "jarsigner": {
+    "exitCode": 0,
+    "jarVerified": true,
+    "streamingInconsistencies": false,
+    "fullLog": "output/marathon-2026-10/aab-rustore-jarsigner.log",
+    "remainingWarnings": [
+      "Expected self-signed Android upload certificate has no public PKIX trust chain.",
+      "No trusted signing timestamp; signer certificate validity ends in November 2053."
+    ]
+  },
+  "reproduction": {
+    "helper": "output/marathon-2026-10/build_rustore_aab.py",
+    "command": "bundled-python -I output/marathon-2026-10/build_rustore_aab.py --source output/release/slova-0.1.14-vc18-release.aab --output output/release/slova-0.1.14-vc18-rustore.aab --report output/marathon-2026-10/aab-reorder-compatibility.json",
+    "rebuiltTwice": true,
+    "firstBuildSha256": "078c51cd643b29cbea76437560c8ab381d93fdadcae29b1011bab01d0cf12761",
+    "secondBuildSha256": "078c51cd643b29cbea76437560c8ab381d93fdadcae29b1011bab01d0cf12761"
+  },
+  "evidence": [
+    "output/marathon-2026-10/aab-reorder-compatibility.json",
+    "output/marathon-2026-10/aab-reorder-entry-digests.json",
+    "output/marathon-2026-10/aab-rustore-inspection-raw.json",
+    "output/marathon-2026-10/aab-rustore-jarsigner-summary.json",
+    "output/marathon-2026-10/InspectAab.java"
+  ],
+  "notVerified": [
+    "RuStore Console acceptance and published version status",
+    "Whether the earlier generic Console error was caused by entry order",
+    "Store-generated APK distribution certificate/runtime"
+  ],
+  "newDependencies": false
+}

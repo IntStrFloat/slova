@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-13T00:00:00.000Z",
+  "files": [
+    {
+      "path": "nouns.csv",
+      "url": "https://github.com/Badestrand/russian-dictionary",
+      "ref": "50e210c4803237779cb562bc1abcea529066031c",
+      "sha256": "c388f9e6dde51932832be8d7e9afdbe9f0acee72fcf70677f0fe25ea61293c84",
+      "license": "CC BY-SA 3.0",
+      "commercialUse": true,
+      "retrievedAt": "2026-07-13T00:00:00.000Z"
+    },
+    {
+      "path": "adjectives.csv",
+      "url": "https://github.com/Badestrand/russian-dictionary",
+      "ref": "50e210c4803237779cb562bc1abcea529066031c",
+      "sha256": "89ab5d10dcd2f21f6b485de704aef372f32251468e3aa96f18b21e259f26b80a",
+      "license": "CC BY-SA 3.0",
+      "commercialUse": true,
+      "retrievedAt": "2026-07-13T00:00:00.000Z"
+    },
+    {
+      "path": "verbs.csv",
+      "url": "https://github.com/Badestrand/russian-dictionary",
+      "ref": "50e210c4803237779cb562bc1abcea529066031c",
+      "sha256": "8659de6799b949fb35f080b08088fb7d347ed300490954ebb380a31642646e1d",
+      "license": "CC BY-SA 3.0",
+      "commercialUse": true,
+      "retrievedAt": "2026-07-13T00:00:00.000Z"
+    },
+    {
+      "path": "ru_full.txt",
+      "url": "https://github.com/hermitdave/FrequencyWords",
+      "ref": "525f9b560de45753a5ea01069454e72e9aa541c6",
+      "sha256": "32dfd94138aea2667ec455dcc8512029e39bd4b8ea70b09410d569b69d511a30",
+      "license": "CC BY-SA 4.0",
+      "commercialUse": true,
+      "retrievedAt": "2026-07-13T00:00:00.000Z"
+    }
+  ]
+}

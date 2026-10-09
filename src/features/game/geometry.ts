@@ -10,6 +10,7 @@ export function tilePositions(n: number, radius: number, center: number): TilePo
 
 /** Индекс плитки под точкой (radius — радиус попадания), либо -1. */
 export function hitTile(pos: TilePos[], x: number, y: number, r: number): number {
+  'worklet';
   for (let i = 0; i < pos.length; i++) {
     const dx = pos[i].x - x;
     const dy = pos[i].y - y;

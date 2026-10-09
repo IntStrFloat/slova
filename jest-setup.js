@@ -1,5 +1,8 @@
 /* reanimated + worklets: моки для unit-тестов без нативного слоя */
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+jest.mock('react-native-reanimated', () => ({
+  ...require('react-native-reanimated/mock'),
+  useReducedMotion: () => false,
+}));
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 
 /* In-memory мок MMKV: сторы тестируются без нативного модуля */
@@ -26,6 +29,20 @@ jest.mock('expo-localization', () => ({
 jest.mock('expo-audio', () => ({
   createAudioPlayer: () => ({ play: () => {}, seekTo: () => {}, remove: () => {} }),
 }));
+
+/* GitFlic native SDK: unit tests exercise the Noop provider and pure routing. */
+jest.mock('react-native-rustore-push', () => ({
+  __esModule: true,
+  default: {
+    createPushEmitter: jest.fn(),
+    getToken: jest.fn(() => Promise.resolve('')),
+    deleteToken: jest.fn(() => Promise.resolve(true)),
+    checkPushAvailability: jest.fn(() => Promise.resolve(false)),
+    getInitialNotification: jest.fn(() => Promise.resolve(null)),
+  },
+  eventEmitter: { addListener: jest.fn(() => ({ remove: jest.fn() })) },
+  PushEvents: { ON_OPENED: 'ON_OPENED' },
+}), { virtual: true });
 
 /* react-native-svg: лёгкие host-стабы для UI-импортов в jest. */
 jest.mock('react-native-svg', () => {

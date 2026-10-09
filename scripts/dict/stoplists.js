@@ -89,4 +89,22 @@ const FUNCTION_WORDS = new Set([
   'отсюда', 'оттуда', 'отныне', 'будто', 'дабы', 'либо', 'нибудь', 'давно', 'вскоре', 'якобы',
 ]);
 
-module.exports = { PROFANITY_EXACT, PROFANITY_PREFIX, FUNCTION_WORDS, isProfane };
+// Normalized forms that are technically present in source dictionaries, but look
+// broken in a no-yo game UI. Example: "\u043e\u0442\u0451\u043b" becomes "\u043e\u0442\u0435\u043b" and reads like
+// "\u043e\u0442\u0435\u043b\u044c" with the soft sign missing.
+const QUALITY_EXACT = new Set([
+  '\u043e\u0442\u0435\u043b',
+]);
+
+function isLowQualityWord(w) {
+  return QUALITY_EXACT.has(w);
+}
+
+module.exports = {
+  PROFANITY_EXACT,
+  PROFANITY_PREFIX,
+  FUNCTION_WORDS,
+  QUALITY_EXACT,
+  isProfane,
+  isLowQualityWord,
+};

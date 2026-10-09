@@ -1,0 +1,50 @@
+{
+  "source": "C:\\Users\\Dima2\\Documents\\Slova\\store\\rustore\\marathon-2026-10\\blog\\article.docx",
+  "sourceSha256": "fa4ba60afa1c2a60afd47ef0767cf373d4d67c233956a08b424ebb5baab4c580",
+  "renderer": "@oai/artifact-tool 2.8.59 bundled DocumentFile.importDocx and document layout engine",
+  "APIEvidence": "Public exports and implementation in @oai/artifact-tool/dist/artifact_tool.mjs; package docs currently document sheets and slides only",
+  "originalDocxImported": true,
+  "sourceDocxChanged": false,
+  "rebuiltFromText": false,
+  "embeddedImages": 3,
+  "decodedImageBitmaps": 3,
+  "fontFamilies": [
+    "Arial",
+    "Calibri",
+    "Cambria",
+    "Courier"
+  ],
+  "scale": 2,
+  "pages": [
+    {
+      "page": 1,
+      "filename": "page-1.png",
+      "widthPx": 1632,
+      "heightPx": 2112
+    },
+    {
+      "page": 2,
+      "filename": "page-2.png",
+      "widthPx": 1632,
+      "heightPx": 2112
+    },
+    {
+      "page": 3,
+      "filename": "page-3.png",
+      "widthPx": 1632,
+      "heightPx": 2112
+    },
+    {
+      "page": 4,
+      "filename": "page-4.png",
+      "widthPx": 1632,
+      "heightPx": 2112
+    },
+    {
+      "page": 5,
+      "filename": "page-5.png",
+      "widthPx": 1632,
+      "heightPx": 2112
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "appId": "2063728518",
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.14",
+  "versionCode": 18,
+  "type": "Special event",
+  "name": "Марафон слов",
+  "shortDescription": "7 этапов и 150 монет",
+  "description": "С 26 октября по 1 ноября пройдите семь этапов марафона. Засчитываются первые прохождения обычных уровней и кроссворд текущего дня: всего 1, 3, 6, 9, 13, 17 и 21 головоломка. За каждый этап вы получите 10 монет, за финал — ещё 80; всего 150. Участие доступно с первого уровня. Ежедневная серия не нужна. Откройте «Марафон слов» в главном меню. Ранее пройденные уровни, повторы и архивные кроссворды не учитываются.",
+  "start": "2026-10-26T00:00:00+03:00",
+  "endExclusive": "2026-11-02T00:00:00+03:00",
+  "deeplink": "slova://marathon",
+  "cover": "art/marathon-event-cover-2880x2160.jpg",
+  "backgroundColor": "#352048",
+  "textColor": "white",
+  "priority": "High",
+  "contactEmail": "Gostlix10@yandex.ru",
+  "submissionStatus": "Review",
+  "requestId": "12159",
+  "lastVerifiedAtUtc": "2026-10-04T13:42:33Z",
+  "editorialApproval": "not_confirmed"
+}

@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=Slova, O=IntStrFloat, L=NA, C=RU
+Signer #1 certificate SHA-256 digest: 8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd
+Signer #1 certificate SHA-1 digest: b3f1740667dea0e661e277f51e3c662efdbcb222
+Signer #1 certificate MD5 digest: 32f0c078b385d9c37eff197c95116a27
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: a076d69dd8200489c74e9b8474b3dac6e0f351e0dac9ce2b1aa0abefda8bce09
+Signer #1 public key SHA-1 digest: 9eab4a2c360e9c281ced745bd01ed9340bedfd5d
+Signer #1 public key MD5 digest: 1df35f9234e2ce4d0193a411f5e85a53

@@ -1,0 +1,36 @@
+- generic [ref=f1e10]:
+  - generic [ref=f1e11]:
+    - generic [ref=f1e12] [cursor=pointer]: 
+    - generic [ref=f1e14]: Уровень 1
+    - generic [ref=f1e15]:
+      - generic [ref=f1e16]: 
+      - generic [ref=f1e17]: "200"
+  - generic [ref=f1e18]:
+    - 'generic "Кроссворд: заполнено 0 из 5 клеток. Собрано 0 из 2 слов." [ref=f1e20]'
+    - generic [ref=f1e33]:
+      - generic [ref=f1e34]:
+        - button "Буква" [ref=f1e35] [cursor=pointer]:
+          - generic [ref=f1e36]: 
+          - generic [ref=f1e38]:
+            - generic [ref=f1e39]: 
+            - generic [ref=f1e40]: "50"
+        - button "Микс" [ref=f1e41] [cursor=pointer]:
+          - generic [ref=f1e42]: 
+        - button "Слово" [ref=f1e44] [cursor=pointer]:
+          - generic [ref=f1e45]: 
+          - generic [ref=f1e47]:
+            - generic [ref=f1e48]: 
+            - generic [ref=f1e49]: "300"
+      - generic [ref=f1e50]:
+        - img [ref=f1e54]:
+          - generic [ref=f1e58]: С
+          - generic [ref=f1e61]: О
+          - generic [ref=f1e64]: Н
+        - generic [ref=f1e65]:
+          - 'generic "Букв на диске: 3. Выбор пуст." [ref=f1e66]'
+          - button "Буква С, позиция 1 из 3." [ref=f1e67] [cursor=pointer]:
+            - generic [ref=f1e68]: С
+          - button "Буква О, позиция 2 из 3." [ref=f1e69] [cursor=pointer]:
+            - generic [ref=f1e70]: О
+          - button "Буква Н, позиция 3 из 3." [ref=f1e71] [cursor=pointer]:
+            - generic [ref=f1e72]: Н

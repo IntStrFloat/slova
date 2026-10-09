@@ -1,0 +1,47 @@
+{
+  "device": "emulator-5574",
+  "avd": "Slova_Test_API35",
+  "startedAt": "2026-10-04T11:26:00.132Z",
+  "networkOffline": true,
+  "productionApkSha256": "7b3e1d3624b2931dbfd6753ab57772ce4688f0b148a4724e3ff23d43ca15eacd",
+  "offlineConnectivity": [
+    "Active default network: none\r"
+  ],
+  "production": {
+    "installed": true,
+    "coldStart": true,
+    "deepLink": "slova://marathon",
+    "upcoming": true,
+    "offline": true
+  },
+  "passed": true,
+  "restored": {
+    "autoTime": "1",
+    "deviceUtc": "Sun Oct  4 11:27:47 UTC 2026",
+    "networkSettings": {
+      "autoTime": "1",
+      "airplaneMode": "0",
+      "wifi": "1",
+      "data": "1"
+    }
+  },
+  "finishedAt": "2026-10-04T11:27:48.395Z",
+  "qa": {
+    "freshProfile": true,
+    "actualGestures": [
+      "кот",
+      "ток",
+      "сон",
+      "нос"
+    ],
+    "upcoming": true,
+    "active": true,
+    "actualFirstWin": true,
+    "beforeCoins": 160,
+    "afterCoins": 170,
+    "completionCount": 1,
+    "coldRestartStable": true,
+    "ended": true,
+    "newWinAfterExpiryIgnored": true
+  }
+}

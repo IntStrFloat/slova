@@ -4,6 +4,11 @@ node_modules/
 .expo/
 android/
 ios/
+# Keep the local Review module source; only its Gradle output is generated.
+!modules/rustore-review/android/
+!modules/rustore-review/android/**
+modules/rustore-review/android/build/
+modules/rustore-review/android/.gradle/
 dist/
 web-dist/
 *.log

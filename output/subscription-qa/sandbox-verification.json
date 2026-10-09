@@ -1,0 +1,20 @@
+{
+  "mode": "test",
+  "firstCheckoutVerified": true,
+  "recurringPaymentVerified": true,
+  "recurringAmount": "99.00",
+  "periodDays": 30,
+  "cancelPreservesPaidPeriod": true,
+  "chargesAfterCancel": 0,
+  "realMoneyDebited": false,
+  "browserCancelVerified": true,
+  "cleanProfileRestoreVerified": true,
+  "nativeAndroidVerified": false,
+  "productionEnabled": false,
+  "fullClientSuitePassed": 563,
+  "latestFocusedTestsPassed": 41,
+  "backendTestsPassed": 70,
+  "lintPassed": true,
+  "typecheckPassed": true,
+  "visualScore": 94
+}

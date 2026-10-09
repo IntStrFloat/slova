@@ -1,0 +1,8 @@
+{
+  "mustAccept": ["бар", "рак", "раб", "сто", "лес", "село", "смола", "сало"],
+  "mustBlock": [
+    { "word": "сука", "reason": "profanity" },
+    { "word": "блядь", "reason": "profanity" }
+  ],
+  "mustNotBeAnswer": ["отел"]
+}

@@ -1,0 +1,23 @@
+{
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.8",
+  "versionCode": 12,
+  "sizeBytes": 165742490,
+  "sha256": "ccae4779b8e6f45c875440c83e9e644728c273770a8b86377d89844e7115860d",
+  "certificateSha256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "signatureVerified": true,
+  "matchesPreviousReleaseCertificate": true,
+  "reviewSdk": "10.5.1",
+  "build": "assembleRelease",
+  "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.8-vc12-release.apk",
+  "emulatorSmoke": {
+    "device": "emulator-5574",
+    "updateInstall": "Success",
+    "installedVersion": "0.1.8",
+    "installedVersionCode": 12,
+    "gameplayScreenConfirmed": true,
+    "androidRuntimeErrorsObserved": false,
+    "reviewFormVerified": false,
+    "screenshot": "output/release/slova-0.1.8-vc12-smoke.png"
+  }
+}

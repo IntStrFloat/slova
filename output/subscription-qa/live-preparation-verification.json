@@ -1,0 +1,76 @@
+{
+  "checkedAt": "2026-10-05",
+  "result": "prepared_external_onboarding_required",
+  "provider": "yookassa",
+  "shop": {
+    "id": "1485481",
+    "statusObserved": "Connecting",
+    "liveAcceptanceVerified": false
+  },
+  "plan": {
+    "amount": "99.00",
+    "currency": "RUB",
+    "periodDays": 30
+  },
+  "notices": {
+    "provider": "timeweb",
+    "smtpImplemented": true,
+    "mailboxConfigured": true,
+    "selectedMailbox": "sales@strsoft.ru",
+    "mailboxChoiceUpdatedAt": "2026-10-08",
+    "existingMailboxReused": true,
+    "additionalMailboxMonthlyPriceRUB": 0,
+    "smtpPasswordPresent": true,
+    "realMessagesSent": true,
+    "minimumLeadHours": 24,
+    "smtpAuthenticationVerified": true,
+    "smtpAuthenticationResponse": 235,
+    "selfTestAcceptedBySmtp": true,
+    "selfTestInboxVerified": false,
+    "onlyMessageRecipient": "sales@strsoft.ru",
+    "serverConfigured": false
+  },
+  "npd": {
+    "providerConfirmed": false,
+    "adapterImplemented": false,
+    "inquiryDraftPrepared": true,
+    "pausedForUserDecision": true,
+    "inquiriesSent": false
+  },
+  "deployment": {
+    "attempted": true,
+    "deployed": true,
+    "transport": "timeweb_serial_console",
+    "serverId": "8350225",
+    "filesUpdated": 10,
+    "backup": "/opt/slova/backups/console-1791227032403",
+    "preflightSSH": "handshake_timeout",
+    "localHTTPS": "healthy_with_verified_certificate",
+    "externalBrowserHTTPS": "ERR_TIMED_OUT",
+    "salesEnabled": false,
+    "unrelatedServerModified": false,
+    "bloxxStateAfter": "active",
+    "rollbackExercised": false,
+    "latestSshCheckAt": "2026-10-08",
+    "latestSshResult": "connection_timeout"
+  },
+  "checks": {
+    "backendTests": 238,
+    "jestTests": 565,
+    "jestSuites": 88,
+    "expoLint": "pass",
+    "cjsLint": "pass",
+    "typecheck": "pass",
+    "independentRegressionReview": "54_passed"
+  },
+  "reviewFixes": [
+    "persisted_attempt_payload_validated_before_payment_post",
+    "cancellation_rechecked_synchronously_before_payment_post",
+    "malformed_notice_record_cannot_resend_smtp"
+  ],
+  "liveSalesEnabled": false,
+  "realChargesCreated": false,
+  "aabBuilt": true,
+  "lastUpdatedAt": "2026-10-08",
+  "aabVerification": "output/subscription-qa/subscription-native-release-verification.json"
+}

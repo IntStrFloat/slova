@@ -6,8 +6,9 @@ import {
 import type { InterstitialAd, RewardedAd } from 'yandex-mobile-ads';
 
 import { MONETIZATION } from '@/core/config/monetization';
+import { useEntitlements } from './entitlements';
 
-import type { AdsProvider, InterstitialResult, RewardedResult } from './types';
+import type { AdsProvider, InterstitialResult, RewardConfirmation, RewardedPlacement, RewardedResult } from './types';
 
 let interstitialAd: InterstitialAd | null = null;
 let rewardedAd: RewardedAd | null = null;
@@ -71,6 +72,7 @@ async function initialize(): Promise<void> {
 }
 
 async function showInterstitial(): Promise<InterstitialResult> {
+  if (useEntitlements.getState().removeAds) return 'skipped';
   const ad = interstitialAd;
   if (!ad) {
     void preloadInterstitial();
@@ -97,7 +99,13 @@ async function showInterstitial(): Promise<InterstitialResult> {
   });
 }
 
-async function showRewarded(): Promise<RewardedResult> {
+async function showRewarded(
+  _placement: RewardedPlacement,
+  confirmation?: RewardConfirmation,
+): Promise<RewardedResult> {
+  if (confirmation && (!confirmation.rewardId.trim() || typeof confirmation.persistGrant !== 'function')) {
+    return 'unavailable';
+  }
   const ad = rewardedAd;
   if (!ad) {
     void preloadRewarded();
@@ -107,6 +115,7 @@ async function showRewarded(): Promise<RewardedResult> {
   return new Promise((resolve) => {
     let settled = false;
     let earnedReward = false;
+    let grantPersisted = false;
     const finish = (result: RewardedResult) => {
       if (settled) return;
       settled = true;
@@ -115,15 +124,23 @@ async function showRewarded(): Promise<RewardedResult> {
     };
     ad.onRewarded = () => {
       earnedReward = true;
+      if (!confirmation || grantPersisted) return;
+      try {
+        // The SDK can confirm a reward before dismissal. Persist at this exact point.
+        grantPersisted = confirmation.persistGrant(confirmation.rewardId) === true;
+      } catch (error) {
+        // A duplicate callback can retry a failed write. The caller can retry after dismissal too.
+        reportAdsError('reward persistence', error);
+      }
     };
     ad.onAdDismissed = () => finish(earnedReward ? 'rewarded' : 'dismissed');
     ad.onAdFailedToShow = (error) => {
       reportAdsError('rewarded show', error);
-      finish('unavailable');
+      finish(earnedReward ? 'rewarded' : 'unavailable');
     };
     ad.show().catch((error) => {
       reportAdsError('rewarded show', error);
-      finish('unavailable');
+      finish(earnedReward ? 'rewarded' : 'unavailable');
     });
   });
 }
@@ -132,5 +149,6 @@ export const YandexAdsProvider: AdsProvider = {
   init: initialize,
   showInterstitial,
   showRewarded,
+  isInterstitialReady: () => interstitialAd !== null,
   isRewardedReady: () => rewardedAd !== null,
 };

@@ -7,15 +7,22 @@ import { dayKey } from '@/core/time';
 
 const SECTORS = ECONOMY.wheel.sectors;
 
+export interface PendingWheelSpin {
+  effectId: string;
+  sector: number;
+  value: number;
+}
+
 export interface WheelState {
   day: string | null;
   freeUsed: boolean;
   rewardedUsed: number;
+  pendingSpin?: PendingWheelSpin | null;
 }
 
 function rollover(state: WheelState, today: string): WheelState {
   if (state.day === today) return state;
-  return { day: today, freeUsed: false, rewardedUsed: 0 };
+  return { day: today, freeUsed: false, rewardedUsed: 0, pendingSpin: state.pendingSpin ?? null };
 }
 
 /** Чистый редьюсер: совершить вращение (free | rewarded). */
@@ -24,24 +31,31 @@ export function spinWheel(
   today: string,
   viaRewarded: boolean,
   rngSeed: number,
-): { state: WheelState; sector: number; value: number } | { state: WheelState; error: string } {
+): { state: WheelState } & PendingWheelSpin | { state: WheelState; error: string } {
   const s = rollover(state, today);
+  if (s.pendingSpin) return { state: s, error: 'pending_spin' };
   if (!viaRewarded) {
     if (s.freeUsed) return { state: s, error: 'no_free_spin' };
   } else if (s.rewardedUsed >= ECONOMY.wheel.maxRewardedSpins) {
     return { state: s, error: 'no_rewarded_spins' };
   }
   const sector = Math.floor(mulberry32(rngSeed)() * SECTORS.length) % SECTORS.length;
+  const pendingSpin: PendingWheelSpin = {
+    effectId: viaRewarded ? `wheel:${today}:rewarded:${s.rewardedUsed + 1}` : `wheel:${today}:free`,
+    sector,
+    value: SECTORS[sector],
+  };
   const next: WheelState = viaRewarded
-    ? { ...s, rewardedUsed: s.rewardedUsed + 1 }
-    : { ...s, freeUsed: true };
-  return { state: next, sector, value: SECTORS[sector] };
+    ? { ...s, rewardedUsed: s.rewardedUsed + 1, pendingSpin }
+    : { ...s, freeUsed: true, pendingSpin };
+  return { state: next, ...pendingSpin };
 }
 
 interface Store extends WheelState {
   canFree: () => boolean;
   rewardedLeft: () => number;
-  spin: (viaRewarded: boolean) => { value: number; sector: number } | null;
+  spin: (viaRewarded: boolean) => PendingWheelSpin | null;
+  claimPending: (effectId: string) => boolean;
   reset: () => void;
 }
 
@@ -50,28 +64,35 @@ const init = getJSON<WheelState>(KEYS.wheel, { day: null, freeUsed: false, rewar
 export const useWheel = create<Store>((set, get) => ({
   ...init,
   canFree: () => {
-    const s = rollover({ day: get().day, freeUsed: get().freeUsed, rewardedUsed: get().rewardedUsed }, dayKey());
-    return !s.freeUsed;
+    const s = rollover({ day: get().day, freeUsed: get().freeUsed, rewardedUsed: get().rewardedUsed, pendingSpin: get().pendingSpin }, dayKey());
+    return !s.freeUsed && !s.pendingSpin;
   },
   rewardedLeft: () => {
-    const s = rollover({ day: get().day, freeUsed: get().freeUsed, rewardedUsed: get().rewardedUsed }, dayKey());
-    return ECONOMY.wheel.maxRewardedSpins - s.rewardedUsed;
+    const s = rollover({ day: get().day, freeUsed: get().freeUsed, rewardedUsed: get().rewardedUsed, pendingSpin: get().pendingSpin }, dayKey());
+    return s.pendingSpin ? 0 : ECONOMY.wheel.maxRewardedSpins - s.rewardedUsed;
   },
   spin: (viaRewarded) => {
     const res = spinWheel(
-      { day: get().day, freeUsed: get().freeUsed, rewardedUsed: get().rewardedUsed },
+      { day: get().day, freeUsed: get().freeUsed, rewardedUsed: get().rewardedUsed, pendingSpin: get().pendingSpin },
       dayKey(),
       viaRewarded,
       (Date.now() & 0xffffffff) >>> 0,
     );
     if ('error' in res) return null;
-    set(res.state);
     setJSON(KEYS.wheel, res.state);
-    return { value: res.value, sector: res.sector };
+    set(res.state);
+    return { effectId: res.effectId, value: res.value, sector: res.sector };
+  },
+  claimPending: (effectId) => {
+    if (!effectId || get().pendingSpin?.effectId !== effectId) return false;
+    const next = { day: get().day, freeUsed: get().freeUsed, rewardedUsed: get().rewardedUsed, pendingSpin: null };
+    setJSON(KEYS.wheel, next);
+    set(next);
+    return true;
   },
   reset: () => {
-    const s = { day: null, freeUsed: false, rewardedUsed: 0 };
-    set(s);
+    const s = { day: null, freeUsed: false, rewardedUsed: 0, pendingSpin: null };
     setJSON(KEYS.wheel, s);
+    set(s);
   },
 }));

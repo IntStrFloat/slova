@@ -1,192 +1,299 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { landmarksForWorld } from '@/core/config/worlds';
-import { t } from '@/core/i18n';
-import { getString, KEYS } from '@/core/storage';
+import { latestLandmarkAt, totalCampaignLevels, worldById, worldForCampaignLevel } from '@/core/config/worlds';
+import { getString, KEYS, setString } from '@/core/storage';
+import { dayKey } from '@/core/time';
+import { track, trackOnce } from '@/features/analytics';
+import { trackObservedRetentionMilestones } from '@/features/analytics/retentionEvents';
 import { useCurrency } from '@/features/currency';
-import { totalLevelCount, useLevels, worldForGlobalLevel } from '@/features/levels';
-import { AdBanner } from '@/features/monetization';
-import {
-  AppButton,
-  AppText,
-  CoinBadge,
-  colors,
-  GlassPanel,
-  Icon,
-  radius,
-  shadowCard,
-  WorldBackground,
-  worldTheme,
-  type IconName,
-} from '@/ui';
+import { useDailyBonus } from '@/features/dailybonus';
+import { routeCardProgress } from '@/features/collection/routeProgress';
+import { useCollection } from '@/features/collection/store';
+import { useDailyPuzzle } from '@/features/dailypuzzle';
+import { loadGameSnapshot, type GameSnapshot } from '@/features/game/persistence';
+import { loadGlobalLevel, useLevels } from '@/features/levels';
+import { AdBanner, MONETIZATION } from '@/features/monetization';
+import { assignIntroPackForCurrentProfile } from '@/features/onboarding/introPack';
+import { giftProgress } from '@/features/progression/store';
+import { getCollectibles, getEventStatus, getFeatureGates, getJourneyStatus, getQuestStatus, getWeeklyStatus, reconcileRewards, useRetention } from '@/features/retention';
+import { homePlayLabel, nextHomePostcard, normalLevelProgress, pendingNormalResultLevel, shouldAutoOpenIntro } from '@/features/retention-ui/homeModel';
+import { trackLoginGiftGrant } from '@/features/retention-ui/giftAnalytics';
+import { startFocusedRefresh } from '@/features/retention-ui/foregroundRefresh';
+import { ReminderAction } from '@/features/retention-ui/ReminderAction';
+import { MarathonEntry } from '@/features/retention-ui/MarathonEntry';
+import { ruCount } from '@/features/retention-ui/text';
+import { useViewportExposure } from '@/features/retention-ui/viewportExposure';
+import { AppText, CoinBadge, colors, GlassPanel, Icon, radius, WorldBackground, type IconName } from '@/ui';
 
-const META: { route: string; key: Parameters<typeof t>[0]; icon: IconName }[] = [
-  { route: '/daily', key: 'daily', icon: 'daily' },
-  { route: '/wheel', key: 'wheel', icon: 'wheel' },
-  { route: '/collection', key: 'collection', icon: 'collection' },
-  { route: '/shop', key: 'shop', icon: 'shop' },
-  { route: '/leaderboard', key: 'leaderboard', icon: 'leaderboard' },
-  { route: '/events', key: 'events', icon: 'events' },
-  { route: '/teams', key: 'teams', icon: 'teams' },
-  { route: '/profile', key: 'profile', icon: 'profile' },
-  { route: '/settings', key: 'settings', icon: 'settings' },
-];
+const flatTitle = { textShadowColor: 'transparent', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 0 } as const;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function LinkChip({ label, visibleLabel = label, icon, onPress, badge = false, compact = false }: { label: string; visibleLabel?: string; icon: IconName; onPress: () => void; badge?: boolean; compact?: boolean }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
+      style={({ pressed }) => ({ minHeight: compact ? 48 : 52, flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        paddingHorizontal: compact ? 10 : 14, paddingVertical: compact ? 7 : 10, borderRadius: radius.pill, backgroundColor: pressed ? colors.creamDeep : colors.cream,
+        borderWidth: 1, borderBottomWidth: 3, borderColor: colors.goldBorder })}>
+      <Icon name={icon} size={19} color={colors.brown} />
+      <AppText preset="label" maxFontSizeMultiplier={compact ? 1.3 : undefined} style={{ color: colors.brown, fontSize: 14, flexShrink: 1, textAlign: 'center' }}>{visibleLabel}</AppText>
+      {badge ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.playGreen }} /> : null}
+    </Pressable>
+  );
+}
+
+function PlayButton({ label, visibleLabel = label, icon, onPress, compact = false }: { label: string; visibleLabel?: string; icon: IconName; onPress: () => void; compact?: boolean }) {
+  const scale = useSharedValue(1);
+  const reducedMotion = useReducedMotion();
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
+  return (
+    <AnimatedPressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
+      onPressIn={() => { if (!reducedMotion) scale.set(withTiming(0.97, { duration: 110 })); }}
+      onPressOut={() => { scale.set(withTiming(1, { duration: 140 })); }}
+      style={[{ minHeight: compact ? 48 : 54, width: '100%', paddingHorizontal: compact ? 12 : 16, paddingVertical: compact ? 8 : 10,
+        borderRadius: radius.pill, backgroundColor: colors.playGreenDark,
+        borderWidth: 1, borderBottomWidth: 4, borderColor: colors.playGreen,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }, animatedStyle]}>
+      <Icon name={icon} size={23} color={colors.onGreen} />
+      <AppText preset="label" maxFontSizeMultiplier={compact ? 1.3 : undefined} style={{ color: colors.onGreen, fontSize: compact ? 16 : 17, flexShrink: 1, textAlign: 'center' }}>{visibleLabel}</AppText>
+    </AnimatedPressable>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
-  const currentLevel = useLevels((s) => s.currentLevel);
-  const completed = useLevels((s) => s.completed.length);
-  const coins = useCurrency((s) => s.coins);
-  const total = totalLevelCount();
-  const currentWorld = worldForGlobalLevel(currentLevel);
-  const theme = worldTheme(currentWorld);
-  const routeLevels = Array.from({ length: 7 }, (_, i) => Math.max(1, currentLevel - 2 + i));
-  const nextLandmark = landmarksForWorld(currentWorld).find((l) => l.untilLevel >= currentLevel);
+  const { height, width, fontScale } = useWindowDimensions();
+  const compact = height < 700 || width < 350;
+  const [introAssigned] = useState(assignIntroPackForCurrentProfile);
+  const [introSurface, setIntroSurface] = useState(() => getString(KEYS.introSurface));
+  const [snapshot, setSnapshot] = useState<GameSnapshot | null>(() => loadGameSnapshot('normal'));
+  const completed = useLevels((state) => state.completed.length);
+  const currentLevel = useLevels((state) => state.currentLevel);
+  const coins = useCurrency((state) => state.coins);
+  const canClaimGift = useDailyBonus((state) => state.canClaim());
+  const pendingGift = useDailyBonus((state) => state.pendingGift);
+  const [giftClaim, setGiftClaim] = useState<{ date: string; amount: number } | null>(null);
+  const [giftError, setGiftError] = useState<string | null>(null);
+  const [nowDay, setNowDay] = useState(() => dayKey());
+  const daily = useDailyPuzzle();
+  const retention = useRetention();
+  const gates = getFeatureGates(retention);
+  const week = getWeeklyStatus(retention, dayKey());
+  const quests = gates.quests ? getQuestStatus(retention, dayKey()) : null;
+  const event = gates.event ? getEventStatus(retention, Date.now()) : null;
+  const cards = getCollectibles(retention);
+  const newCount = cards.filter((card) => card.owned && !card.seen).length;
+  const openedRouteCards = useCollection((state) => state.opened);
+  const total = totalCampaignLevels();
+  const pendingResultLevel = pendingNormalResultLevel(snapshot, loadGlobalLevel);
+  const campaignComplete = currentLevel > total && pendingResultLevel === null;
+  const displayLevel = Math.min(Math.max(pendingResultLevel ?? currentLevel, 1), total);
+  const completedLevel = Math.min(total, Math.max(0, currentLevel - 1));
+  const lastEarnedRouteCard = latestLandmarkAt(worldForCampaignLevel(Math.max(1, completedLevel)), completedLevel);
+  const featuredRouteCard = lastEarnedRouteCard && openedRouteCards.includes(lastEarnedRouteCard.id)
+    ? lastEarnedRouteCard : null;
+  const nextRouteCard = routeCardProgress(completedLevel);
+  const nextPostcard = nextHomePostcard(nextRouteCard, getJourneyStatus(retention), cards);
+  const nextGift = giftProgress(completedLevel);
+  const currentWorld = worldForCampaignLevel(displayLevel);
+  const world = worldById(currentWorld);
+  const normalLevel = loadGlobalLevel(displayLevel);
+  const partial = normalLevelProgress(snapshot, displayLevel, normalLevel?.answers.length ?? null);
+  const primaryLabel = campaignComplete && !gates.daily
+    ? 'Открыть альбом'
+    : homePlayLabel(displayLevel, partial.hasPartialProgress, campaignComplete, pendingResultLevel !== null);
+  const compactPrimaryLabel = campaignComplete ? primaryLabel
+    : pendingResultLevel !== null ? 'Результат' : partial.hasPartialProgress ? 'Продолжить' : 'Играть';
+  const autoOpen = shouldAutoOpenIntro(introAssigned, completed, introSurface);
+  const canOpenAlbum = !introAssigned || completed >= 5;
+  const dailyDate = daily.effectiveDay();
+  const dailyDone = daily.isDone(dailyDate);
+  const visibleGift = giftClaim?.date === nowDay ? giftClaim.amount : null;
+  const exposure = useViewportExposure((id) => {
+    if (id === 'daily') track('daily_entry_seen', { dateKey: dailyDate, screen: 'home', source: 'home_card', solved: dailyDone });
+    if (id === 'gift') track('daily_bonus_seen', { dateKey: nowDay, screen: 'home', claimable: canClaimGift });
+    if (id === 'postcard' && featuredRouteCard) trackOnce('reward_presentation_seen', featuredRouteCard.id, { rewardId: featuredRouteCard.id, screen: 'home' });
+  }, [
+    ...(gates.daily ? ['daily'] : []),
+    ...(completed >= 5 && (canClaimGift || visibleGift !== null) ? ['gift'] : []),
+    ...(featuredRouteCard ? ['postcard'] : []),
+  ], `${dailyDate}:${nowDay}`);
 
-  const [ready] = useState(() => getString(KEYS.onboardingDone) !== null);
-  useEffect(() => {
-    if (!ready) router.replace('/onboarding' as never);
-  }, [ready, router]);
-  if (!ready) return null;
+  useFocusEffect(useCallback(() => {
+    const surface = getString(KEYS.introSurface);
+    setIntroSurface(surface);
+    setSnapshot(loadGameSnapshot('normal'));
+    const wins = useLevels.getState().completed.length;
+    if (shouldAutoOpenIntro(introAssigned, wins, surface)) {
+      router.replace('/game?source=intro_auto' as never);
+      return;
+    }
+    exposure.focus();
+    const refresh = () => {
+      const actionDay = useDailyPuzzle.getState().refreshDay();
+      setNowDay(actionDay);
+      setSnapshot(loadGameSnapshot('normal'));
+      const result = useDailyBonus.getState().reconcilePending();
+      setGiftError(result.error ? 'Не удалось сохранить подарок. Попробуйте ещё раз.' : null);
+      trackLoginGiftGrant(result, useDailyBonus.getState().lastDay, 'home', 'focus_recovery');
+      if (useLevels.getState().completed.length >= 5) {
+        const progress = useRetention.getState();
+        progress.ensureDay({ actionDay });
+        reconcileRewards((id, amount) => useCurrency.getState().addOnce(id, 'coins', amount));
+      }
+      trackObservedRetentionMilestones(useRetention.getState());
+    };
+    const stopRefresh = startFocusedRefresh(refresh);
+    const progress = useRetention.getState();
+    track('home_viewed', { source: wins < 5 ? 'early' : wins === 5 ? 'planned' : 'return', levelId: useLevels.getState().currentLevel });
+    trackObservedRetentionMilestones(progress);
+    if (getFeatureGates(progress).daily) trackOnce('daily_eligible', 'first-eligible:v1');
+    return () => { stopRefresh(); exposure.blur(); };
+  }, [introAssigned, router, exposure]));
+
+  const play = () => {
+    const mode = campaignComplete ? gates.daily ? 'daily' : 'album' : 'campaign';
+    track('home_primary_action', { mode });
+    if (campaignComplete) return router.push((gates.daily ? '/daily?source=home_primary' : '/collection') as never);
+    if (introAssigned && completed < 5) setString(KEYS.introSurface, 'game');
+    router.push('/game?source=home' as never);
+  };
+
+  const openDaily = () => {
+    track('home_primary_action', { mode: 'daily' });
+    track('daily_entry_clicked', { screen: 'home', source: 'home_card', dateKey: dailyDate });
+    router.push('/daily?source=home_card' as never);
+  };
+  const claimGift = () => {
+    const result = useDailyBonus.getState().claim();
+    if (result.error) { setGiftError('Не удалось сохранить подарок. Попробуйте ещё раз.'); return; }
+    setGiftError(null);
+    if (!result.reward) return;
+    setGiftClaim({ date: nowDay, amount: result.reward });
+    trackLoginGiftGrant(result, useDailyBonus.getState().lastDay, 'home', 'home_gift');
+  };
+
+  if (autoOpen) return null;
 
   return (
     <View style={{ flex: 1 }}>
-      <WorldBackground world={currentWorld} image={nextLandmark?.image} />
+      <WorldBackground world={currentWorld} image={latestLandmarkAt(currentWorld, completedLevel)?.image ?? world?.image} />
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 16, alignItems: 'center' }}>
-          <AppText preset="title">{t('appTitle')}</AppText>
+        <View style={{ minHeight: compact ? 48 : 60, paddingHorizontal: compact ? 12 : 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <CoinBadge value={coins} />
+          {compact ? <AppText preset="display" maxFontSizeMultiplier={1.3} numberOfLines={1} style={{ fontSize: 16, letterSpacing: 1, textAlign: 'center', flexShrink: 1 }}>СЛОВА</AppText> : null}
+          <Pressable onPress={() => router.push('/settings' as never)} accessibilityRole="button" accessibilityLabel="Настройки"
+            style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: pressed ? colors.plumDeep : colors.glassStrong,
+              borderWidth: 1, borderColor: colors.cream, alignItems: 'center', justifyContent: 'center' })}>
+            <Icon name="settings" size={23} color={colors.cream} />
+          </Pressable>
         </View>
+        <ScrollView {...exposure.scrollProps} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingHorizontal: compact ? 12 : 16, paddingTop: compact ? 6 : 0, paddingBottom: 26, gap: compact ? 6 : 12 }}>
+          {!compact ? <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <AppText preset="display" style={{ fontSize: 32, letterSpacing: 3, textAlign: 'center' }}>СЛОВА</AppText>
+          </View> : null}
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18, gap: 16 }}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {META.slice(0, 4).map((m) => (
-              <Pressable
-                key={m.route}
-                onPress={() => router.push(m.route as never)}
-                style={({ pressed }) => [
-                  shadowCard,
-                  {
-                    backgroundColor: colors.glassStrong,
-                    borderColor: colors.glassBorder,
-                    borderWidth: 1,
-                    borderRadius: radius.pill,
-                    width: 52,
-                    height: 52,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transform: [{ scale: pressed ? 0.96 : 1 }],
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={t(m.key)}
-              >
-                <Icon name={m.icon} size={24} color={colors.amber} />
-              </Pressable>
-            ))}
-          </View>
-
-          <GlassPanel strong style={{ overflow: 'hidden', padding: 0 }}>
-            <View style={{ padding: 18, gap: 8 }}>
-              <AppText preset="body" style={{ color: colors.amber }}>{theme.name}</AppText>
-              <AppText preset="display">{t('level', { n: currentLevel })}</AppText>
-              <AppText preset="body" style={{ color: colors.textMuted }}>
-                Маршрут {completed}/{total}
-              </AppText>
+          <GlassPanel tone="cream" style={{ padding: compact ? 8 : 14, gap: compact ? 4 : 7, borderBottomWidth: 3 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+                <Icon name="journey" size={18} color={colors.brown} />
+                <AppText preset="label" maxFontSizeMultiplier={compact ? 1.3 : undefined} style={{ color: colors.brown, fontSize: 13, flexShrink: 1 }}>
+                  {campaignComplete ? 'Маршрут пройден' : `Уровень ${displayLevel} · ${world?.title ?? 'Путешествие'}`}
+                </AppText>
+              </View>
+              {introAssigned && completed < 5 ? (
+                <View style={{ borderRadius: radius.pill, backgroundColor: colors.creamDeep, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <AppText preset="label" style={{ color: colors.brown, fontSize: 12 }}>{completed} / 5</AppText>
+                </View>
+              ) : null}
             </View>
-
-            <View style={{ minHeight: 360, paddingHorizontal: 26, paddingBottom: 18 }}>
-              <View
-                style={{
-                  position: 'absolute',
-                  left: 55,
-                  top: 18,
-                  bottom: 44,
-                  width: 4,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.glassBorder,
-                }}
-              />
-              {routeLevels.map((levelNo, index) => {
-                const isCurrent = levelNo === currentLevel;
-                const isPast = levelNo < currentLevel;
-                const locked = levelNo > currentLevel;
-                const milestone = nextLandmark?.untilLevel === levelNo;
-                return (
-                  <View
-                    key={levelNo}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 14,
-                      minHeight: isCurrent ? 78 : 48,
-                      marginLeft: index % 2 === 0 ? 0 : 42,
-                    }}
-                  >
-                    <View
-                      style={[
-                        shadowCard,
-                        {
-                          width: isCurrent ? 68 : 46,
-                          height: isCurrent ? 68 : 46,
-                          borderRadius: radius.pill,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: isCurrent ? colors.amber : isPast ? colors.green : colors.glassStrong,
-                          borderWidth: 2,
-                          borderColor: milestone ? colors.gridHint : colors.glassBorder,
-                        },
-                      ]}
-                    >
-                      <Icon name={milestone ? 'collection' : isPast ? 'check' : locked ? 'lock' : 'play'} size={isCurrent ? 28 : 20} color={isCurrent ? colors.onAmber : colors.text} />
-                    </View>
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <AppText preset={isCurrent ? 'title' : 'label'} numberOfLines={1}>
-                        {milestone ? nextLandmark?.title : t('level', { n: levelNo })}
-                      </AppText>
-                      <AppText preset="body" style={{ color: colors.textMuted }} numberOfLines={1}>
-                        {isCurrent ? 'Текущая остановка' : isPast ? 'Пройдено' : milestone ? 'Следующая достопримечательность' : 'Скоро'}
-                      </AppText>
-                    </View>
-                    {isCurrent ? (
-                      <AppButton label={t('play')} icon="play" variant="accent" onPress={() => router.push('/game')} />
-                    ) : null}
-                  </View>
-                );
-              })}
-            </View>
+            {partial.label ? <AppText preset="body" maxFontSizeMultiplier={compact ? 1.3 : undefined} style={{ color: colors.brown, fontSize: compact ? 12 : 14 }}>{partial.label}</AppText> : null}
+            <PlayButton label={primaryLabel} visibleLabel={compact ? compactPrimaryLabel : primaryLabel} compact={compact} icon={campaignComplete ? gates.daily ? 'daily' : 'collection' : 'play'} onPress={play} />
+            {!compact ? <AppText preset="body" style={{ color: colors.brown, fontSize: 13, textAlign: 'center', opacity: 0.76 }}>
+              {campaignComplete
+                ? gates.daily ? 'Возвращайтесь за новым кроссвордом дня.' : 'Полученные открытки остаются в альбоме.'
+                : pendingResultLevel !== null ? 'Победа сохранена. Продолжайте с результата.'
+                  : 'Составляйте слова и открывайте новые места.'}
+            </AppText> : null}
           </GlassPanel>
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-            {META.slice(4).map((m) => (
-              <Pressable
-                key={m.route}
-                onPress={() => router.push(m.route as never)}
-                style={({ pressed }) => ({
-                  minHeight: 48,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.glassStrong,
-                  borderWidth: 1,
-                  borderColor: colors.glassBorder,
-                  transform: [{ scale: pressed ? 0.96 : 1 }],
-                })}
-              >
-                <Icon name={m.icon} size={20} color={colors.amber} />
-                <AppText preset="label" style={{ fontSize: 13 }}>{t(m.key)}</AppText>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
+          <MarathonEntry />
 
-        <AdBanner />
+          {gates.daily ? <View testID="home-daily-card" onLayout={exposure.cardLayout('daily')}>
+            <GlassPanel tone="cream" style={{ padding: compact ? 8 : 14, gap: compact ? 4 : 6, borderBottomWidth: 3 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="daily" size={22} color={colors.brown} /><AppText preset="title" maxFontSizeMultiplier={compact ? 1.3 : undefined} style={{ flex: 1, fontSize: compact ? 16 : 17, color: colors.brown, ...flatTitle }}>Кроссворд дня</AppText></View>
+              {!compact ? <AppText preset="body" style={{ color: colors.brown, fontSize: 12 }}>
+                {dailyDone ? 'Решено! Завтра — новый кроссворд.' : daily.instances[dailyDate] ? 'Прогресс сохранён — продолжайте.' : 'Новая головоломка каждый день.'}
+              </AppText> : null}
+              <LinkChip label={dailyDone ? 'Календарь кроссвордов' : 'Открыть кроссворд дня'} visibleLabel={compact ? dailyDone ? 'Решено · календарь' : daily.instances[dailyDate] ? 'Продолжить кроссворд' : 'Играть сегодня' : undefined} compact={compact} icon={dailyDone ? 'check' : 'play'} onPress={openDaily} />
+            </GlassPanel>
+          </View> : null}
+
+          {completed >= 5 && (canClaimGift || visibleGift !== null) ? <View testID="home-gift-card" onLayout={exposure.cardLayout('gift')}>
+            <GlassPanel tone="cream" style={{ padding: compact ? 6 : 12, gap: 5, borderBottomWidth: 3 }}>
+              {visibleGift !== null ? <AppText preset="label" maxFontSizeMultiplier={compact ? 1.3 : undefined} accessibilityLiveRegion="polite" style={{ color: colors.playGreenDark, textAlign: 'center', fontSize: 14 }}>Подарок получен · +{visibleGift} монет</AppText> :
+                <LinkChip label={pendingGift ? 'Завершить получение подарка' : 'Забрать ежедневный подарок'} visibleLabel={compact ? pendingGift ? 'Получить подарок' : 'Подарок дня' : undefined} compact={compact} icon="chest" onPress={claimGift} />}
+              {giftError ? <AppText preset="body" accessibilityLiveRegion="assertive" style={{ color: colors.plumDeep, fontSize: 12 }}>{giftError}</AppText> : null}
+            </GlassPanel>
+          </View> : null}
+
+          {nextPostcard ? <GlassPanel tone="cream" style={{ padding: compact ? 8 : 12, flexDirection: !compact && fontScale > 1.4 ? 'column' : 'row', alignItems: 'center', gap: compact ? 8 : 10, borderBottomWidth: 3 }}>
+            {nextPostcard.image ? <Image source={nextPostcard.image} contentFit="cover" style={{ width: compact ? 32 : 42, height: compact ? 42 : 54, borderRadius: radius.sm, opacity: 0.8 }} /> : <Icon name="collection" size={compact ? 24 : 30} color={colors.plum} />}
+            <View style={{ flex: 1, gap: 3, alignSelf: 'stretch' }}>
+              <AppText preset="label" maxFontSizeMultiplier={compact ? 1.3 : undefined} style={{ color: colors.brown, fontSize: 13 }}>{compact ? 'Далее в альбоме' : 'Следующая открытка'} · {nextPostcard.title}</AppText>
+              <AppText preset="body" maxFontSizeMultiplier={compact ? 1.3 : undefined} style={{ color: colors.brown, fontSize: 12 }}>{`Ещё ${ruCount(nextPostcard.remaining, 'уровень', 'уровня', 'уровней')}`}</AppText>
+              <View style={{ height: 6, borderRadius: radius.pill, backgroundColor: colors.creamDeep, overflow: 'hidden' }}><View style={{ width: `${nextPostcard.fraction * 100}%`, height: '100%', backgroundColor: colors.playGreen }} /></View>
+            </View>
+          </GlassPanel> : null}
+
+          {gates.daily ? <ReminderAction screen="home" completedLevels={completed} /> : null}
+
+          {featuredRouteCard ? <View onLayout={exposure.cardLayout('postcard')}>
+            <GlassPanel tone="cream" style={{ padding: 10, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 3 }}>
+              <Image source={featuredRouteCard.image} contentFit="cover" style={{ width: 82, height: 104, borderRadius: radius.sm }} accessibilityLabel={featuredRouteCard.title} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <AppText preset="label" style={{ color: colors.brown, fontSize: 12, textTransform: 'uppercase' }}>
+                  {completed === 5 ? 'Первая открытка в альбоме' : 'В вашем альбоме'}
+                </AppText>
+                <AppText preset="title" style={{ color: colors.brown, fontSize: 17, ...flatTitle }} numberOfLines={2}>{featuredRouteCard.title}</AppText>
+                {completed === 5 ?
+                  <AppText preset="body" style={{ color: colors.brown, fontSize: 12, opacity: 0.76 }}>Открытка получена</AppText> : null}
+              </View>
+            </GlassPanel>
+          </View> : null}
+
+          <GlassPanel tone="cream" style={{ gap: 12, borderBottomWidth: 3 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Icon name="journey" color={colors.brown} size={23} />
+              <AppText preset="title" style={{ flex: 1, fontSize: 18, color: colors.brown, ...flatTitle }}>Маршрут и альбом</AppText>
+            </View>
+            {!nextRouteCard ? <AppText preset="body" style={{ color: colors.brown }}>Все фоны маршрута открыты.</AppText> : null}
+            {nextGift ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 5 }}>
+              <Icon name="chest" size={22} color={colors.plum} />
+              <AppText preset="body" style={{ flex: 1, color: colors.brown, fontSize: 13 }}>
+                Подарок через {ruCount(nextGift.remaining, 'уровень', 'уровня', 'уровней')} · +{nextGift.amountCoins} монет
+              </AppText>
+            </View> : null}
+            {introAssigned && completed < 5 ? <AppText preset="body" style={{ color: colors.brown, fontSize: 13 }}>Первый маршрут: {completed} из 5 уровней.</AppText> : null}
+            {canOpenAlbum ? <LinkChip label={newCount > 0 ? `Альбом · новых: ${newCount}` : 'Открыть альбом'} icon="collection" badge={newCount > 0} onPress={() => { track('home_primary_action', { mode: 'album' }); router.push('/collection' as never); }} /> : null}
+          </GlassPanel>
+
+          {gates.week && gates.daily ? <LinkChip label={`Личная неделя · ${week?.activeCount ?? 0} из 5 дней`} icon="daily" onPress={openDaily} /> : null}
+          {gates.week && !gates.daily ? <LinkChip label={`Личная неделя · ${week?.activeCount ?? 0} из 5 дней`} icon="daily" onPress={() => { track('home_primary_action', { mode: 'daily' }); router.push('/daily' as never); }} /> : null}
+          {gates.quests && quests ? <LinkChip label={`Задания дня · ${quests.quests.filter((q) => q.completed).length} из ${quests.quests.length}`} icon="order" onPress={() => { track('home_secondary_action', { mode: 'quests' }); router.push('/quests' as never); }} /> : null}
+          {gates.event ? <LinkChip label={event?.active ? `Собери чемодан · ${ruCount(event.points, 'очко', 'очка', 'очков')}` : 'Собери чемодан'} icon="events" onPress={() => { track('home_secondary_action', { mode: 'event' }); router.push('/journey-event' as never); }} /> : null}
+
+          {completed >= 15 ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <LinkChip label="Профиль" icon="profile" onPress={() => router.push('/profile' as never)} />
+            <LinkChip label="Колесо" icon="wheel" onPress={() => router.push('/wheel' as never)} />
+            {MONETIZATION.iapEnabled ? <LinkChip label="Магазин" icon="shop" onPress={() => router.push('/shop' as never)} /> : null}
+          </View> : null}
+        </ScrollView>
+        {completed >= 6 ? <AdBanner /> : null}
       </SafeAreaView>
     </View>
   );

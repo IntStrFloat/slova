@@ -1,0 +1,39 @@
+{
+  "throughLevel": 500,
+  "sha256": {
+    "world1.json": "807c0b7d33116110b9e299192527baf43562500c420f5a0a1d17321f5e577094",
+    "world2.json": "75cb46c3f48e5422751c0ac4ef57be6b54612c5be611c5ebf5edb9818ff211dd",
+    "world3.json": "8b6c3afe762c82614f194484baedb9d422c26b097ada57e82c442f523c6e24bc",
+    "world4.json": "b5671718a180153dec5c97b91d1adabd2d01a8ff70aea279cac6a0e10a10b5ba",
+    "world5.json": "34d4a1cf97c9e676b88e37cf9621e45ab21a8efd1e1081ed8b2fd8295d923777",
+    "world6.json": "1af77c6fab99ef43f70f50764d32d8ee0df98617ac24a5a5114df444eb34a88d",
+    "world7.json": "2a39079ac20ca5e2a32eccdbe0f87ad27ea3f3029794f43279481c8281283ed6"
+  },
+  "intendedRevisions": {
+    "world1.json": {
+      "reason": "Simplify required words and remove mandatory bonus objective only for levels 1–10",
+      "previousSha256": "dd1c0960c5dcbe827835f91d74297f3fbe7395607559d7d3f581c95a65bed03a",
+      "changedGlobalIds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "unchangedFromGlobalId": 11,
+      "unchangedLevelsSha256": "0f08f7f1c8c7d21fff1831a83ad06333d3185d93ad2fe57687a71384e487559b",
+      "followUp": {
+        "reason": "Avoid repeating intro L4 letter/answer set at campaign L9",
+        "changedGlobalIds": [
+          9
+        ],
+        "contentVersion": "retention-early-v3-de43224c6ee7"
+      }
+    }
+  }
+}

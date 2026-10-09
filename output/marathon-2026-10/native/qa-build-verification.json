@@ -1,0 +1,47 @@
+{
+  "built": true,
+  "packageName": "com.intstrfloat.slova.marathonqa",
+  "architecture": "x86_64",
+  "isolation": {
+    "appMetricaActivation": false,
+    "api": "http://localhost:9",
+    "ads": "demo",
+    "pushProjectId": ""
+  },
+  "bundleIsolation": {
+    "http://localhost:9": true,
+    "demo-banner-yandex": true,
+    "demo-interstitial-yandex": true,
+    "demo-rewarded-yandex": true
+  },
+  "sourceChecks": [
+    {
+      "path": "android/app/build.gradle",
+      "before": "145d00e0ca317d63e291324a6bcf69bad7bd0db06ad232f2f33e7615be70f2c4",
+      "after": "145d00e0ca317d63e291324a6bcf69bad7bd0db06ad232f2f33e7615be70f2c4"
+    },
+    {
+      "path": "android/app/src/main/java/com/intstrfloat/slova/MainApplication.kt",
+      "before": "073e91e46e53105ea4830776e36e76d131acc29e1bdabaaa0a18e91064edaddc",
+      "after": "073e91e46e53105ea4830776e36e76d131acc29e1bdabaaa0a18e91064edaddc"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "before": "96ee2636389d35d898bca44cec90138469d0612fb41a16c7acf31570e1c592f0",
+      "after": "96ee2636389d35d898bca44cec90138469d0612fb41a16c7acf31570e1c592f0"
+    }
+  ],
+  "releaseChecks": [
+    {
+      "path": "output/release/slova-0.1.14-vc18-release.apk",
+      "before": "8479d9f694b3e847cd03c022ee05e782ae06618dde82dfb6afbba829b5914f70",
+      "after": "8479d9f694b3e847cd03c022ee05e782ae06618dde82dfb6afbba829b5914f70"
+    },
+    {
+      "path": "output/release/slova-0.1.14-vc18-release.aab",
+      "before": "1050e0cd02aff6202e2e535e81a6d218d2ae84151fab313920fac457f58109fb",
+      "after": "1050e0cd02aff6202e2e535e81a6d218d2ae84151fab313920fac457f58109fb"
+    }
+  ],
+  "apkSha256": "7df01bea851a91cfaf597bb55794a2ec042926fccfee5ca78200f6966738f52a"
+}

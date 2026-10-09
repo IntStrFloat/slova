@@ -1,0 +1,72 @@
+{
+  "createdAt": "2026-10-03",
+  "duplicate": {
+    "introLevel": 4,
+    "campaignLevel": 9,
+    "letters": [
+      "р",
+      "о",
+      "с",
+      "т"
+    ],
+    "requiredWords": [
+      "рост",
+      "рот",
+      "трос"
+    ],
+    "sameLetterAndAnswerSet": true,
+    "sameGrid": false
+  },
+  "replacement": {
+    "globalId": 9,
+    "contentVersion": "retention-early-v3-de43224c6ee7",
+    "fingerprint": "d9123f68d94dc0893ed49ea98caeaac40c9135e47ac08b87ae5afbbd93703753",
+    "letters": [
+      "р",
+      "п",
+      "а",
+      "к"
+    ],
+    "requiredWords": [
+      "парк",
+      "карп",
+      "рак"
+    ],
+    "gridRows": 4,
+    "gridColumns": 6
+  },
+  "changedCampaignGlobalIds": [
+    9
+  ],
+  "preserved": {
+    "startedL9": "37bb54cbacc547bb020c657fd0674bec6aa9589c73d73f9a9adc9715a7f99da7",
+    "statusesVerified": [
+      "playing",
+      "completion_pending",
+      "reward_claimed"
+    ],
+    "laterCampaignHash": "0f08f7f1c8c7d21fff1831a83ad06333d3185d93ad2fe57687a71384e487559b",
+    "matchesEarlierBaseline": true,
+    "introVersions": [
+      "intro-v1",
+      "intro-v2"
+    ],
+    "dailyTemplatesChanged": false
+  },
+  "checks": {
+    "regressionFailedBeforeFix": true,
+    "focusedJestSuites": 4,
+    "focusedJestTests": 45,
+    "contentAuditLevels": 1000,
+    "contentAuditErrors": 0,
+    "backendCatalogTestPassed": true,
+    "backendCatalogTests": 2,
+    "typecheckPassed": true,
+    "targetedTypeScriptLintPassed": true,
+    "scriptSyntaxPassed": true
+  },
+  "catalog": {
+    "path": "output/retention-2026-10-03/content-catalog-opening-v3.json",
+    "sha256": "f6171f43886ec49499419c94f3e5902ac7b017590652f922185c9846c2c47376"
+  }
+}

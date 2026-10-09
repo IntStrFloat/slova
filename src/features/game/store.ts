@@ -6,11 +6,15 @@ import { shuffle, submitWord } from '@/core/engine/play';
 import { mulberry32 } from '@/core/engine/rng';
 import {
   initPlayState,
+  type Cell,
+  type CompletionSource,
+  type HintResult,
   type HintType,
   type Level,
   type PlayState,
   type SubmitResult,
 } from '@/core/engine/types';
+import { dayKey } from '@/core/time';
 
 import {
   clearGameSnapshot,
@@ -18,6 +22,8 @@ import {
   restoreGame,
   saveGameSnapshot,
   serializeGame,
+  type CompletionState,
+  type GameSnapshot,
   type PlayMode,
 } from './persistence';
 
@@ -25,61 +31,156 @@ interface GameState {
   play: PlayState | null;
   level: Level | null;
   mode: PlayMode;
+  dailyDate: string | null;
   coins: number;
   disk: string[];
   lastResult: SubmitResult | null;
-  start: (level: Level, mode?: PlayMode) => void;
+  completion: CompletionState;
+  snapshot: GameSnapshot | null;
+  hintsUsed: HintType[];
+  wordDates: Record<string, string>;
+  mistakes: number;
+  start: (level: Level, mode?: PlayMode, dailyDate?: string) => void;
   submit: (word: string) => SubmitResult;
   doShuffle: () => void;
-  hint: (h: HintType) => void;
+  hint: (h: HintType, target?: Cell) => HintResult | null;
+  claimCompletion: () => string | null;
+  markRewardClaimed: () => void;
   finish: () => void;
+  recordVisibleTime: (attemptId: string, elapsedMs: number) => void;
 }
 
-/** Сохранить текущий снапшот уровня (in-level save, спека 10). */
-function persist(level: Level | null, play: PlayState | null, disk: string[], mode: PlayMode): void {
-  if (!level || !play) return;
-  saveGameSnapshot(serializeGame(level, play, disk, mode));
+function persist(state: Pick<GameState, 'level' | 'play' | 'mode' | 'dailyDate' | 'coins' | 'disk' | 'completion' | 'snapshot' | 'hintsUsed' | 'wordDates' | 'mistakes'>): GameSnapshot | null {
+  if (!state.level || !state.play) return null;
+  const snap = serializeGame(
+    state.level,
+    { ...state.play, coinsEarned: state.coins },
+    state.disk,
+    state.mode,
+    state.completion,
+    state.snapshot,
+    state.hintsUsed,
+    state.mode === 'daily' ? state.dailyDate ?? dayKey() : undefined,
+    state.wordDates,
+    state.mistakes,
+  );
+  saveGameSnapshot(state.mode, snap);
+  return snap;
+}
+
+function pendingCompletion(
+  completion: CompletionState,
+  source: CompletionSource,
+): CompletionState {
+  if (completion.status !== 'playing') return completion;
+  return { status: 'completion_pending', source, completedAt: new Date().toISOString() };
 }
 
 export const useGame = create<GameState>((set, get) => ({
   play: null,
   level: null,
   mode: 'normal',
+  dailyDate: null,
   coins: 0,
   disk: [],
   lastResult: null,
-  start: (level, mode = 'normal') => {
-    const restored = restoreGame(level, mode, loadGameSnapshot());
+  completion: { status: 'playing' },
+  snapshot: null,
+  hintsUsed: [],
+  wordDates: {},
+  mistakes: 0,
+  recordVisibleTime: (attemptId, elapsedMs) => {
+    const snapshot = get().snapshot;
+    if (!snapshot || snapshot.attemptId !== attemptId || snapshot.completion.status !== 'playing'
+      || !Number.isFinite(elapsedMs) || elapsedMs <= 0) return;
+    const next = { ...snapshot, activeTimeMs: (snapshot.activeTimeMs ?? 0) + Math.round(elapsedMs) };
+    saveGameSnapshot(next.mode, next);
+    set({ snapshot: next });
+  },
+  start: (level, mode = 'normal', dailyDate) => {
+    const pinnedDailyDate = mode === 'daily' ? dailyDate ?? dayKey() : null;
+    const stored = loadGameSnapshot(mode, level, pinnedDailyDate ?? undefined);
+    const restored = restoreGame(level, mode, stored, pinnedDailyDate ?? undefined);
     const play = restored?.play ?? initPlayState(level);
     const disk = restored?.disk ?? [...level.letters];
-    set({ play, level, mode, coins: play.coinsEarned, disk, lastResult: null });
-    persist(level, play, disk, mode);
+    const completion = restored?.snapshot.completion ?? { status: 'playing' };
+    const coins = restored?.snapshot.coinsEarned ?? play.coinsEarned;
+    const next = {
+      play, level, mode, dailyDate: pinnedDailyDate, coins, disk, lastResult: null,
+      completion, snapshot: restored?.snapshot ?? null, hintsUsed: restored?.snapshot.hintsUsed ?? [],
+      wordDates: restored?.snapshot.wordDates ?? {},
+      mistakes: restored?.snapshot.mistakes ?? 0,
+    };
+    const snapshot = persist(next);
+    set({ ...next, completion: snapshot?.completion ?? completion, snapshot });
   },
   submit: (word) => {
     const cur = get().play;
-    if (!cur) return { kind: 'invalid', word };
+    if (!cur) return { kind: 'invalid', word, reason: 'empty' };
     const { state, result } = submitWord(cur, word);
-    let coins = get().coins + ('deltaCoins' in result ? result.deltaCoins : 0);
-    if (result.kind === 'grid' && result.levelComplete) coins += GAME.levelClearBonus;
-    set({ play: state, coins, lastResult: result });
-    persist(get().level, state, get().disk, get().mode);
+    const complete = result.kind === 'grid' && result.levelComplete;
+    const completion = complete ? pendingCompletion(get().completion, 'submit') : get().completion;
+    const clearBonus = complete && get().completion.status === 'playing' ? GAME.levelClearBonus : 0;
+    const coins = get().coins + ('deltaCoins' in result ? result.deltaCoins : 0) + clearBonus;
+    const wordDates = result.kind === 'grid' || result.kind === 'bonus'
+      ? { ...get().wordDates, [`${result.kind}:${result.word}`]: dayKey() }
+      : get().wordDates;
+    const mistakes = result.kind === 'invalid' || result.kind === 'blocked'
+      || result.kind === 'constraint' || result.kind === 'duplicate'
+      ? get().mistakes + 1 : get().mistakes;
+    const next = { ...get(), play: state, coins, lastResult: result, completion, wordDates, mistakes };
+    const snapshot = persist(next);
+    set({ play: state, coins, lastResult: result, completion: snapshot?.completion ?? completion, snapshot, wordDates, mistakes });
     return result;
   },
   doShuffle: () => {
     const disk = shuffle(get().disk, mulberry32((Date.now() & 0xffffffff) >>> 0));
-    set({ disk });
-    persist(get().level, get().play, disk, get().mode);
+    const next = { ...get(), disk };
+    const snapshot = persist(next);
+    set({ disk, snapshot });
   },
-  hint: (h) => {
+  hint: (hint, target) => {
     const cur = get().play;
-    if (!cur) return;
-    const { state } = applyHint(cur, h);
-    set({ play: state });
-    persist(get().level, state, get().disk, get().mode);
+    if (!cur) return null;
+    const { state, result } = applyHint(cur, hint, target);
+    if (!result.changed) return result;
+    const completion = result.levelComplete ? pendingCompletion(get().completion, result.source) : get().completion;
+    const clearBonus = result.levelComplete && get().completion.status === 'playing' ? GAME.levelClearBonus : 0;
+    const next = {
+      ...get(), play: state, coins: get().coins + clearBonus, completion,
+      hintsUsed: [...get().hintsUsed, hint],
+    };
+    const snapshot = persist(next);
+    set({
+      play: state,
+      coins: next.coins,
+      completion: snapshot?.completion ?? completion,
+      hintsUsed: next.hintsUsed,
+      snapshot,
+    });
+    return result;
+  },
+  claimCompletion: () => {
+    const current = get().completion;
+    if (current.status !== 'completion_pending') return null;
+    // Effects are applied by their own persistent ledgers before this transition.
+    // If the process dies, the pending snapshot restores the overlay and each
+    // effect's applyOnce operation is safe to retry.
+    return current.completionId ?? get().snapshot?.completion.completionId ?? null;
+  },
+  markRewardClaimed: () => {
+    const current = get().completion;
+    if (current.status !== 'completion_pending') return;
+    const completion = { ...current, status: 'reward_claimed' as const };
+    const next = { ...get(), completion };
+    const snapshot = persist(next);
+    set({ completion: snapshot?.completion ?? completion, snapshot });
   },
   finish: () => {
-    // Снимаем in-level снапшот; play остаётся до start() следующего уровня,
-    // чтобы не мигал fallback-экран на переходе level-complete.
-    clearGameSnapshot();
+    const completion = { ...get().completion, status: 'finished' as const };
+    const next = { ...get(), completion };
+    const snapshot = persist(next);
+    set({ completion: snapshot?.completion ?? completion, snapshot });
+    clearGameSnapshot(get().mode, get().dailyDate ?? undefined);
   },
 }));

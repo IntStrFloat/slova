@@ -1,0 +1,58 @@
+- generic [ref=e38]:
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e41] [cursor=pointer]: 
+      - generic [ref=e43]: Уровень 1
+      - generic [ref=e44]:
+        - generic [ref=e45]: 
+        - generic [ref=e46]: "200"
+    - generic [ref=e47]:
+      - 'generic "Кроссворд: заполнено 0 из 5 клеток. Собрано 0 из 2 слов." [ref=e49]'
+      - generic [ref=e63]:
+        - button "Буква" [ref=e64] [cursor=pointer]:
+          - generic [ref=e65]: 
+          - generic [ref=e67]:
+            - generic [ref=e68]: 
+            - generic [ref=e69]: "50"
+        - button "Микс" [ref=e70] [cursor=pointer]:
+          - generic [ref=e71]: 
+        - button "Слово" [ref=e73] [cursor=pointer]:
+          - generic [ref=e74]: 
+          - generic [ref=e76]:
+            - generic [ref=e77]: 
+            - generic [ref=e78]: "300"
+        - generic [ref=e80]:
+          - img [ref=e84]:
+            - generic [ref=e88]: С
+            - generic [ref=e91]: О
+            - generic [ref=e94]: Н
+          - generic [ref=e95]:
+            - 'generic "Букв на диске: 3. Выбор пуст." [ref=e96]'
+            - button "Буква С, позиция 1 из 3." [ref=e97] [cursor=pointer]:
+              - generic [ref=e98]: С
+            - button "Буква О, позиция 2 из 3." [ref=e99] [cursor=pointer]:
+              - generic [ref=e100]: О
+            - button "Буква Н, позиция 3 из 3." [ref=e101] [cursor=pointer]:
+              - generic [ref=e102]: Н
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic "Подсказка для первого уровня. Проведите С → О → Н или нажимайте буквы.": Первый ход
+            - generic: Проведите С → О → Н или нажимайте буквы
+            - generic:
+              - generic:
+                - generic: "1"
+                - generic: С
+                - generic: →
+              - generic:
+                - generic: "2"
+                - generic: О
+                - generic: →
+              - generic:
+                - generic: "3"
+                - generic: Н
+            - generic: Подсказка не блокирует ввод и исчезнет после первого правильного слова.
+        - button "Скрыть подсказку" [ref=e104] [cursor=pointer]:
+          - generic [ref=e105]: Скрыть

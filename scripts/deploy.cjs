@@ -86,8 +86,8 @@ async function main() {
   log('uploaded', await run('ls -1 /opt/slova/backend && ls /opt/slova/backend/runtime'));
 
   // 3) backend.env (API_KEY пустой — публичный API, авторизация по bearer токену)
-  await run(`printf 'PORT=8788\\nDATA_PATH=/var/lib/slova/store.json\\nAPI_KEY=\\n' > /opt/slova/backend.env`);
-  log('env', await run('cat /opt/slova/backend.env'));
+  await run(`test -f /opt/slova/backend.env || printf 'PORT=8788\\nDATA_PATH=/var/lib/slova/store.json\\nAPI_KEY=\\n' > /opt/slova/backend.env`);
+  log('env permissions', await run('stat -c "%a %U" /opt/slova/backend.env'));
   await run('chown -R slova:slova /opt/slova /var/lib/slova && chmod 600 /opt/slova/backend.env');
 
   // 4) systemd unit

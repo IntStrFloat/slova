@@ -1,0 +1,36 @@
+{
+  "imagePath": "C:\\Users\\Dima2\\Documents\\Slova\\output\\retention-2026-10-03\\uniform-selection-native.png",
+  "device": "emulator-5586",
+  "selectedLetters": 2,
+  "submittedWords": 0,
+  "samples": {
+    "fill": [
+      605,
+      932
+    ],
+    "outline": [
+      637,
+      932
+    ],
+    "connection": [
+      673,
+      1064
+    ],
+    "leading": [
+      685,
+      1301
+    ]
+  },
+  "first": [
+    541,
+    932
+  ],
+  "second": [
+    804,
+    1196
+  ],
+  "cursor": [
+    685,
+    1301
+  ]
+}

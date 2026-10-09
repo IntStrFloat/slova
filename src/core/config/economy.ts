@@ -1,8 +1,14 @@
-/** Числа экономики (спека 06). Меняются здесь, не в логике. */
+/** Единый баланс экономики для кампании, daily и retention-наград. */
 export const ECONOMY = {
-  hints: { bulb: 50, hammer: 120, revealWord: 300 },
+  hints: { bulb: 50, clue: 30, hammer: 120, revealWord: 300 },
   chest: [50, 120, 300],
-  starterCoins: 200,
+  starterCoins: 60,
+  starterHintCoins: 100,
+  legacyTicketCoins: 50,
+  bonusBankCoins: 50,
+  bonusWordCoins: 1,
+  bonusBankThreshold: 10,
+  dailyPuzzleCoins: 10,
   // Награда за просмотр rewarded-рекламы «за монеты» (спека 05/06).
   rewardedCoins: 60,
   wheel: {
@@ -14,8 +20,9 @@ export const ECONOMY = {
   daily: {
     // награда логин-календаря по дню (день 1..7), далее цикл
     loginCalendar: [10, 15, 20, 25, 30, 40, 75],
-    puzzleStreakBase: 15, // база награды за пазл дня × множитель стрика
-    puzzleStreakStep: 5,
+    // Retention v1 grants a fixed daily reward; the streak is presentation only.
+    puzzleStreakBase: 10,
+    puzzleStreakStep: 0,
   },
   packs: [
     { id: 'coins_small', coins: 500, price: '99 ₽' },

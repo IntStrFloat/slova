@@ -1,6 +1,7 @@
 export { useLevels } from './store';
 export {
   loadGlobalLevel,
+  loadReleasedGlobalLevel,
   loadLevel,
   totalLevelCount,
   worldForGlobalLevel,

@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "checkedAtUtc": "2026-10-08T07:02:32.558659+00:00",
+  "purpose": "Compatibility inference: place JAR signing metadata before payload for streaming readers; does not prove the cause of a RuStore upload failure",
+  "inputArtifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\subscription-qa\\slova-0.1.14-vc18-subscription-release.aab",
+  "inputSha256": "35614fbb700325029b5654ffdd664b277ff4bb0cabd1d83342fda40f2713a062",
+  "outputArtifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\subscription-qa\\slova-0.1.14-vc18-subscription-rustore.aab",
+  "outputSha256": "b8e1647571875350db5f64c3a5ef1d4a213e0818a04f9553dab4fecf20b3aebf",
+  "inputSizeBytes": 126805641,
+  "outputSizeBytes": 126805641,
+  "entryCount": 2142,
+  "entryNameSetEqual": true,
+  "allDecompressedEntryBytesEqual": true,
+  "allRawLocalRecordBytesEqual": true,
+  "allOriginalCompressedPayloadBytesEqual": true,
+  "originalAabUnchanged": true,
+  "changedContainerFieldsOnly": [
+    "local-record order",
+    "central-directory record order",
+    "central-directory local-record offsets"
+  ],
+  "firstEntries": [
+    "META-INF/MANIFEST.MF",
+    "META-INF/SLOVA.SF",
+    "META-INF/SLOVA.RSA",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libNitroMmkv.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libNitroModules.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libappmodules.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libc++_shared.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libexpo-modules-core.so.sym"
+  ],
+  "manifestFirst": true,
+  "signatureMetadataBeforePayload": true,
+  "entryDigests": "C:\\Users\\Dima2\\Documents\\Slova\\output\\subscription-qa\\subscription-aab-order-compatibility-entry-digests.json"
+}

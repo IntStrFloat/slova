@@ -1,22 +1,29 @@
-/**
- * Push-уведомления (спека 12). v1: Noop-провайдер. Реальный RuStore Push
- * (react-native-rustore-push + plugins/withRuStorePush.js) включается отдельной
- * задачей M6 — по аналогии с blockblast (maven RuStore + meta-data project_id).
- */
-export type NotificationRoute = string;
-
-export interface PushProvider {
-  init(): Promise<void>;
-  onNotificationTap(handler: (route: NotificationRoute) => void): () => void;
-}
-
-const NoopPushProvider: PushProvider = {
-  async init() {},
-  onNotificationTap() {
-    return () => {};
-  },
-};
-
-export function getPush(): PushProvider {
-  return NoopPushProvider;
-}
+export { PUSH } from './config';
+export { getPush, isPushAvailable } from './provider';
+export { resolvePushRoute, safeNotificationRoute } from './routing';
+export {
+  getPushSoftAskOutcome,
+  markPushSoftAskHandled,
+  recordFirstVictoryForPush,
+  shouldShowPushSoftAsk,
+} from './softAsk';
+export type { PushSoftAskOutcome, ReminderIntroduction } from './softAsk';
+export {
+  cancelDailyReminderForDate,
+  cancelDailyReminders,
+  isDailyReminderAvailable,
+  hasDailyReminderConsent,
+  planDailyReminders,
+  requestDailyReminderPermission,
+  syncDailyReminders,
+} from './reminders';
+export type { ReminderConsentSource, ReminderPlanInput, ReminderSchedule, SentDailyReminder } from './reminders';
+export {
+  drainDailyReminderTelemetry,
+  getReminderGameplayAttribution,
+  startDailyReminderTelemetry,
+  trackReminderGameplay,
+} from './reminderTelemetry';
+export type { PushPermissionResult, PushProvider, PushTapPayload } from './types';
+export { PushSoftAsk } from './PushSoftAsk';
+export { startLevelExpansionAudienceSync } from './levelExpansionAudience';

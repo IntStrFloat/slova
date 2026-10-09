@@ -1,0 +1,28 @@
+{
+  "contentRevision": "retention-early-v3",
+  "throughLevel": 10,
+  "levels": {
+    "1": { "base": "сон", "answers": ["сон", "нос"], "bonus": [] },
+    "2": { "base": "кот", "answers": ["кот", "ток"], "bonus": [] },
+    "3": { "base": "дело", "answers": ["дело", "лед"], "bonus": [] },
+    "4": { "base": "брат", "answers": ["брат", "бар", "раб"], "bonus": [] },
+    "5": { "base": "клуб", "answers": ["клуб", "лук", "куб"], "bonus": [] },
+    "6": { "base": "утро", "answers": ["утро", "рот", "тур"], "bonus": [] },
+    "7": { "base": "глаз", "answers": ["глаз", "зал", "газ"], "bonus": [] },
+    "8": { "base": "слон", "answers": ["слон", "сон", "нос"], "bonus": [] },
+    "9": { "base": "парк", "answers": ["парк", "карп", "рак"], "bonus": [], "contentVersion": "retention-early-v3-de43224c6ee7" },
+    "10": { "base": "толк", "answers": ["толк", "кот", "ток"], "bonus": ["кол"] }
+  },
+  "reusedCuratedBases": { "13": "рост" },
+  "familiarWordRepeatCaps": {
+    "кот": 4,
+    "ток": 4,
+    "сон": 4,
+    "нос": 4,
+    "слон": 4,
+    "рот": 4,
+    "парк": 4,
+    "рак": 4,
+    "карп": 4
+  }
+}

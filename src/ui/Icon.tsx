@@ -20,12 +20,18 @@ export type IconName =
   | 'profile'
   | 'settings'
   | 'check'
+  | 'close'
   | 'lock'
   | 'star'
   | 'sound'
   | 'music'
   | 'haptics'
-  | 'privacy';
+  | 'notifications'
+  | 'privacy'
+  | 'chest'
+  | 'order'
+  | 'mastery'
+  | 'journey';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -46,12 +52,18 @@ const MAP: Record<IconName, IoniconName> = {
   profile: 'person',
   settings: 'settings',
   check: 'checkmark-circle',
+  close: 'close',
   lock: 'lock-closed',
   star: 'star',
   sound: 'volume-high',
   music: 'musical-notes',
   haptics: 'phone-portrait',
+  notifications: 'notifications',
   privacy: 'shield-checkmark',
+  chest: 'gift',
+  order: 'list',
+  mastery: 'shield-checkmark',
+  journey: 'map',
 };
 
 /** Единый источник иконок (векторные, без эмодзи — спека 04). */

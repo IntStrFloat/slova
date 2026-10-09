@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "levels-expanded-1000-v1",
+  "status": "draft",
+  "topic": "slova_levels_expanded_1000_v1",
+  "audience": {
+    "minCurrentLevel": 500,
+    "maxCurrentLevel": 1000,
+    "notifications": true,
+    "requiresUpdatedAppSession": true
+  },
+  "request": {
+    "message": {
+      "notification": {
+        "title": "Теперь в игре 1000 уровней!",
+        "body": "Добавили ещё 500 уровней. Возвращайся за новыми словами!"
+      },
+      "data": {
+        "campaignId": "levels-expanded-1000-v1",
+        "key": "route",
+        "value": "/"
+      }
+    }
+  }
+}

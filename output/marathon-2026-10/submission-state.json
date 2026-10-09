@@ -1,0 +1,56 @@
+{
+  "dateClient": "2026-10-04",
+  "timezone": "Europe/Moscow",
+  "appId": "2063728518",
+  "package": "com.intstrfloat.slova",
+  "version": {
+    "name": "0.1.14",
+    "code": 18,
+    "status": "Waiting for moderation",
+    "automaticPublication": true,
+    "audiencePercent": 100,
+    "url": "https://console.rustore.ru/apps/2063728518/versions"
+  },
+  "event": {
+    "requestId": "12159",
+    "name": "Марафон слов",
+    "status": "Review",
+    "start": "2026-10-26T00:00:00+03:00",
+    "end": "2026-11-02T00:00:00+03:00",
+    "url": "https://console.rustore.ru/apps/2063728518/promotion/event-requests"
+  },
+  "article": {
+    "status": "submitted_by_user",
+    "confirmation": "Ваша статья отправлена",
+    "url": "https://console.rustore.ru/blog-article-request/submit-success",
+    "uniquenessPercent": null,
+    "editorialDecision": null
+  },
+  "implementationVerified": true,
+  "publicationVerified": false,
+  "goalRemaining": [
+    "RuStore app moderation/publication",
+    "editorial decisions and originality verification"
+  ],
+  "screenshots": [
+    "console/version-submitted.jpg",
+    "console/event-submitted.jpg",
+    "console/blog-submitted.jpg"
+  ],
+  "lastCheckedAtUtc": "2026-10-04T13:42:33Z",
+  "lastTurnClassification": "blocked_external_dependencies",
+  "originalityCheck": {
+    "provider": "Advego",
+    "chars": 6392,
+    "words": 921,
+    "status": "captcha_completed_awaiting_user_login",
+    "tabId": "929036120",
+    "url": "https://advego.com/antiplagiat/",
+    "captchaCompletedByUser": true
+  },
+  "blockingAudit": {
+    "condition": "Advego requires account login to start full-text originality check",
+    "consecutiveGoalTurns": 3,
+    "latestVerified": "Advego login still required; version18 Waiting for moderation/Automatic100%; event12159 Review"
+  }
+}

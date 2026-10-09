@@ -1,0 +1,23 @@
+# Прогресс
+
+2026-10-04: найден актуальный проект `C:/Users/Dima2/Documents/Slova`, опубликована 0.1.13/vc17. Существующие пользовательские изменения сохранены. Определены контракт марафона, точки settlement/recovery, правила материалов и окно события. Core-модуль реализуется отдельным агентом; лидер отвечает за UI, интеграцию, релиз, материалы и Console.
+
+Реализованы модель, отдельные сохранения/outbox, экран и вход Home, интеграция settlement/startup/foreground. 519 Jest tests, typecheck/lint, 33 backend tests и strict audit 1000 levels прошли; после ревью CTA для завершённой кампании исправлен и 7 новых/затронутых integration/navigation tests прошли. AAB/APK 0.1.14/vc18 собраны прежним сертификатом и проверены. Native smoke: production upcoming/deeplink офлайн подтверждён, изолированный QA active/newcomer/actual victory проверяется. Обложка загружена в Console draft. Статья DOCX собрана, ищется поддерживаемый bundled renderer вместо отсутствующего LibreOffice. По первой Android visual QA исправлены повтор заголовка этапа и грамматика; требуется финальная пересборка.
+
+Поданы все материалы: Console 0.1.14(18) Waiting for moderation, Automatic,100%, final-rustore AAB processed120.92MB; Event request12159 Review с правильным окном; blog submit-success подтверждён после отправки пользователем. Скриншоты console/{version,event,blog}-submitted.jpg. Подпись передана только после явного разрешения пользователя; original release.jks unchanged.
+
+Последняя replay-поправка полностью проверена: final full Jest86/523 PASS, lint/typecheck PASS; Android actualwin10, два cold saved-result restores снова10, balance170/progress1 stable. Native / source / immutable artifacts restored/verified. Final AAB f00ace…65e и APK8479d9…4f70; evidence в release.md и reports.
+
+Ожидаются E10 (публикация версии после модерации), B3 (внешний численный процент оригинальности) и решения редакции о размещении. Текст написан самостоятельно и вычитан; численную≥90% проверку подтвердить не удалось: Text.ru ограничен4000 без оплаты, ContentWatch запрещает automated access, Duplichecker CAPTCHA отключена из-за исчерпания квоты сервиса. Платные услуги не покупались, CAPTCHA не решалась/не обходилась. Заявка статьи уже у редакции; повторную не создавать.
+
+При продолжении: читать actual Console version0.1.14(18) и event12159; не пересобирать/не дублировать уже отправленные материалы без причины. При отказе разбирать актуальный комментарий и продолжать исправления. Старые waiting statuses не доказывают текущий статус — перечитать.
+
+2026-10-04 16:18 МСК: после reload Console version18 по-прежнему Waiting for moderation/Automatic100%, event12159 Review. Это проверенное ожидание живых заявок. Найден Advego (нормативно рекомендован RuStore), полный текст6392 chars/921 words вставлен, CAPTCHA доступна. Запрошено обязательное разрешение пользователя на прохождение CAPTCHA; до ответа не выполнять её. Tab929036120 markedHandoff, screenshot console/originality-captcha.jpg. Статью повторно не отправлять.
+
+2026-10-04 16:28 МСК: повторный reload подтверждает прежние Waiting for moderation/Review. Advego CAPTCHA не пройдена, разрешение пользователя ещё не получено; не повторять вопрос и не выполнять CAPTCHA до ответа. Blocking audit:2 последовательных goal turns, состояние продолжает ожидать внешнее решение/человеческое действие. Новых изменений кода или дублирующих заявок нет.
+
+Пользователь сообщил «прошел капчу», UI Advego подтверждает checkbox1. Новый фактический этап: text ready, account login/register required; analysis ещё не запущен. Запрошен manual login пользователя либо явный выбор оставить проверку редакции. Новый blocking audit1, прежний CAPTCHA blocker устранён. Screenshot console/originality-login.jpg, tab929036120 markedHandoff. Не вводить частный email/OAuth/не создавать аккаунт без соответствующего разрешения.
+
+2026-10-04 16:37 МСК: актуальная Advego форма по-прежнему требует login, no analysis result. Console после reload: version18 Waiting for moderation/Automatic100%, event12159 Review. Новый login blocking audit2; повторный вопрос не отправлялся. Новых объявлений/ошибок/изменений кода нет.
+
+2026-10-04 16:42 МСК: третья последовательная проверка подтверждает тот же login blocker Advego. Console после reload: version18 Waiting for moderation/Automatic100%, event12159 Review. Весь доступный независимый объём завершён и проверен; event.json синхронизирован с заявкой12159. Цель отмечается blocked до входа пользователя/явного выбора оставить проверку редакции и изменения внешних статусов RuStore. Код, сборки и отправленные заявки сохранены; вкладка Advego оставлена для входа.

@@ -1,0 +1,23 @@
+{
+  "version": "0.1.5",
+  "versionCode": 9,
+  "applicationId": "com.intstrfloat.slova",
+  "debuggable": false,
+  "certificateSha256": "8888E53939D854A282A0EE40E9A78E21360B50D0DD077EFC2D107DA155BFADCD",
+  "matchesPreviousReleaseCertificate": true,
+  "packagedJsMatchesBuild": true,
+  "productionBundleSha256": "48A3D0E4BF9767075D2D19FC9301AE28748E88F8F3C8C29079BE83CDDCC5EACF",
+  "checkedAt": "2026-09-06T17:13:35.1905355Z",
+  "artifacts": [
+    {
+      "path": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release-0.1.5-vc9\\slova-0.1.5-vc9-release.apk",
+      "bytes": 140130608,
+      "sha256": "8EC257FA368D58AD7D7E4E38BCE5912EB922182A1DCB050F23C2FE2C8BEB1694"
+    },
+    {
+      "path": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release-0.1.5-vc9\\slova-0.1.5-vc9-release.aab",
+      "bytes": 101271108,
+      "sha256": "3A0CF79FD275FEAF7543CD030AFC30CD8EB26E48FC52D2F9B7BB5839B2690608"
+    }
+  ]
+}

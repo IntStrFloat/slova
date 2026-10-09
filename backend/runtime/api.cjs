@@ -1,8 +1,17 @@
 const crypto = require('node:crypto');
+const { isKnownIntroReport } = require('./content-catalog.cjs');
+const { latestPolicyFor, NORMALIZED_WORD } = require('./word-policy.cjs');
+const { createBillingHttp } = require('./billing-http.cjs');
 
 const POINTS_PER_LEVEL = 100;
 const MAX_LEVELS = 100_000;
 const MAX_DELTA_PER_SUBMIT = 100; // санити-лимит против накрутки
+const MAX_REPORTS_PER_USER_DAY = 10;
+const MAX_REPORTS_PER_IP_HOUR = 60;
+const REPORT_RETENTION_MS = 180 * 24 * 60 * 60 * 1000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA256 = /^[a-f0-9]{64}$/;
+const SAFE_TEXT = /^[^\u0000-\u001F\u007F]{1,64}$/;
 
 const DIVISIONS = [
   ['Бронза', 0],
@@ -54,6 +63,70 @@ function lowerHeaders(h) {
   const out = {};
   for (const k of Object.keys(h)) out[String(k).toLowerCase()] = h[k];
   return out;
+}
+
+function validIsoDate(value) {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
+function dayKey(date) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
+function hourKey(date) {
+  return new Date(date).toISOString().slice(0, 13);
+}
+
+function reportIp(request, headers, trustProxy) {
+  if (trustProxy && typeof headers['x-forwarded-for'] === 'string') return headers['x-forwarded-for'].split(',')[0].trim().slice(0, 64) || 'unknown';
+  return String(request.ip ?? 'unknown').slice(0, 64);
+}
+
+function validateWordReport(report) {
+  const kinds = new Set(['missing_valid', 'inappropriate_or_wrong']);
+  const classifications = new Set(['grid', 'bonus', 'blocked', 'invalid']);
+  const modes = new Set(['normal', 'daily']);
+  const required = ['reportId', 'createdAt', 'locale', 'normalizedWord', 'reportKind', 'currentClassification', 'globalLevel', 'world', 'mode', 'contentVersion', 'levelFingerprint', 'policyRevision', 'appVersion'];
+  if (!report || typeof report !== 'object' || Array.isArray(report) || Object.keys(report).some((key) => !required.includes(key)) || required.some((key) => !(key in report))) {
+    return { ok: false, error: 'bad_report' };
+  }
+  if (!UUID.test(String(report.reportId ?? '')) || !validIsoDate(report.createdAt) || report.locale !== 'ru' || !NORMALIZED_WORD.test(report.normalizedWord)) {
+    return { ok: false, error: 'bad_report_identity' };
+  }
+  if (!kinds.has(report.reportKind) || !classifications.has(report.currentClassification) || !Number.isSafeInteger(report.globalLevel) || report.globalLevel < 1 || report.globalLevel > 1000 || !SAFE_TEXT.test(String(report.world ?? '')) || !modes.has(report.mode)) {
+    return { ok: false, error: 'bad_report_context' };
+  }
+  if (!/^[A-Za-z0-9._-]{1,128}$/.test(String(report.contentVersion ?? '')) ||
+      (!SHA256.test(String(report.levelFingerprint ?? '')) && !isKnownIntroReport(report)) ||
+      (report.policyRevision !== null && (!Number.isSafeInteger(report.policyRevision) || report.policyRevision < 1)) ||
+      !SAFE_TEXT.test(String(report.appVersion ?? ''))) {
+    return { ok: false, error: 'bad_report_content' };
+  }
+  return { ok: true };
+}
+
+function reportState(data) {
+  if (!data.wordReports || typeof data.wordReports !== 'object') data.wordReports = {};
+  if (!data.wordReports.byId || typeof data.wordReports.byId !== 'object') data.wordReports.byId = {};
+  if (!data.wordReports.ipHours || typeof data.wordReports.ipHours !== 'object') data.wordReports.ipHours = {};
+  if (!Array.isArray(data.wordReports.auditLog)) data.wordReports.auditLog = [];
+  return data.wordReports;
+}
+
+function pruneReports(state, nowDate) {
+  const cutoff = nowDate.getTime() - REPORT_RETENTION_MS;
+  for (const [id, report] of Object.entries(state.byId)) {
+    if (!report.receivedAt || Date.parse(report.receivedAt) < cutoff) delete state.byId[id];
+  }
+  const currentHour = hourKey(nowDate);
+  for (const key of Object.keys(state.ipHours)) if (key !== currentHour) delete state.ipHours[key];
+  state.auditLog = state.auditLog.filter((entry) => Date.parse(entry.at) >= cutoff).slice(-10_000);
+}
+
+async function validateReportContext(validator, report) {
+  if (typeof validator !== 'function') return { ok: false, status: 503, error: 'content_validation_unavailable' };
+  const result = await validator(report);
+  return result === true ? { ok: true } : { ok: false, status: 400, error: typeof result === 'string' ? result : 'invalid_report_context' };
 }
 
 function publicProfile(u) {
@@ -125,17 +198,45 @@ function buildSnapshot(data, userId, scope, nowDate) {
 
 function createApi(options) {
   const store = options.store;
+  const moderationStore = options.moderationStore ?? store;
   const apiKey = options.apiKey ?? '';
   const now = options.now ?? (() => new Date());
+  const featureFlags = { remoteWordPolicy: false, wordReports: false, ...(options.featureFlags ?? {}) };
+  const contentValidator = options.validateReportContext;
+  const trustProxy = options.trustProxy === true;
+  const billingHttp = options.billing ? createBillingHttp({
+    billing: options.billing,
+    publicBase: options.billingPublicBase,
+    seller: options.billingSeller,
+    now,
+    trustProxy,
+  }) : null;
+  let reportWriteQueue = Promise.resolve();
 
-  function json(status, body) {
+  // A single backend process uses this short queue to make idempotency and rate-limit
+  // read/check/write sequences atomic without adding a database dependency.
+  async function serializeReportWrite(action) {
+    const previous = reportWriteQueue;
+    let release;
+    const current = new Promise((resolve) => { release = resolve; });
+    reportWriteQueue = previous.then(() => current);
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release();
+    }
+  }
+
+  function json(status, body, extraHeaders = {}) {
     return {
       status,
       headers: {
         'content-type': 'application/json',
         'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type,authorization,x-api-key',
+        'access-control-allow-headers': 'content-type,authorization,x-api-key,idempotency-key,if-none-match',
         'access-control-allow-methods': 'GET,POST,OPTIONS',
+        ...extraHeaders,
       },
       body: body == null ? '' : JSON.stringify(body),
     };
@@ -157,6 +258,26 @@ function createApi(options) {
 
     if (method === 'OPTIONS') return json(204, null);
     if (p === '/api/health') return json(200, { ok: true, mode: 'record-progress' });
+
+    // This endpoint is intentionally public: a policy must be available before a profile exists.
+    if (method === 'GET' && p === '/api/content/word-policy') {
+      if (!featureFlags.remoteWordPolicy) return json(404, { error: 'feature_disabled' });
+      const locale = url.searchParams.get('locale');
+      const contentVersion = url.searchParams.get('contentVersion');
+      if (locale !== 'ru' || !/^[A-Za-z0-9._-]{1,128}$/.test(String(contentVersion ?? ''))) return json(400, { error: 'bad_policy_scope' });
+      const manifest = latestPolicyFor(store.read(), locale, contentVersion);
+      if (!manifest) return json(404, { error: 'policy_not_found' });
+      const etag = `\"${manifest.checksum}\"`;
+      if (String(headers['if-none-match'] ?? '').split(',').map((v) => v.trim()).includes(etag)) {
+        return json(304, null, { etag, 'cache-control': 'public, max-age=0, must-revalidate' });
+      }
+      return json(200, manifest, { etag, 'cache-control': 'public, max-age=0, must-revalidate' });
+    }
+    // Provider notifications and recovery management cannot require a game session.
+    if (billingHttp) {
+      const billingResponse = await billingHttp.handlePublic({ ...request, method, headers });
+      if (billingResponse) return billingResponse;
+    }
     if (apiKey && headers['x-api-key'] !== apiKey) return json(401, { error: 'invalid_api_key' });
 
     let body = {};
@@ -194,6 +315,65 @@ function createApi(options) {
     const session = authenticate(data, headers.authorization);
     if (!session) return json(401, { error: 'invalid_auth' });
     const user = data.users[session.user.id];
+
+    if (billingHttp) {
+      const billingResponse = await billingHttp.handleUser({ ...request, method, headers }, user.id);
+      if (billingResponse) return billingResponse;
+    }
+
+    if (method === 'POST' && p === '/api/word-reports') {
+      if (!featureFlags.wordReports) return json(404, { error: 'feature_disabled' });
+      const idempotencyKey = String(headers['idempotency-key'] ?? '');
+      if (!UUID.test(idempotencyKey) || body.reportId !== idempotencyKey) return json(400, { error: 'bad_idempotency_key' });
+      const reportValidation = validateWordReport(body);
+      if (!reportValidation.ok) return json(400, { error: reportValidation.error });
+
+      return serializeReportWrite(async () => {
+        const moderationData = moderationStore.read();
+        const reports = reportState(moderationData);
+        const receivedAt = now().toISOString();
+        const nowDate = new Date(receivedAt);
+        pruneReports(reports, nowDate);
+        const existing = reports.byId[idempotencyKey];
+        if (existing) {
+          if (existing.userId !== user.id) return json(409, { error: 'idempotency_conflict' });
+          moderationStore.write(moderationData);
+          return json(200, { reportId: existing.reportId, status: existing.status, duplicate: true });
+        }
+
+        const duplicate = Object.values(reports.byId).find((report) =>
+          report.userId === user.id &&
+          report.normalizedWord === body.normalizedWord &&
+          report.globalLevel === body.globalLevel &&
+          report.contentVersion === body.contentVersion &&
+          report.levelFingerprint === body.levelFingerprint,
+        );
+        if (duplicate) {
+          moderationStore.write(moderationData);
+          return json(200, { reportId: duplicate.reportId, status: duplicate.status, duplicate: true });
+        }
+
+        const context = await validateReportContext(contentValidator, body);
+        if (!context.ok) return json(context.status, { error: context.error });
+        const userCount = Object.values(reports.byId).filter((report) => report.userId === user.id && dayKey(report.receivedAt) === dayKey(nowDate)).length;
+        if (userCount >= MAX_REPORTS_PER_USER_DAY) return json(429, { error: 'report_user_rate_limited', retryAfterSeconds: 86400 - ((nowDate.getUTCHours() * 60 + nowDate.getUTCMinutes()) * 60 + nowDate.getUTCSeconds()) });
+        const ip = reportIp(request, headers, trustProxy);
+        const ipHour = `${ip}|${hourKey(nowDate)}`;
+        if ((reports.ipHours[ipHour] ?? 0) >= MAX_REPORTS_PER_IP_HOUR) return json(429, { error: 'report_ip_rate_limited', retryAfterSeconds: 3600 - (nowDate.getUTCMinutes() * 60 + nowDate.getUTCSeconds()) });
+
+        reports.byId[idempotencyKey] = {
+          ...body,
+          userId: user.id, // Never trust a user id supplied by the client.
+          receivedAt,
+          expiresAt: new Date(nowDate.getTime() + REPORT_RETENTION_MS).toISOString(),
+          status: 'received',
+        };
+        reports.ipHours[ipHour] = (reports.ipHours[ipHour] ?? 0) + 1;
+        reports.auditLog.push({ at: receivedAt, action: 'submitted', reportId: idempotencyKey, actorUserId: user.id });
+        moderationStore.write(moderationData);
+        return json(201, { reportId: idempotencyKey, status: 'received', duplicate: false });
+      });
+    }
 
     if (method === 'POST' && p === '/api/profile/rename') {
       const nick = validateNickname(body.nickname);

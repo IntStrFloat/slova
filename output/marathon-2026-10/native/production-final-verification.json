@@ -1,0 +1,40 @@
+{
+  "device": "emulator-5574",
+  "avd": "Slova_Test_API35",
+  "startedAt": "2026-10-04T11:31:27.569Z",
+  "networkOffline": true,
+  "productionApkSha256": "3dfddd7b2b5a6b1c7eea8d2b769206ff08f5882f4ec4c50ede624e365778e270",
+  "offlineConnectivity": [
+    "Active default network: none\r"
+  ],
+  "production": {
+    "installed": true,
+    "coldStart": true,
+    "deepLink": "slova://marathon",
+    "upcoming": true,
+    "offline": true,
+    "active": true,
+    "profileCleared": false,
+    "gameplayActions": [],
+    "upcomingCoins": 160,
+    "activeCoins": 160,
+    "activeClockUtc": "Mon Oct 26 09:00:07 UTC 2026"
+  },
+  "passed": true,
+  "restored": {
+    "autoTime": "1",
+    "deviceUtc": "Sun Oct  4 11:31:49 UTC 2026",
+    "originalSettings": {
+      "autoTime": "1",
+      "airplaneMode": "0",
+      "wifi": "1",
+      "data": "1"
+    },
+    "networkSettings": {
+      "airplaneMode": "0",
+      "wifi": "1",
+      "data": "1"
+    }
+  },
+  "finishedAt": "2026-10-04T11:31:50.292Z"
+}

@@ -1,17 +1,23 @@
-/**
- * Дизайн-токены v3 — под аудиторию 30–35+ (спека 04).
- * Принципы: игровой word-puzzle вид, высокий контраст (≥4.5:1), крупная
- * типографика, тактильные «clay»-панели с мягкой тенью, иллюстративные фоны.
- * Палитра: word-green + reward-gold (design-system ui-ux-pro-max).
- * Цвета — только отсюда.
- */
+import { WORLDS } from '@/core/config/worlds';
+
+/** Travel postcard palette shared by gameplay, rewards and the collection. */
 export const colors = {
-  // бренд (спокойные, премиальные тона)
+  // Existing semantic aliases remain for screens outside the travel flow.
   green: '#1E7A46',
   greenDark: '#155C34',
   amber: '#EBA63D',
   amberDeep: '#C07A1E',
   ink: '#13202F',
+
+  // Scenic word-puzzle surfaces, adapted to the game's own destinations.
+  cream: '#FFF6D9',
+  creamDeep: '#F5E6BE',
+  brown: '#56391F',
+  plum: '#4B175E',
+  plumDeep: '#32103F',
+  goldBorder: '#D9B735',
+  playGreen: '#22AC12',
+  playGreenDark: '#137607',
 
   // текст (на фото/тёмных панелях — белый, высокий контраст)
   text: '#FFFFFF',
@@ -23,7 +29,7 @@ export const colors = {
   // «clay»-панели поверх фото (тёмное матовое стекло + мягкая тень + светлый кант)
   glass: 'rgba(18,28,44,0.50)',
   glassStrong: 'rgba(14,22,36,0.72)',
-  glassBorder: 'rgba(255,255,255,0.18)',
+  glassBorder: 'rgba(255,255,255,0.26)',
   scrim: 'rgba(10,14,24,0.55)',
   shadow: '#060B14',
 
@@ -32,17 +38,17 @@ export const colors = {
   danger: '#FF6B6B',
 
   // кроссворд
-  gridEmpty: 'rgba(255,251,242,0.20)',
-  gridEmptyStrong: 'rgba(255,251,242,0.34)',
-  gridStroke: 'rgba(255,255,255,0.46)',
-  gridFilled: '#EBA63D',
-  gridHint: '#FFD37A',
-  gridText: '#13202F',
+  gridEmpty: 'rgba(255,248,224,0.54)',
+  gridEmptyStrong: 'rgba(255,248,224,0.74)',
+  gridStroke: 'rgba(255,255,255,0.84)',
+  gridFilled: '#4B175E',
+  gridHint: '#F8D95A',
+  gridText: '#FFFFFF',
 
   // диск букв
-  tile: '#FFFDF7',
-  tileActive: '#EBA63D',
-  tileInk: '#13202F',
+  tile: '#FFFDF6',
+  tileActive: '#F9D955',
+  tileInk: '#1E1923',
   tileShadow: 'rgba(6,11,20,0.45)',
   linkLine: '#FFFFFF',
   disabled: 'rgba(255,255,255,0.36)',
@@ -56,13 +62,13 @@ export const colors = {
   primary: '#1E7A46',
   primaryText: '#FFFFFF',
   accent: '#EBA63D',
-  gridCell: 'rgba(255,251,242,0.20)',
-  diskTile: '#FFFDF7',
-  diskTileActive: '#EBA63D',
+  gridCell: 'rgba(255,248,224,0.54)',
+  diskTile: '#FFFDF6',
+  diskTileActive: '#F9D955',
 } as const;
 
 export const space = [0, 4, 8, 12, 16, 24, 32, 48] as const;
-export const radius = { sm: 12, md: 18, lg: 26, xl: 34, pill: 999 } as const;
+export const radius = { sm: 10, md: 16, lg: 22, xl: 30, pill: 999 } as const;
 
 /** Мягкая «clay»-тень для панелей и кнопок (тактильность для 35+). */
 export const shadowCard = {
@@ -74,21 +80,19 @@ export const shadowCard = {
 } as const;
 
 export const fonts = {
-  display: 'Unbounded_700Bold',
-  title: 'Unbounded_600SemiBold',
-  body: 'Unbounded_400Regular',
-  label: 'Unbounded_500Medium',
-  tile: 'Unbounded_700Bold',
+  display: 'Nunito_800ExtraBold',
+  title: 'Nunito_800ExtraBold',
+  body: 'Nunito_600SemiBold',
+  label: 'Nunito_700Bold',
+  tile: 'Nunito_800ExtraBold',
 } as const;
 
 export type WorldTheme = { name: string };
 
 /** Темы миров: название (фон — игровой арт, см. WorldBackground). */
-export const worldThemes: Record<string, WorldTheme> = {
-  world1: { name: 'Париж' },
-  world2: { name: 'Нью-Йорк' },
-  world3: { name: 'Москва' },
-};
+export const worldThemes: Record<string, WorldTheme> = Object.fromEntries(
+  WORLDS.map((world) => [world.id, { name: world.title }]),
+);
 
 export function worldTheme(world: string): WorldTheme {
   return worldThemes[world] ?? worldThemes.world1;

@@ -1,0 +1,93 @@
+{
+  "status": "PASS",
+  "checkedAtUtc": "2026-10-04T12:36:15.8673824+00:00",
+  "scope": "Final replay-fix build, byte-preserving ZIP-order compatibility variant, identity and signatures",
+  "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.14-vc18-rustore-final.aab",
+  "sha256": "f00ace0b06b8634ae228960fe421ffcd503329cfce6d2e7811a6ac29ab6ca65e",
+  "sizeBytes": 126792077,
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.14",
+  "versionCode": 18,
+  "minSdkVersion": 24,
+  "targetSdkVersion": 36,
+  "debuggable": false,
+  "certificateSha256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "currentApkSha256": "8479d9f694b3e847cd03c022ee05e782ae06618dde82dfb6afbba829b5914f70",
+  "originalArtifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.14-vc18-release.aab",
+  "originalSha256": "1050e0cd02aff6202e2e535e81a6d218d2ae84151fab313920fac457f58109fb",
+  "archiveEntries": 2142,
+  "payloadEntries": 2139,
+  "jarFileSignedPayloadEntries": 2139,
+  "jarInputStreamSignedPayloadEntries": 2139,
+  "signatureVerified": true,
+  "checks": {
+    "currentSourceAabUnchanged": true,
+    "previouslyAcceptedVariantPreserved": true,
+    "sameEntryNamesAndCount": true,
+    "sameDecompressedEntryBytes": true,
+    "sameRawLocalRecordBytes": true,
+    "sameCompressedPayloadBytes": true,
+    "jarManifestFirst": true,
+    "signingMetadataBeforePayload": true,
+    "expectedPackageVersionAndProductionFlag": true,
+    "packageVersionSdkAndDebuggableUnchanged": true,
+    "certificateUnchanged": true,
+    "currentApkHashAndCertificateMatch": true,
+    "jarFileAllPayloadsSigned": true,
+    "jarInputStreamAllPayloadsSigned": true,
+    "jarsignerVerified": true,
+    "noStreamingInconsistencies": true,
+    "deterministicRebuildSameSha256": true
+  },
+  "changedContainerFieldsOnly": [
+    "local-record order",
+    "central-directory record order",
+    "central-directory local-record offsets"
+  ],
+  "firstEntries": [
+    "META-INF/MANIFEST.MF",
+    "META-INF/SLOVA.SF",
+    "META-INF/SLOVA.RSA",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libNitroMmkv.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libNitroModules.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libappmodules.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libc++_shared.so.sym",
+    "BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libexpo-modules-core.so.sym"
+  ],
+  "priorConsoleAcceptedVariant": {
+    "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.14-vc18-rustore.aab",
+    "sha256": "078c51cd643b29cbea76437560c8ab381d93fdadcae29b1011bab01d0cf12761",
+    "preserved": true,
+    "acceptanceEvidence": "Release owner reports Console 120.92 MB - Uploaded before the result-replay fix; this reviewer did not access Chrome",
+    "report": "output/marathon-2026-10/aab-rustore-verification.json"
+  },
+  "jarsigner": {
+    "exitCode": 0,
+    "jarVerified": true,
+    "streamingInconsistencies": false,
+    "log": "output/marathon-2026-10/aab-rustore-final-jarsigner.log",
+    "remainingWarnings": [
+      "Expected self-signed Android upload certificate without a public trust chain.",
+      "No trusted signing timestamp; certificate expires in November 2053."
+    ]
+  },
+  "helper": "output/marathon-2026-10/build_rustore_aab.py",
+  "reproduction": {
+    "rebuiltTwice": true,
+    "firstSha256": "f00ace0b06b8634ae228960fe421ffcd503329cfce6d2e7811a6ac29ab6ca65e",
+    "secondSha256": "f00ace0b06b8634ae228960fe421ffcd503329cfce6d2e7811a6ac29ab6ca65e",
+    "command": "bundled-python -I output/marathon-2026-10/build_rustore_aab.py --source output/release/slova-0.1.14-vc18-release.aab --output output/release/slova-0.1.14-vc18-rustore-final.aab --report output/marathon-2026-10/aab-reorder-final-compatibility.json"
+  },
+  "evidence": [
+    "output/marathon-2026-10/aab-final-replay-source-inspection.json",
+    "output/marathon-2026-10/aab-reorder-final-compatibility.json",
+    "C:\\Users\\Dima2\\Documents\\Slova\\output\\marathon-2026-10\\aab-reorder-final-compatibility-entry-digests.json",
+    "output/marathon-2026-10/aab-rustore-final-inspection.json",
+    "output/marathon-2026-10/aab-rustore-final-jarsigner-summary.json"
+  ],
+  "notVerified": [
+    "Latest final variant acceptance in RuStore Console and version submission",
+    "Store-generated APK certificate/runtime"
+  ],
+  "newDependencies": false
+}

@@ -11,11 +11,19 @@ export type InterstitialResult = 'shown' | 'skipped' | 'unavailable';
 export type RewardedResult = 'rewarded' | 'dismissed' | 'unavailable';
 export type PurchaseResult = 'purchased' | 'cancelled' | 'failed';
 
+export interface RewardConfirmation {
+  /** Stable ID generated before showing this ad; reuse it for retries and duplicate callbacks. */
+  rewardId: string;
+  /** Return true only when the durable ledger contains rewardId (new or already present). */
+  persistGrant: (rewardId: string) => boolean;
+}
+
 /** Реализации: NoopAdsProvider (web/test), YandexAdsProvider (native, флаг) — спека 05. */
 export interface AdsProvider {
   init(): Promise<void>;
   showInterstitial(placement: InterstitialPlacement): Promise<InterstitialResult>;
-  showRewarded(placement: RewardedPlacement): Promise<RewardedResult>;
+  showRewarded(placement: RewardedPlacement, confirmation?: RewardConfirmation): Promise<RewardedResult>;
+  isInterstitialReady(): boolean;
   isRewardedReady(): boolean;
 }
 

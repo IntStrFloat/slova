@@ -1,0 +1,62 @@
+{
+  "generatedAtUtc": "2026-10-04T11:01:27.338Z",
+  "generator": "Built-in image_gen",
+  "mode": "generate then precise-object-edit",
+  "generatedSource": "C:/Users/Dima2/.codex/generated_images/01a1068f-1136-7721-97a2-65a4f7a5e4d1/exec-833671b4-68f2-4dbe-b76c-2bcbede2d626.png",
+  "referenceImages": [
+    "C:/Users/Dima2/Documents/Slova/assets/images/icon.png",
+    "C:/Users/Dima2/Documents/Slova/assets/store/rustore-screen-01-words.jpg"
+  ],
+  "promptFile": "C:\\Users\\Dima2\\Documents\\Slova\\store\\rustore\\marathon-2026-10\\art\\prompt.txt",
+  "requestedSourceSize": {
+    "width": 2880,
+    "height": 2160
+  },
+  "sizeLimitation": "Built-in tool returned 1448x1086 PNG for both requested 2880x2160 generations; final dimensions are technical Lanczos3 packaging, without redrawing or altering text.",
+  "source": {
+    "path": "C:\\Users\\Dima2\\Documents\\Slova\\store\\rustore\\marathon-2026-10\\art\\source-final.png",
+    "format": "png",
+    "width": 1448,
+    "height": 1086,
+    "hasAlpha": false,
+    "bytes": 2555167,
+    "sha256": "706384501c442056825308d92332c28dde5728f4c46d1d323b8783d91ec7d5a1"
+  },
+  "finalEvent": {
+    "path": "C:\\Users\\Dima2\\Documents\\Slova\\store\\rustore\\marathon-2026-10\\art\\marathon-event-cover-2880x2160.jpg",
+    "format": "jpeg",
+    "width": 2880,
+    "height": 2160,
+    "hasAlpha": false,
+    "bytes": 1489047,
+    "sha256": "154be5344cde7b136b133caa900d1443cee6f462eed1857ac96fd350dd184909"
+  },
+  "finalArticle": {
+    "path": "C:\\Users\\Dima2\\Documents\\Slova\\store\\rustore\\marathon-2026-10\\art\\marathon-article-cover-1568x882.jpg",
+    "format": "jpeg",
+    "width": 1568,
+    "height": 882,
+    "hasAlpha": false,
+    "bytes": 405275,
+    "sha256": "de3c70bc8377a14dad99cab823a3d104353a06ae30a01b571cf4976ba11442a9"
+  },
+  "packaging": {
+    "event": "Sharp: 1448x1086 PNG resized to 2880x2160 opaque JPEG; 90 quality, 4:4:4",
+    "article": "Sharp: crop event at x160,y0,width2560,height1440, then resize to 1568x882 opaque JPEG; no text rework"
+  },
+  "safeZone": {
+    "x": 810,
+    "y": 0,
+    "width": 1260,
+    "height": 1030
+  },
+  "visualEstimateEssentialContentBounds": {
+    "x": 920,
+    "y": 120,
+    "width": 1065,
+    "height": 775
+  },
+  "text": "7 этапов",
+  "noOtherText": true,
+  "opaqueBackground": true
+}

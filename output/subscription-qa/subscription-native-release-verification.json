@@ -1,0 +1,88 @@
+{
+  "status": "PASS",
+  "checkedAtUtc": "2026-10-08T07:09:30.129Z",
+  "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\subscription-qa\\slova-0.1.14-vc18-subscription-rustore.aab",
+  "sha256": "b8e1647571875350db5f64c3a5ef1d4a213e0818a04f9553dab4fecf20b3aebf",
+  "sizeBytes": 126805641,
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.14",
+  "versionCode": 18,
+  "architectures": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
+  "minSdkVersion": 24,
+  "targetSdkVersion": 36,
+  "debuggable": false,
+  "certificateSha256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "signatureVerifiedByJarFile": true,
+  "signatureVerifiedByJarInputStream": true,
+  "signedPayloadEntries": 2139,
+  "matchesExistingReleaseKeystore": true,
+  "matchesPreviousReleaseCertificate": true,
+  "embeddedHermesBundle": {
+    "sha256": "dd141459a5e0c8c9b56febacfad97890569253b285712c13fcda40d24faf5208",
+    "sizeBytes": 5450124,
+    "hermesMagic": "c61fbc03c103191f"
+  },
+  "sources": [
+    {
+      "file": "src/features/monetization/subscription.ts",
+      "sha256": "1c0d23ef20fba6b595dba19d88ab5e969b34fad259b416d494cb4640afe89b44",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "src/features/monetization/entitlements.ts",
+      "sha256": "1c5655282e57fc86842447359a1a54c1af79615a53aeabe53dfbc420aacaa4b7",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "src/features/monetization/yandexAds.native.ts",
+      "sha256": "586dce201ca41a1eaa1a99afb5ab2da17b275f2489dd48975ccc8b9fc0ce2a91",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "src/features/monetization/AdBanner.native.tsx",
+      "sha256": "5ce60833fc8878ff48ea5ac2bad1d8bec2a88374c9d69ebe43206206eac09847",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "src/app/shop.tsx",
+      "sha256": "f3ae2d151574aa37df9407b9f973fb945b49c0f8e9a7371068c18906fa0f93b6",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "src/app/_layout.tsx",
+      "sha256": "dfeedcf0e4863a9e368264e06078b1a4b649c98bf7e972e64f745a52e295489e",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "src/core/net/index.ts",
+      "sha256": "cad059f19492b2f9a6fb7e0551ba85bc42a68a9039b2b2d6d72d593414d1470b",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "src/core/config/env.ts",
+      "sha256": "d2ba1bc4dfb790bdbc3dc799752675191348a7e5eff0142f5df380a2d9fd5fdd",
+      "matchesCompiledSourceMap": true
+    },
+    {
+      "file": "node_modules/expo/src/winter/runtime.native.ts",
+      "sha256": "d9a8006cd4f8061be316ef070ab83cadd9ac7e9e8756faac9cf71e9d4ac237e1",
+      "matchesCompiledSourceMap": true
+    }
+  ],
+  "productionBackendUrlPresent": true,
+  "localTestBackendUrlAbsent": true,
+  "noNewDependencies": true,
+  "warnings": [
+    "Self-signed Android upload certificate; no trusted timestamp, certificate expires in 2053.",
+    "JAR signatures cover every payload, but POSIX ZIP attributes are not protected by the signature."
+  ],
+  "notVerified": [
+    "Native real-money checkout and NPD issuance; provider onboarding is pending.",
+    "RuStore acceptance or upload: not submitted. VersionCode must increase before a new upload."
+  ]
+}

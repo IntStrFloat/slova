@@ -1,0 +1,2202 @@
+{
+  "schemaVersion": 1,
+  "reason": "Preserve verified saved puzzles across retention early-route revision",
+  "campaign": [
+    {
+      "id": 1,
+      "globalId": 1,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "с",
+        "о",
+        "н"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 3,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "с"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "о"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "н"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "с"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "сон",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "с"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "н"
+            }
+          ]
+        },
+        {
+          "word": "нос",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "н"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "с"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 1,
+      "difficultyTier": 1,
+      "difficultyScore": 53,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "d61eac4377847b3c595a930de4136454608b3bb9fda48985bef5df8149b18418"
+    },
+    {
+      "id": 2,
+      "globalId": 2,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "б",
+        "р",
+        "т",
+        "а"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "б"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "р"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "а"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "т"
+          },
+          {
+            "row": 1,
+            "col": 0,
+            "ch": "а"
+          },
+          {
+            "row": 2,
+            "col": 0,
+            "ch": "р"
+          },
+          {
+            "row": 2,
+            "col": 1,
+            "ch": "а"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "б"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "брат",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "б"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "р"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "а"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "т"
+            }
+          ]
+        },
+        {
+          "word": "бар",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "б"
+            },
+            {
+              "row": 1,
+              "col": 0,
+              "ch": "а"
+            },
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "р"
+            }
+          ]
+        },
+        {
+          "word": "раб",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "р"
+            },
+            {
+              "row": 2,
+              "col": 1,
+              "ch": "а"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "б"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [
+        {
+          "word": "бат",
+          "reason": "manual_deny"
+        }
+      ],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 105,
+      "difficultyRole": "baseline",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "7ea6142b06f1baa5b20cfb4303c119b008bb4a3badd47ea9029a55f0b7421a90"
+    },
+    {
+      "id": 3,
+      "globalId": 3,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "б",
+        "р",
+        "к",
+        "а"
+      ],
+      "grid": {
+        "rows": 4,
+        "cols": 5,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "б"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "р"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "а"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "к"
+          },
+          {
+            "row": 1,
+            "col": 3,
+            "ch": "р"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "а"
+          },
+          {
+            "row": 3,
+            "col": 3,
+            "ch": "б"
+          },
+          {
+            "row": 1,
+            "col": 0,
+            "ch": "а"
+          },
+          {
+            "row": 2,
+            "col": 0,
+            "ch": "р"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "б"
+          },
+          {
+            "row": 2,
+            "col": 4,
+            "ch": "к"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "брак",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "б"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "р"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "а"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "к"
+            }
+          ]
+        },
+        {
+          "word": "краб",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "к"
+            },
+            {
+              "row": 1,
+              "col": 3,
+              "ch": "р"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "а"
+            },
+            {
+              "row": 3,
+              "col": 3,
+              "ch": "б"
+            }
+          ]
+        },
+        {
+          "word": "бар",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "б"
+            },
+            {
+              "row": 1,
+              "col": 0,
+              "ch": "а"
+            },
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "р"
+            }
+          ]
+        },
+        {
+          "word": "бак",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "б"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "а"
+            },
+            {
+              "row": 2,
+              "col": 4,
+              "ch": "к"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [
+        {
+          "word": "барк",
+          "reason": "manual_deny"
+        }
+      ],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 123,
+      "difficultyRole": "hard",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "b60f201254ee2991a0dad694345d59242b3a3b3be24668cfabe279374b760dbb"
+    },
+    {
+      "id": 4,
+      "globalId": 4,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "е",
+        "о",
+        "д",
+        "л"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "д"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "е"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "л"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "о"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "е"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "д"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "дело",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "д"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "е"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "л"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "о"
+            }
+          ]
+        },
+        {
+          "word": "лед",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "л"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "е"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "д"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [
+        {
+          "word": "дол",
+          "reason": "manual_deny"
+        },
+        {
+          "word": "лео",
+          "reason": "manual_deny"
+        }
+      ],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 85,
+      "difficultyRole": "breather",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "6474347aacbf6c67d23ee947b929a6b4dde8085dcc194fa4a28b6ad6802475fc"
+    },
+    {
+      "id": 5,
+      "globalId": 5,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "б",
+        "к",
+        "л",
+        "у"
+      ],
+      "grid": {
+        "rows": 5,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "к"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "л"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "у"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "б"
+          },
+          {
+            "row": 1,
+            "col": 1,
+            "ch": "у"
+          },
+          {
+            "row": 2,
+            "col": 1,
+            "ch": "к"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "у"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "б"
+          },
+          {
+            "row": 3,
+            "col": 3,
+            "ch": "у"
+          },
+          {
+            "row": 4,
+            "col": 3,
+            "ch": "к"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "клуб",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "к"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "л"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "у"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "б"
+            }
+          ]
+        },
+        {
+          "word": "лук",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "л"
+            },
+            {
+              "row": 1,
+              "col": 1,
+              "ch": "у"
+            },
+            {
+              "row": 2,
+              "col": 1,
+              "ch": "к"
+            }
+          ]
+        },
+        {
+          "word": "куб",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 2,
+              "col": 1,
+              "ch": "к"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "у"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "б"
+            }
+          ]
+        },
+        {
+          "word": "бук",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "б"
+            },
+            {
+              "row": 3,
+              "col": 3,
+              "ch": "у"
+            },
+            {
+              "row": 4,
+              "col": 3,
+              "ch": "к"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 126,
+      "difficultyRole": "climax",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "120ca0d421d2f0520bcb628c2d8d07b6793270f1cac6c4c13c271f7bca5f251a"
+    },
+    {
+      "id": 6,
+      "globalId": 6,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "у",
+        "о",
+        "р",
+        "т"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 5,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "у"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "т"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "р"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "о"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "т"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "у"
+          },
+          {
+            "row": 2,
+            "col": 4,
+            "ch": "р"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "утро",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "у"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "т"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "р"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "о"
+            }
+          ]
+        },
+        {
+          "word": "рот",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "р"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "т"
+            }
+          ]
+        },
+        {
+          "word": "тур",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "т"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "у"
+            },
+            {
+              "row": 2,
+              "col": 4,
+              "ch": "р"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [
+        {
+          "word": "тор",
+          "reason": "manual_deny"
+        }
+      ],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 104,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "2ec841a4e06a4fdfb4e321d2afc123a6f0836e8db36f4e193aa7ae9fb83c31c7"
+    },
+    {
+      "id": 7,
+      "globalId": 7,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "з",
+        "л",
+        "г",
+        "а"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "г"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "л"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "а"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "з"
+          },
+          {
+            "row": 1,
+            "col": 3,
+            "ch": "а"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "л"
+          },
+          {
+            "row": 1,
+            "col": 0,
+            "ch": "а"
+          },
+          {
+            "row": 2,
+            "col": 0,
+            "ch": "з"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "глаз",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "г"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "л"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "а"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "з"
+            }
+          ]
+        },
+        {
+          "word": "зал",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "з"
+            },
+            {
+              "row": 1,
+              "col": 3,
+              "ch": "а"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "л"
+            }
+          ]
+        },
+        {
+          "word": "газ",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "г"
+            },
+            {
+              "row": 1,
+              "col": 0,
+              "ch": "а"
+            },
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "з"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 105,
+      "difficultyRole": "baseline",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "279ea67d31d8bcf80938bdfe9303a67dce403d05fd63ad0b0ab9bb6361d9a179"
+    },
+    {
+      "id": 8,
+      "globalId": 8,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "е",
+        "т",
+        "л",
+        "о"
+      ],
+      "grid": {
+        "rows": 4,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "т"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "е"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "л"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "о"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "е"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "т"
+          },
+          {
+            "row": 3,
+            "col": 2,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 0,
+            "ch": "л"
+          },
+          {
+            "row": 2,
+            "col": 1,
+            "ch": "о"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "тело",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "т"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "е"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "л"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "о"
+            }
+          ]
+        },
+        {
+          "word": "лето",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "л"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "е"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "т"
+            },
+            {
+              "row": 3,
+              "col": 2,
+              "ch": "о"
+            }
+          ]
+        },
+        {
+          "word": "лот",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "л"
+            },
+            {
+              "row": 2,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "т"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [
+        {
+          "word": "лео",
+          "reason": "manual_deny"
+        }
+      ],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 109,
+      "difficultyRole": "hard",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "7a0d9b2bf8386c3c44437b2e716e284e593344fad1727dd8a032e5f16be87ba3"
+    },
+    {
+      "id": 9,
+      "globalId": 9,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "р",
+        "е",
+        "м",
+        "о"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "м"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "о"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "р"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "е"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "м"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "море",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "м"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "р"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "е"
+            }
+          ]
+        },
+        {
+          "word": "ром",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "р"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "м"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 85,
+      "difficultyRole": "breather",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "833900e1cb88b2389ad20313159f94e2862736f6f27a375acb2246c5b03cdf6d"
+    },
+    {
+      "id": 10,
+      "globalId": 10,
+      "world": "world1",
+      "contentVersion": "dict-v3-de43224c6ee7",
+      "letters": [
+        "к",
+        "т",
+        "л",
+        "о"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "т"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "о"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "л"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "к"
+          },
+          {
+            "row": 1,
+            "col": 3,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "т"
+          },
+          {
+            "row": 1,
+            "col": 0,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 0,
+            "ch": "к"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "толк",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "т"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "л"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "к"
+            }
+          ]
+        },
+        {
+          "word": "кот",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "к"
+            },
+            {
+              "row": 1,
+              "col": 3,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "т"
+            }
+          ]
+        },
+        {
+          "word": "ток",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "т"
+            },
+            {
+              "row": 1,
+              "col": 0,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "к"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [
+        "кол",
+        "лот"
+      ],
+      "bonusPool": [
+        "кол",
+        "лот"
+      ],
+      "rewardedBonus": [
+        "кол",
+        "лот"
+      ],
+      "blockedPool": [],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 111,
+      "difficultyRole": "climax",
+      "mechanic": "bonus_chest",
+      "milestone": "chest",
+      "bonusTarget": 2,
+      "fingerprint": "07b2176b029a6d1e2b51be3155560578e05bd9f5b2703ce48beb9c2bfcee127d"
+    },
+    {
+      "id": 9,
+      "globalId": 9,
+      "world": "world1",
+      "contentVersion": "retention-early-v2-de43224c6ee7",
+      "letters": [
+        "о",
+        "т",
+        "с",
+        "р"
+      ],
+      "grid": {
+        "rows": 4,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "р"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "о"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "с"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "т"
+          },
+          {
+            "row": 1,
+            "col": 3,
+            "ch": "р"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "о"
+          },
+          {
+            "row": 3,
+            "col": 3,
+            "ch": "с"
+          },
+          {
+            "row": 1,
+            "col": 0,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 0,
+            "ch": "т"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "рост",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "р"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "с"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "т"
+            }
+          ]
+        },
+        {
+          "word": "трос",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "т"
+            },
+            {
+              "row": 1,
+              "col": 3,
+              "ch": "р"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "о"
+            },
+            {
+              "row": 3,
+              "col": 3,
+              "ch": "с"
+            }
+          ]
+        },
+        {
+          "word": "рот",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "р"
+            },
+            {
+              "row": 1,
+              "col": 0,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "т"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [
+        {
+          "word": "ост",
+          "reason": "manual_deny"
+        },
+        {
+          "word": "сто",
+          "reason": "manual_deny"
+        },
+        {
+          "word": "тор",
+          "reason": "manual_deny"
+        }
+      ],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyScore": 103,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": null,
+      "fingerprint": "37bb54cbacc547bb020c657fd0674bec6aa9589c73d73f9a9adc9715a7f99da7"
+    }
+  ],
+  "intro": [
+    {
+      "id": 1,
+      "globalId": 1,
+      "world": "world1",
+      "contentVersion": "intro-v1",
+      "fingerprint": "intro-v1:1:кот:кот,ток",
+      "letters": [
+        "к",
+        "о",
+        "т"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 3,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "к"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "о"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "т"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "к"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "кот",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "к"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "т"
+            }
+          ]
+        },
+        {
+          "word": "ток",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "т"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "к"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 1,
+      "difficultyTier": 1,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": null
+    },
+    {
+      "id": 2,
+      "globalId": 2,
+      "world": "world1",
+      "contentVersion": "intro-v1",
+      "fingerprint": "intro-v1:2:сон:сон,нос",
+      "letters": [
+        "с",
+        "о",
+        "н"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 3,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "с"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "о"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "н"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "с"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "сон",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "с"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "н"
+            }
+          ]
+        },
+        {
+          "word": "нос",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "н"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "с"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 1,
+      "difficultyTier": 1,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": null
+    },
+    {
+      "id": 3,
+      "globalId": 3,
+      "world": "world1",
+      "contentVersion": "intro-v1",
+      "fingerprint": "intro-v1:3:дело:дело,лед",
+      "letters": [
+        "д",
+        "е",
+        "л",
+        "о"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "д"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "е"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "л"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "о"
+          },
+          {
+            "row": 1,
+            "col": 2,
+            "ch": "е"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "д"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "дело",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "д"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "е"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "л"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "о"
+            }
+          ]
+        },
+        {
+          "word": "лед",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "л"
+            },
+            {
+              "row": 1,
+              "col": 2,
+              "ch": "е"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "д"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": null
+    },
+    {
+      "id": 4,
+      "globalId": 4,
+      "world": "world1",
+      "contentVersion": "intro-v1",
+      "fingerprint": "intro-v1:4:рост:рост,рот,трос",
+      "letters": [
+        "р",
+        "о",
+        "с",
+        "т"
+      ],
+      "grid": {
+        "rows": 3,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "р"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "о"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "с"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "т"
+          },
+          {
+            "row": 1,
+            "col": 0,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 0,
+            "ch": "т"
+          },
+          {
+            "row": 2,
+            "col": 1,
+            "ch": "р"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "о"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "с"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "рост",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "р"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "о"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "с"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "т"
+            }
+          ]
+        },
+        {
+          "word": "рот",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "р"
+            },
+            {
+              "row": 1,
+              "col": 0,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "т"
+            }
+          ]
+        },
+        {
+          "word": "трос",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 2,
+              "col": 0,
+              "ch": "т"
+            },
+            {
+              "row": 2,
+              "col": 1,
+              "ch": "р"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "о"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "с"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [
+        "сорт",
+        "торс"
+      ],
+      "bonusPool": [
+        "сорт",
+        "торс"
+      ],
+      "rewardedBonus": [
+        "сорт",
+        "торс"
+      ],
+      "blockedPool": [],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": null
+    },
+    {
+      "id": 5,
+      "globalId": 5,
+      "world": "world1",
+      "contentVersion": "intro-v1",
+      "fingerprint": "intro-v1:5:клуб:клуб,лук,куб,бук",
+      "letters": [
+        "к",
+        "л",
+        "у",
+        "б"
+      ],
+      "grid": {
+        "rows": 5,
+        "cols": 4,
+        "cells": [
+          {
+            "row": 0,
+            "col": 0,
+            "ch": "к"
+          },
+          {
+            "row": 0,
+            "col": 1,
+            "ch": "л"
+          },
+          {
+            "row": 0,
+            "col": 2,
+            "ch": "у"
+          },
+          {
+            "row": 0,
+            "col": 3,
+            "ch": "б"
+          },
+          {
+            "row": 1,
+            "col": 1,
+            "ch": "у"
+          },
+          {
+            "row": 2,
+            "col": 1,
+            "ch": "к"
+          },
+          {
+            "row": 2,
+            "col": 2,
+            "ch": "у"
+          },
+          {
+            "row": 2,
+            "col": 3,
+            "ch": "б"
+          },
+          {
+            "row": 3,
+            "col": 3,
+            "ch": "у"
+          },
+          {
+            "row": 4,
+            "col": 3,
+            "ch": "к"
+          }
+        ]
+      },
+      "answers": [
+        {
+          "word": "клуб",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 0,
+              "col": 0,
+              "ch": "к"
+            },
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "л"
+            },
+            {
+              "row": 0,
+              "col": 2,
+              "ch": "у"
+            },
+            {
+              "row": 0,
+              "col": 3,
+              "ch": "б"
+            }
+          ]
+        },
+        {
+          "word": "лук",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 0,
+              "col": 1,
+              "ch": "л"
+            },
+            {
+              "row": 1,
+              "col": 1,
+              "ch": "у"
+            },
+            {
+              "row": 2,
+              "col": 1,
+              "ch": "к"
+            }
+          ]
+        },
+        {
+          "word": "куб",
+          "dir": "H",
+          "cells": [
+            {
+              "row": 2,
+              "col": 1,
+              "ch": "к"
+            },
+            {
+              "row": 2,
+              "col": 2,
+              "ch": "у"
+            },
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "б"
+            }
+          ]
+        },
+        {
+          "word": "бук",
+          "dir": "V",
+          "cells": [
+            {
+              "row": 2,
+              "col": 3,
+              "ch": "б"
+            },
+            {
+              "row": 3,
+              "col": 3,
+              "ch": "у"
+            },
+            {
+              "row": 4,
+              "col": 3,
+              "ch": "к"
+            }
+          ]
+        }
+      ],
+      "acceptedBonus": [],
+      "bonusPool": [],
+      "rewardedBonus": [],
+      "blockedPool": [],
+      "difficulty": 2,
+      "difficultyTier": 2,
+      "difficultyRole": "easy",
+      "mechanic": "classic",
+      "milestone": "landmark"
+    }
+  ]
+}

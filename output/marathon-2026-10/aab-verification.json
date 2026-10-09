@@ -1,0 +1,95 @@
+{
+  "status": "PASS",
+  "checkedAtUtc": "2026-10-04T12:37:26.3447737+00:00",
+  "scope": "Final signed Android App Bundle identity, version, manifest, SHA-256, upload certificate and mathematical JAR signature verification",
+  "artifact": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.14-vc18-release.aab",
+  "build": "bundleRelease",
+  "sizeBytes": 126792077,
+  "sha256": "1050e0cd02aff6202e2e535e81a6d218d2ae84151fab313920fac457f58109fb",
+  "package": "com.intstrfloat.slova",
+  "versionName": "0.1.14",
+  "versionCode": 18,
+  "minSdkVersion": 24,
+  "targetSdkVersion": 36,
+  "debuggable": false,
+  "architectures": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
+  "deepLinkSchemes": [
+    "appmetrica",
+    "https",
+    "slova"
+  ],
+  "permissions": [
+    "android.permission.ACCESS_NETWORK_STATE",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.INTERNET",
+    "android.permission.MODIFY_AUDIO_SETTINGS",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.SYSTEM_ALERT_WINDOW",
+    "android.permission.VIBRATE",
+    "android.permission.WAKE_LOCK",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+    "com.android.vending.BILLING",
+    "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
+    "com.google.android.gms.permission.AD_ID",
+    "com.intstrfloat.slova.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+  ],
+  "certificateSha256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "signatureVerified": true,
+  "signedPayloadEntries": 2139,
+  "payloadEntries": 2139,
+  "unsignedPayloadEntries": [],
+  "checks": {
+    "packageAndVersionExpected": true,
+    "productionArtifactNotDebuggable": true,
+    "artifactUnchangedDuringVerification": true,
+    "matchesFinalApkCertificate": true,
+    "matchesPreviousReleaseCertificate": true,
+    "matchesExpectedReleaseKeystoreCertificate": true,
+    "allPayloadEntriesSignedAndDigestVerified": true,
+    "jarsignerVerified": true,
+    "slovaDeepLinkPresent": true
+  },
+  "certificateEvidence": {
+    "currentAab": "Direct JarFile verification after reading every payload, corroborated by keytool -printcert -jarfile",
+    "currentApk": "output/release/slova-0.1.14-vc18-verification.json, signature and keystore match verified by release owner; current APK hash rechecked here",
+    "previousAab": "C:\\Users\\Dima2\\Documents\\Slova\\output\\release\\slova-0.1.9-vc13-release.aab",
+    "previousAabSha256": "7dc361e8cdf2fa6bacfa1181ef4980c12fbc7e562a97849ff714785dd6d38644",
+    "releaseKeystore": "credentials/release.jks certificate digest supplied and verified by release owner against the final APK; this read-only inspector did not access a private key or password",
+    "uploadCertificateVersusDistributionCertificate": "This verifies the AAB upload certificate. Store-generated APK distribution certificate and Console signing configuration are not inspected here."
+  },
+  "jarsigner": {
+    "exitCode": 0,
+    "result": "jar verified",
+    "fullLog": "output/marathon-2026-10/aab-final-replay-source-jarsigner.log",
+    "manifestIsLastJarEntry": true,
+    "sameLayoutInPreviousVc13": true,
+    "warnings": [
+      "Self-signed signer and no public trust chain: expected for Android upload signing, does not indicate a digest failure.",
+      "No trusted timestamp; current signing certificate expires in November 2053.",
+      "Current JBR warns that JarInputStream misses signature coverage because META-INF/MANIFEST.MF is the last entry. JarFile verifies all 2,139 payloads. The prior vc13 artifact has the same manifest-last layout. Console acceptance remains to be verified on upload."
+    ]
+  },
+  "tools": {
+    "java": "Android Studio bundled JBR",
+    "protobufManifestReader": "com.android.tools.build:aapt2-proto:8.7.2-12006047 and com.google.protobuf:protobuf-java:3.25.5 already present in Gradle cache",
+    "inspector": "output/marathon-2026-10/InspectAab.java",
+    "newDependencies": false
+  },
+  "actionableFindings": [],
+  "notVerified": [
+    "Runtime behavior of store-generated APKs and backward upgrade from installed RuStore version",
+    "RuStore Console permission declarations and AAB acceptance",
+    "Store app-signing certificate distinct from the locally verified upload certificate",
+    "Independent reread of password-protected release.jks public certificate: trusted release-owner evidence used instead"
+  ],
+  "finalApkSha256": "8479d9f694b3e847cd03c022ee05e782ae06618dde82dfb6afbba829b5914f70",
+  "latestUploadVariant": "output/release/slova-0.1.14-vc18-rustore-final.aab",
+  "latestUploadVariantReport": "output/marathon-2026-10/aab-rustore-final-verification.json"
+}

@@ -5,11 +5,12 @@ const {
   withProjectBuildGradle,
 } = require('expo/config-plugins');
 
-// Интеграция react-native-rustore-push 6.x (GitFlic), по аналогии с blockblast:
+// Интеграция react-native-rustore-push 6.9.1 (GitFlic):
 // 1) maven-репозиторий RuStore (ru.rustore.sdk:pushclient);
 // 2) meta-data project_id — авто-инициализация SDK;
 // 3) разрешение POST_NOTIFICATIONS (Android 13+).
-// ВКЛЮЧАЕТСЯ в app.json plugins на этапе M6 (нужен react-native-rustore-push + truststore VK maven).
+// Messaging-сервис объявляет сам SDK в своём AndroidManifest.xml; вручную его
+// добавлять не нужно.
 const RUSTORE_MAVEN_URL = 'https://artifactory-external.vkpartner.ru/artifactory/maven';
 const RUSTORE_MAVEN = `maven { url '${RUSTORE_MAVEN_URL}' }`;
 const PROJECT_ID_META = 'ru.rustore.sdk.pushclient.project_id';
@@ -18,7 +19,7 @@ function patchProjectBuildGradle(contents) {
   if (contents.includes(RUSTORE_MAVEN_URL)) return contents;
   const pattern = /(allprojects\s*\{\s*repositories\s*\{)([\s\S]*?)(\n\s*\})/;
   if (!pattern.test(contents)) {
-    throw new Error('RuStore Push: allprojects.repositories block was not found');
+    throw new Error('RuStore Push: allprojects.repositories block was not found in android/build.gradle');
   }
   return contents.replace(pattern, `$1$2\n    ${RUSTORE_MAVEN}$3`);
 }
@@ -52,7 +53,7 @@ function withRuStorePush(config, props = {}) {
   return config;
 }
 
-const plugin = createRunOncePlugin(withRuStorePush, 'with-rustore-push', '1.0.0');
+const plugin = createRunOncePlugin(withRuStorePush, 'with-rustore-push', '2.0.0');
 module.exports = plugin;
 module.exports.patchProjectBuildGradle = patchProjectBuildGradle;
 module.exports.addProjectIdMeta = addProjectIdMeta;

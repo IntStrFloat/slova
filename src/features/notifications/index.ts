@@ -27,3 +27,4 @@ export {
 export type { PushPermissionResult, PushProvider, PushTapPayload } from './types';
 export { PushSoftAsk } from './PushSoftAsk';
 export { startLevelExpansionAudienceSync } from './levelExpansionAudience';
+export { PushNavigationRoot } from './PushNavigationRoot';

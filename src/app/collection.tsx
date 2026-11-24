@@ -16,6 +16,7 @@ import { useDailyPuzzle } from '@/features/dailypuzzle';
 import { useLevels } from '@/features/levels';
 import { getCollectibles, getDailyCollectionStatus, getFeatureGates, getJourneyStatus, useRetention, type CollectibleView } from '@/features/retention';
 import { ruCount } from '@/features/retention-ui/text';
+import { trackRetentionAction } from '@/features/retention-ui/analytics';
 import { useViewportExposure } from '@/features/retention-ui/viewportExposure';
 import { AppButton, AppText, colors, Icon, radius, WorldBackground } from '@/ui';
 
@@ -132,7 +133,7 @@ export default function Collection() {
   useFocusEffect(useCallback(() => {
     exposure.focus();
     track('album_opened', { screen: 'collection' });
-    track('collection_opened', { screen: 'collection' });
+    // album_opened is the canonical event; collection_opened remains historical.
     trackObservedRetentionMilestones(useRetention.getState());
     return exposure.blur;
   }, [exposure]));
@@ -162,7 +163,7 @@ export default function Collection() {
   const openCard = (card: CollectibleView) => {
     if (!card.owned) return;
     if (isRouteCard(card)) {
-      track('route_card_opened', { landmarkId: card.artId, world: card.routeWorld });
+      track('route_card_opened', { landmarkId: card.artId, world: card.routeWorld, screen: 'collection' });
     } else {
       useRetention.getState().markCollectibleSeen(card.id);
       track('collectible_opened', { collectibleId: card.id, kind: card.kind });
@@ -205,7 +206,7 @@ export default function Collection() {
             {showHelp ? <View onLayout={exposure.cardLayout('album_help')} style={{ marginHorizontal: 16, marginBottom: 16, padding: 14, borderRadius: radius.md, backgroundColor: colors.cream, gap: 7 }}>
               <AppText preset="label" style={{ color: colors.brown, fontSize: 15 }}>Как собирать открытки</AppText>
               <AppText preset="body" style={{ color: colors.brown, fontSize: 13 }}>Проходите уровни и кроссворды дня. Под закрытой открыткой указано, сколько решений осталось. Полученные открытки можно открыть и рассмотреть.</AppText>
-              <Pressable accessibilityRole="button" accessibilityLabel="Понятно про альбом" style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => { setString(ALBUM_HELP_KEY, 'seen'); setShowHelp(false); }}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Понятно про альбом" style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => { trackRetentionAction('collection', 'dismiss_help'); setString(ALBUM_HELP_KEY, 'seen'); setShowHelp(false); }}>
                 <AppText preset="label" style={{ color: colors.playGreenDark }}>Понятно</AppText>
               </Pressable>
             </View> : null}
@@ -232,7 +233,7 @@ export default function Collection() {
           <ScrollView contentContainerStyle={[styles.modalContent, height < 700 && styles.modalContentCompact]} showsVerticalScrollIndicator={false}>
             {selected ? <>
               <View style={styles.modalTop}>
-                <Pressable onPress={() => setSelected(null)} accessibilityRole="button" accessibilityLabel="Закрыть открытку" style={styles.modalClose}><Icon name="back" size={22} color={colors.text} /></Pressable>
+                <Pressable onPress={() => { trackRetentionAction('collection', 'close_card'); setSelected(null); }} accessibilityRole="button" accessibilityLabel="Закрыть открытку" style={styles.modalClose}><Icon name="back" size={22} color={colors.text} /></Pressable>
               </View>
               <View style={styles.modalHeading}>
                 <AppText preset="display" accessibilityLabel={largeTextCompact ? `${selected.title}. ${sourceText(selected)}` : undefined} style={[styles.modalTitle, width < 350 && styles.modalTitleNarrow]}>{selected.title}</AppText>
@@ -253,7 +254,7 @@ export default function Collection() {
             {selected.kind === 'cover' ? selected.id === selectedCoverId ?
               <AppText preset="label" style={styles.selectedCoverText}>Это оформление выбрано</AppText> :
               <AppButton label="Выбрать фон" icon="check" onPress={() => chooseCover(selected.id)} style={styles.modalAction} /> : null}
-            <AppButton label="К альбому" icon="back" variant="glass" onPress={() => setSelected(null)} style={styles.modalAction} />
+            <AppButton label="К альбому" icon="back" variant="glass" onPress={() => { trackRetentionAction('collection', 'close_card'); setSelected(null); }} style={styles.modalAction} />
           </View> : null}
         </SafeAreaView>
       </Modal>

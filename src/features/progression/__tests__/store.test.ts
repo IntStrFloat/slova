@@ -21,7 +21,10 @@ describe('progression milestone rewards', () => {
       expect(milestoneRewardForLevel(510)).toBe(50);
       expect(milestoneRewardForLevel(590)).toBe(75);
       expect(milestoneRewardForLevel(1000)).toBe(150);
-      expect(isMilestoneLevel(1010)).toBe(false);
+      expect(milestoneRewardForLevel(1010)).toBe(50);
+      expect(milestoneRewardForLevel(1090)).toBe(75);
+      expect(milestoneRewardForLevel(1500)).toBe(150);
+      expect(isMilestoneLevel(1510)).toBe(false);
       expect(giftProgress(0)).toMatchObject({ nextGiftLevel: 10, remaining: 10, amount: 50, fraction: 0 });
       expect(giftProgress(9)).toMatchObject({ nextGiftLevel: 10, remaining: 1, amount: 50, fraction: 0.9 });
       expect(giftProgress(10)).toMatchObject({ nextGiftLevel: 20, remaining: 10, amount: 50, fraction: 0 });
@@ -29,7 +32,9 @@ describe('progression milestone rewards', () => {
       expect(giftProgress(90)).toMatchObject({ nextGiftLevel: 100, remaining: 10, amount: 50 });
       expect(giftProgress(500)).toMatchObject({ nextGiftLevel: 510, remaining: 10, amount: 50 });
       expect(giftProgress(999)).toMatchObject({ nextGiftLevel: 1000, remaining: 1, amount: 150 });
-      expect(giftProgress(1000)).toBeNull();
+      expect(giftProgress(1000)).toMatchObject({ nextGiftLevel: 1010, remaining: 10, amount: 50 });
+      expect(giftProgress(1499)).toMatchObject({ nextGiftLevel: 1500, remaining: 1, amount: 150 });
+      expect(giftProgress(1500)).toBeNull();
     });
   });
 
@@ -51,7 +56,27 @@ describe('progression milestone rewards', () => {
       expect(nearestMilestoneLevel(31)).toBe(40);
       expect(nearestMilestoneLevel(501)).toBe(510);
       expect(nearestMilestoneLevel(991)).toBe(1000);
-      expect(nearestMilestoneLevel(1001)).toBeNull();
+      expect(nearestMilestoneLevel(1001)).toBe(1010);
+      expect(nearestMilestoneLevel(1491)).toBe(1500);
+      expect(nearestMilestoneLevel(1501)).toBeNull();
+    });
+  });
+
+  test('preserves a claimed second-route finale reward when the next route becomes available', () => {
+    jest.isolateModules(() => {
+      const { storage } = require('@/core/storage');
+      storage.clearAll();
+      storage.set('progression.milestones.v1', JSON.stringify({
+        claimAmountsByKey: { 'completion-1000:milestone:1000': 150 },
+        claimedLevelRewards: { 500: 150, 1000: 150 },
+      }));
+      const { claimMilestoneReward, nearestMilestoneLevel, useProgression } = require('../store');
+
+      expect(claimMilestoneReward('completion-1000', 1000)).toBe(150);
+      expect(claimMilestoneReward('replay-1000', 1000)).toBe(0);
+      expect(nearestMilestoneLevel(1001)).toBe(1010);
+      expect(claimMilestoneReward('completion-1010', 1010)).toBe(50);
+      expect(useProgression.getState().claimedLevelRewards).toEqual({ 500: 150, 1000: 150, 1010: 50 });
     });
   });
 

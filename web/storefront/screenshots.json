@@ -1,0 +1,16 @@
+{
+  "updatedAt": "2026-10-14",
+  "reason": "Replace obsolete RuStore promotional cards with actual native game UI captures",
+  "captureContext": "Android QA on 2026-10-04; original image bytes preserved",
+  "sourceReport": "output/marathon-2026-10/native/verification-replay.json",
+  "captureScript": "scripts/marathon-native-smoke.cjs",
+  "uiParity": {
+    "comparedBuilds": ["0.1.14 / vc18", "0.1.16 / vc20"],
+    "identicalFiles": ["src/app/game.tsx", "src/app/index.tsx", "src/app/collection.tsx", "src/app/marathon.tsx", "src/features/game/LevelComplete.tsx", "src/features/game/LetterDisk.tsx", "src/features/game/CrosswordGrid.tsx", "src/ui/theme.ts"]
+  },
+  "images": [
+    {"file": "assets/gameplay-ce655e7a.png", "source": "output/marathon-2026-10/native/qa-level-one.png", "sha256": "ce655e7ac1ba768d5f8c4846373587918a86fd0d8b75cc62260977d0a379d84a"},
+    {"file": "assets/first-win-36effb29.png", "source": "output/marathon-2026-10/native/qa-first-win-replay.png", "sha256": "36effb293131cd383e202b204b00ed16eae4758c90ac2a583ad9d3496f2f9499"},
+    {"file": "assets/marathon-12e40878.png", "source": "output/marathon-2026-10/native/production-upcoming-replay.png", "sha256": "12e408786975d39ec7117c31e6d251beac5b98871624b85a02c38eb2e8f56b6a"}
+  ]
+}

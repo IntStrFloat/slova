@@ -2,7 +2,12 @@
 import type { GameSnapshot } from '../persistence';
 
 describe('first independent introduction completion', () => {
-  beforeEach(() => jest.resetModules());
+  beforeEach(() => {
+    jest.resetModules();
+    // Intro settlement assertions run before the calendar marathon starts.
+    jest.useFakeTimers({ now: Date.parse('2026-10-25T12:00:00.000Z') });
+  });
+  afterEach(() => jest.useRealTimers());
 
   test.each(['none', 'letter', 'demo', 'semantic'] as const)('records only unassisted completion: %s', (help) => {
     jest.isolateModules(() => {

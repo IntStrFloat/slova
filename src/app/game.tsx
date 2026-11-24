@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { cancelAnimation, FadeIn, FadeOut, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { RETENTION } from '@/core/config/retention';
 import { ECONOMY } from '@/core/config/economy';
@@ -27,14 +27,21 @@ import { cellKey, isLevelComplete } from '@/core/engine';
 import type { HintType, SubmitResult } from '@/core/engine/types';
 import { setYandexGameplayActive } from '@/core/platform/yandexGames';
 import { getAnalyticsSession, track, trackGameplayAction, trackOnce } from '@/features/analytics';
-import { puzzleIdentity, trackPuzzleEntry } from '@/features/analytics/puzzleLifecycle';
+import { selectHelpContext, type HelpAnalyticsContext } from '@/features/analytics/helpContext';
+import { newMonetizationId } from '@/features/monetization/adTelemetry';
+import { PostAdSubscriptionOffer } from '@/features/monetization/PostAdSubscriptionOffer';
+import { usePostAdSubscriptionOffer, type SubscriptionPromptResult } from '@/features/monetization/usePostAdSubscriptionOffer';
+import { puzzleIdentity, trackPuzzleCheckpoint, trackPuzzleEntry, trackPuzzleExited } from '@/features/analytics/puzzleLifecycle';
+import { flushSessionSummary, noteSessionAction } from '@/features/analytics/sessionTelemetry';
 import { trackObservedRetentionMilestones } from '@/features/analytics/retentionEvents';
 import { playSfx } from '@/features/audio';
 import { useCollection } from '@/features/collection';
 import { routeCardProgress } from '@/features/collection/routeProgress';
 import { useCurrency } from '@/features/currency';
 import { useSettings } from '@/features/settings';
-import { useDailyPuzzle, type DailyPuzzleInstance } from '@/features/dailypuzzle';
+import { useDailyPuzzle, getDailyPriorCompletion, type DailyPuzzleInstance } from '@/features/dailypuzzle';
+import { getCampaignPriorCompletion } from '@/features/levels/store';
+import { prepareHelpRequestDecision, resolveHelpUxVariant, useHelpExperimentState } from '@/features/hints/help-experiment';
 import { hasIntroPackAssignment, useIntroGuide } from '@/features/onboarding';
 import { recordIntroDemoHelpUsed } from '@/features/onboarding/introGuide';
 import { firstUnsolvedIntroWord, isFreeIntroHelpLevel } from '@/features/onboarding/onboardingHelp';
@@ -49,40 +56,66 @@ import {
 } from '@/features/game';
 import { calculateGameLayout, minimumLetterDiskSize, preferredLetterDiskSize } from '@/features/game/layout';
 import { useGameplayClock } from '@/features/game/useGameplayClock';
+import { CompactBonusObjective } from '@/features/game/CompactBonusObjective';
+import { HintNudge } from '@/features/game/HintNudge';
+import { LevelStartNote } from '@/features/game/LevelStartNote';
+import { applyRewardedHint, getEarnedRewardedHintFlow, hasEarnedRewardedHint, prepareRewardedHint,
+  persistRewardedHint, rewardedHintCountForDay, useRewardedHints } from '@/features/hints/rewarded-hint';
 import { reconcileAcceptedWords } from '@/features/game/bonusReplay';
 import type { FeedbackKind } from '@/features/game/accessibility';
 import { clueForUnsolved } from '@/features/game/editorialClues';
 import { claimHelpNudge, dismissHelpNudge, isStalled } from '@/features/game/helpNudge';
-import { hasClosedCell, replayPendingLetterHint, revealLetter } from '@/features/game/hintJournal';
-import { loadGameSnapshot, restoreGame } from '@/features/game/persistence';
+import { hasClosedCell, replayPendingLetterHint, revealLetter, type AppliedHintPayment } from '@/features/game/hintJournal';
+import { hasCurrentMeasurementEpoch, loadGameSnapshot, restoreGame, type GameSnapshot } from '@/features/game/persistence';
 import { getSavedPuzzleRewards, settlePuzzleCompletion, type SettlementResult } from '@/features/game/settlement';
-import { hintCost, purchaseSemanticClue, SEMANTIC_CLUE_COST } from '@/features/hints';
+import { hintCost, isSemanticClueUnlocked, purchaseSemanticClue, SEMANTIC_CLUE_COST } from '@/features/hints';
+import { trackAppliedHelp } from '@/features/hints/help-telemetry';
+import { canResumeHelpFlow, closeHelpFlow, createHelpFlow, currentHelpQuote, getHelpFlow, helpFlowProperties,
+  latestResumableHelpFlow, markHelpFlowApplied, markHelpFlowReturned, useHelpFlows, type HelpFlow, type RequestedHint } from '@/features/hints/help-flow';
+import { useWheel } from '@/features/wheel';
+import { recoverRewardedGrants, useRewardRecovery } from '@/features/monetization/rewardRecovery';
+import { rewardedStateMessage } from '@/features/monetization/rewardedState';
 import { giftProgress } from '@/features/progression/store';
 import { ruCount } from '@/features/retention-ui/text';
 import { requestCampaignReview } from '@/features/review';
+import { UpdateAction, hasUpdateAttemptForResult, isSavedUpdateSafePoint } from '@/features/updates';
+import { getFullscreenSnapshot } from '@/core/fullscreen';
+import { hasActiveForm } from '../../modules/rustore-review';
+import { applyRemoteConfigAtSafePoint, evaluateConfiguredInterstitial, shouldPreloadConfiguredInterstitial, syncRemotePolicyContext } from '@/features/remote-config';
 import { useLeaderboard } from '@/features/leaderboard';
 import { DEFAULT_WORLD, loadGlobalLevel, useLevels, totalLevelCount } from '@/features/levels';
 import {
   AdBanner,
   getAds,
-  isRewardedReady,
+  useRewardedState,
   loadAdsMeta,
   MONETIZATION,
   NoCoinsModal,
-  evaluateInterstitial,
   recordInterstitialShown,
-  recordRewardedShown,
-  recordVisibleGameplay,
+  recordInterstitialPolicySkip,
   requestRewarded,
   saveAdsMeta,
   useEntitlements,
 } from '@/features/monetization';
+import { beginGameplayAdSession } from '@/features/monetization/gameplaySession';
+import { useAdGameplayClock } from '@/features/monetization/useAdGameplayClock';
 import { AppButton, AppText, CoinBadge, colors, GlassPanel, Icon, radius, shadowCard, WorldBackground, type IconName } from '@/ui';
 
 const HINT_BUTTON_SIZE = 56;
 const RADIAL_HINT_EXTRA = 0;
+const MIN_BOARD_VIEWPORT = 96;
 
-type SaveFailure = { message: string; action: 'word' | 'hint' | 'clue' | 'shuffle' | 'start' | 'replay' | 'completion' | 'finish'; word?: string };
+type SaveFailure = { message: string; action: 'word' | 'hint' | 'clue' | 'shuffle' | 'start' | 'replay' | 'completion' | 'finish'; word?: string; helpFlowId?: string };
+
+function matchingHelpSnapshot(flow: HelpFlow): GameSnapshot | null {
+  const mode = flow.mode === 'daily' ? 'daily' : 'normal';
+  const saved = loadGameSnapshot(mode, undefined, flow.dateKey);
+  if (!saved || saved.attemptId !== flow.attemptId || saved.globalLevel !== flow.levelId
+    || saved.contentVersion !== flow.contentVersion) return null;
+  const level = flow.mode === 'daily' ? useDailyPuzzle.getState().instances[flow.dateKey!]?.level
+    : loadGlobalLevel(flow.levelId);
+  return level && restoreGame(level, mode, saved, flow.dateKey) ? saved : null;
+}
 
 const REWARD_SOURCE_LABEL: Record<string, string> = {
   quest: 'Задание дня',
@@ -243,12 +276,27 @@ function IconButton({ name, onPress }: { name: 'back'; onPress: () => void }) {
 }
 
 export default function GameScreen() {
+  useHelpExperimentState((state) => state.revision);
   const router = useRouter();
+  const subscriptionOffer = usePostAdSubscriptionOffer();
   const goBack = useGoBack();
   const reducedMotion = useReducedMotion();
   const { width, height } = useWindowDimensions();
-  const { mode, date, previewLevel, source } = useLocalSearchParams<{ mode?: string; date?: string; previewLevel?: string; source?: string }>();
+  const { mode, date, previewLevel, source, helpFlowId } = useLocalSearchParams<{
+    mode?: string; date?: string; previewLevel?: string; source?: string; helpFlowId?: string;
+  }>();
+  const incomingHelpFlowId = typeof helpFlowId === 'string' ? helpFlowId : undefined;
+  const incomingHelpFlow = useHelpFlows((state) => incomingHelpFlowId && Object.hasOwn(state.flows, incomingHelpFlowId)
+    ? state.flows[incomingHelpFlowId] : null);
+  const [acceptedHelpOrigin, setAcceptedHelpOrigin] = useState<string | null>(null);
+  const [pinnedDailyHelpDate, setPinnedDailyHelpDate] = useState<string | null>(() =>
+    incomingHelpFlow?.mode === 'daily' ? incomingHelpFlow.dateKey ?? null : null);
+  const requestIsActive = incomingHelpFlow?.status === 'requested' || incomingHelpFlow?.status === 'returned';
+  const originalHelpSnapshot = incomingHelpFlow && requestIsActive ? matchingHelpSnapshot(incomingHelpFlow) : null;
   const isDaily = mode === 'daily';
+  const helpReturnBlocked = Boolean(incomingHelpFlow && requestIsActive
+    && acceptedHelpOrigin !== incomingHelpFlow.id
+    && (!originalHelpSnapshot || (incomingHelpFlow.mode === 'daily') !== isDaily));
   const requestedPreviewLevel = __DEV__ && !isDaily && typeof previewLevel === 'string' ? Number(previewLevel) : NaN;
   const previewLevelId = Number.isInteger(requestedPreviewLevel)
     && requestedPreviewLevel >= 1 && requestedPreviewLevel <= totalLevelCount()
@@ -270,8 +318,19 @@ export default function GameScreen() {
   const coins = useCurrency((s) => s.coins);
   const bonusBankUnits = useRetention((s) => s.bonusBankUnits);
   const removeAds = useEntitlements((s) => s.removeAds);
+  const rewardedState = useRewardedState();
+  const rewardedReady = rewardedState === 'ready';
+  const recoveryBusy = useRewardRecovery((state) => state.checking || state.readFailed || state.pendingIds.length > 0);
+  const canFreeWheel = useWheel((state) => state.canFree());
+  const wheelRewardedRemaining = useWheel((state) => state.rewardedLeft());
+  const wheelPending = useWheel((state) => Boolean(state.pendingSpin));
   const haptics = useSettings((s) => s.haptics);
   const [pendingHint, setPendingHint] = useState<'bulb' | 'clue' | null>(null);
+  const [pendingHelpFlowId, setPendingHelpFlowId] = useState<string | null>(null);
+  const [helpPathError, setHelpPathError] = useState<string | null>(null);
+  const pendingHelpFlow = useHelpFlows((state) => pendingHelpFlowId && Object.hasOwn(state.flows, pendingHelpFlowId)
+    ? state.flows[pendingHelpFlowId] : null);
+  const [rewardedWatching, setRewardedWatching] = useState(false);
   const [bonusExpanded, setBonusExpanded] = useState(false);
   const [tapSelecting, setTapSelecting] = useState(false);
   const [settlement, setSettlement] = useState<SettlementResult | null>(null);
@@ -280,6 +339,8 @@ export default function GameScreen() {
   const [clueOpen, setClueOpen] = useState(false);
   const [clueUsed, setClueUsed] = useState(false);
   const [helpAccent, setHelpAccent] = useState(false);
+  const [hintNudgeVisible, setHintNudgeVisible] = useState(false);
+  const [startNoteAttempt, setStartNoteAttempt] = useState<string | null>(null);
   const [shuffleQuietUntil, setShuffleQuietUntil] = useState(0);
   const [saveError, setSaveError] = useState<SaveFailure | null>(null);
   const [levelMenuOpen, setLevelMenuOpen] = useState(false);
@@ -289,13 +350,38 @@ export default function GameScreen() {
   const claiming = useRef(false);
   const settling = useRef(false);
   const hintBusy = useRef(false);
+  const rewardedBusy = useRef(false);
+  const appliedHelpFlows = useRef(new Set<string>());
+  const closedHelpFlows = useRef(new Set<string>());
+  const helpFlowRef = useRef(incomingHelpFlowId);
   const focused = useRef(true);
   const appActive = useRef(AppState.currentState === 'active');
   const enteredAttempt = useRef<string | null>(null);
+  const interactionSequence = useRef(0);
+  const nextInteractionId = () => newMonetizationId('game');
+  const rewardedHintRevision = useRewardedHints((state) => state.revision);
+  const recoveryRevision = useRewardRecovery((state) => state.revision);
+  useEffect(() => { helpFlowRef.current = incomingHelpFlowId; }, [incomingHelpFlowId]);
+  const resumeSelectedHelp = useCallback(() => {
+    const snapshot = useGame.getState().snapshot;
+    if (!focused.current || !snapshot) return;
+    let flow = getHelpFlow(helpFlowRef.current);
+    if (!flow || flow.attemptId !== snapshot.attemptId) {
+      flow = latestResumableHelpFlow(snapshot.attemptId);
+    }
+    if (!flow || (resolveHelpUxVariant(flow) !== 'clarity' && !hasEarnedRewardedHint(flow.id)) || flow.status === 'closed' || flow.status === 'applied'
+      || closedHelpFlows.current.has(flow.id) || appliedHelpFlows.current.has(flow.id) || snapshot.attemptId !== flow.attemptId
+      || !currentHelpQuote(flow).helpAvailable) return;
+    helpFlowRef.current = flow.id;
+    setAcceptedHelpOrigin(flow.id);
+    setPendingHelpFlowId(flow.id);
+    setPendingHint(flow.requestedHint === 'semantic' ? 'clue' : 'bulb');
+  }, []);
 
   // Keep the result on its solved puzzle while durable progress advances.
   const [campaignLevelId, setCampaignLevelId] = useState(() => {
     if (previewLevelId !== null) return previewLevelId;
+    if (incomingHelpFlow?.mode === 'campaign' && requestIsActive && originalHelpSnapshot) return incomingHelpFlow.levelId;
     const saved = loadGameSnapshot('normal');
     if (saved && (saved.completion.status === 'completion_pending' || saved.completion.status === 'reward_claimed')) {
       const solvedLevel = loadGlobalLevel(saved.globalLevel);
@@ -304,15 +390,16 @@ export default function GameScreen() {
     }
     return currentLevel;
   });
-  const requestedDailyDate = isDaily ? date ?? useDailyPuzzle.getState().effectiveDay() : null;
+  const requestedDailyDate = isDaily ? incomingHelpFlow?.mode === 'daily' && requestIsActive
+    ? incomingHelpFlow.dateKey! : date ?? pinnedDailyHelpDate ?? useDailyPuzzle.getState().effectiveDay() : null;
   const pinnedBeforeUnlock = Boolean(requestedDailyDate && useDailyPuzzle.getState().instances[requestedDailyDate]);
   const dailyEntryAllowed = !isDaily || RETENTION.featureFlags.daily
     && (getFeatureGates(useRetention.getState()).daily || pinnedBeforeUnlock);
   const [dailyInstance, setDailyInstance] = useState<DailyPuzzleInstance | null>(() =>
-    isDaily && dailyEntryAllowed ? useDailyPuzzle.getState().getOrStartDaily(date) : null,
+    isDaily && dailyEntryAllowed && !helpReturnBlocked ? useDailyPuzzle.getState().getOrStartDaily(requestedDailyDate ?? undefined) : null,
   );
   useEffect(() => {
-    if (!isDaily) return;
+    if (!isDaily || helpReturnBlocked) return;
     if (!dailyEntryAllowed) {
       if (dailyInstance) queueMicrotask(() => setDailyInstance(null));
       return;
@@ -320,7 +407,7 @@ export default function GameScreen() {
     if (dailyInstance?.dateKey === requestedDailyDate) return;
     const next = useDailyPuzzle.getState().getOrStartDaily(requestedDailyDate ?? undefined);
     queueMicrotask(() => setDailyInstance(next));
-  }, [dailyEntryAllowed, dailyInstance, isDaily, requestedDailyDate]);
+  }, [dailyEntryAllowed, dailyInstance, helpReturnBlocked, isDaily, requestedDailyDate]);
   const selectedDailyDate = requestedDailyDate ?? useDailyPuzzle.getState().effectiveDay();
   const dailyUnavailable = isDaily && !RETENTION.featureFlags.daily;
   const dailyLocked = isDaily && !dailyEntryAllowed && !dailyUnavailable;
@@ -348,6 +435,11 @@ export default function GameScreen() {
   const globalLevelId = level?.globalId ?? level?.id ?? levelId;
   const freeIntroHelp = Boolean(level && isFreeIntroHelpLevel(level, isDaily ? 'daily' : 'normal'));
   const semanticClue = level && play ? clueForUnsolved(level, play.solvedWords) : null;
+  const semanticWord = level && play ? level.answers.find((answer) => !play.solvedWords.includes(answer.word))?.word : undefined;
+  const semanticOwned = Boolean(level && semanticWord && isSemanticClueUnlocked(
+    isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`,
+    level.fingerprint ?? level.contentVersion ?? '', semanticWord));
+  const semanticDisplayedPrice = freeIntroHelp || semanticOwned ? 0 : SEMANTIC_CLUE_COST;
   // The scripted first gesture teaches input; later words never get a free
   // answer path from the replay control.
   const introDemoWord = level && play && play.solvedWords.length === 0
@@ -384,6 +476,9 @@ export default function GameScreen() {
   );
   const tinyHeight = playAreaHeight <= 600;
   const { horizontalInset } = gameLayout;
+  const minimumPlayAreaHeight = gameLayout.diskSize + RADIAL_HINT_EXTRA
+    + gameLayout.paddingTop + gameLayout.paddingBottom + gameLayout.contentGap + MIN_BOARD_VIEWPORT;
+  const scrollPlayArea = playAreaHeight < minimumPlayAreaHeight;
   const radialWidth = Math.min(
     Math.max(1, width - horizontalInset * 2),
     gameLayout.diskSize + HINT_BUTTON_SIZE,
@@ -401,17 +496,29 @@ export default function GameScreen() {
   };
 
   useEffect(() => {
+    if (helpReturnBlocked) return;
     if (level) {
       const existing = loadGameSnapshot(isDaily ? 'daily' : 'normal', level, dailyInstance?.dateKey);
       let started = false;
       try {
+        if (!existing) applyRemoteConfigAtSafePoint();
         start(level, isDaily ? 'daily' : 'normal', dailyInstance?.dateKey);
+        syncRemotePolicyContext();
         started = true;
-        replayPendingLetterHint(isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`);
+        replayPendingLetterHint(isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`, (payment) => {
+          const applied = useGame.getState().snapshot;
+          if (applied) trackAppliedHelp(level, applied, payment, { kind: 'letter', recovery: true });
+        });
         const saved = useGame.getState().snapshot;
         if (saved) reconcileAcceptedWords(level, isDaily ? 'daily' : 'normal', saved);
       } catch (error) {
         console.warn('[game] start deferred', error);
+        track('puzzle_blocked', {
+          operation_id: nextInteractionId(), mode: isDaily ? 'daily' : 'campaign',
+          levelKey: isDaily ? `daily:${dailyInstance?.dateKey ?? 'unknown'}` : `campaign:${globalLevelId}`,
+          reason: started ? 'restore_replay_failed' : 'save_open_failed', retryable: true,
+          restore_state: existing ? 'restored' : 'fresh',
+        });
         queueMicrotask(() => setSaveError(started
           ? { message: 'Прогресс открыт, но часть наград ещё сохраняется. Повторите.', action: 'replay' }
           : { message: 'Не удалось открыть сохранение. Попробуйте ещё раз.', action: 'start' }));
@@ -428,28 +535,93 @@ export default function GameScreen() {
         enteredAttempt.current = readySnapshot.attemptId;
       }
       queueMicrotask(() => {
+        const origin = getHelpFlow(helpFlowRef.current);
+        if (origin && readySnapshot?.attemptId === origin.attemptId) setAcceptedHelpOrigin(origin.id);
         setPendingHint(null);
+        setPendingHelpFlowId(null);
+        setHelpPathError(null);
         setSettlement(null);
         setIdleSec(0);
         setAttempts(0);
         setClueOpen(false);
         setClueUsed(false);
         setHelpAccent(false);
+        setStartNoteAttempt(!existing && !isDaily && globalLevelId > 5 ? readySnapshot?.attemptId ?? null : null);
         setShuffleQuietUntil(0);
         setLevelMenuOpen(false);
         setSaveError(null);
+        resumeSelectedHelp();
       });
       claiming.current = false;
       settling.current = false;
     }
-  }, [level, start, isDaily, globalLevelId, dailyInstance, introPlayer, source]);
+  }, [level, start, isDaily, globalLevelId, dailyInstance, helpReturnBlocked, introPlayer, resumeSelectedHelp, source]);
 
   const done = completion.status === 'completion_pending' || completion.status === 'reward_claimed';
   const transitionKey = isDaily ? `daily:${dailyInstance?.dateKey ?? selectedDailyDate}` : `campaign:${levelId}`;
   const showResult = done && resultReadyFor === transitionKey;
-  const boardReady = !done && liveLevelId === globalLevelId;
-  const flushGameplayTime = useGameplayClock(Boolean(boardReady && level && play && routeFocused
-    && !levelMenuOpen && !clueOpen && !saveError && !pendingHint), activeAttemptId);
+  const boardReady = !helpReturnBlocked && !done && liveLevelId === globalLevelId;
+  const gameplayVisible = Boolean(boardReady && level && play && routeFocused
+    && !levelMenuOpen && !clueOpen && !saveError && !pendingHint && !rewardedWatching);
+  useEffect(() => {
+    if (!startNoteAttempt) return;
+    const timer = setTimeout(() => setStartNoteAttempt(null), 3_200);
+    return () => clearTimeout(timer);
+  }, [startNoteAttempt]);
+  useEffect(() => {
+    if (pendingHint || clueOpen || levelMenuOpen || rewardedWatching || (play?.solvedWords.length ?? 0) > 0) queueMicrotask(() => setStartNoteAttempt(null));
+  }, [pendingHint, clueOpen, levelMenuOpen, rewardedWatching, play?.solvedWords.length]);
+  useEffect(() => {
+    if (boardReady && level && play) beginGameplayAdSession();
+  }, [boardReady, level, play]);
+  const pauseReason = rewardedWatching ? 'ad' : pendingHint ? 'no_coins' : clueOpen ? 'clue'
+    : levelMenuOpen ? 'menu' : saveError ? 'save_error' : !routeFocused ? 'route_hidden' : 'not_visible';
+  const prepareInterstitial = useCallback(() => {
+    const ads = getAds();
+    if (!ads.setInterstitialPreloadAllowed) return;
+    let allowed = false;
+    try {
+      const gameplaySession = beginGameplayAdSession();
+      allowed = routeFocused && (gameplayVisible || showResult) && shouldPreloadConfiguredInterstitial(loadAdsMeta(), {
+        enabled: MONETIZATION.adsEnabled, removeAds, loaded: true, nowMs: Date.now(),
+        isFirstGameplaySession: gameplaySession.isFirstGameplaySession,
+        campaignLevelId: isDaily ? null : globalLevelId,
+        userContinued: false, rewardsCommitted: false,
+        protectedTransition: globalLevelId === 5 && introPlayer || globalLevelId >= totalLevelCount()
+          || Boolean(settlement?.collectibleIds.length),
+      });
+    } catch { /* Missing optional counters cannot create speculative requests. */ }
+    ads.setInterstitialPreloadAllowed(allowed);
+  }, [routeFocused, gameplayVisible, showResult, removeAds, isDaily, globalLevelId, introPlayer, settlement]);
+  useEffect(() => {
+    prepareInterstitial();
+    return () => getAds().setInterstitialPreloadAllowed?.(false);
+  }, [prepareInterstitial]);
+  const flushPuzzleGameplayTime = useGameplayClock(gameplayVisible, activeAttemptId, pauseReason);
+  const flushAdGameplayTime = useAdGameplayClock(gameplayVisible, activeAttemptId, prepareInterstitial);
+  const flushGameplayTime = useCallback(() => {
+    flushPuzzleGameplayTime();
+    flushAdGameplayTime();
+  }, [flushPuzzleGameplayTime, flushAdGameplayTime]);
+  const recordPuzzleExit = useCallback((reason: string) => {
+    flushGameplayTime();
+    const game = useGame.getState();
+    if (!game.level || !game.snapshot || game.snapshot.completion.status !== 'playing') return;
+    trackPuzzleCheckpoint(game.level, game.snapshot, reason);
+    trackPuzzleExited(game.level, game.snapshot,
+      `exit_${Date.now().toString(36)}_${interactionSequence.current++}`, reason, game.lastResult?.kind);
+    flushSessionSummary(reason);
+  }, [flushGameplayTime]);
+  useEffect(() => {
+    if (level || saveError) return;
+    const reason = dailyUnavailable ? 'daily_disabled' : dailyLocked ? 'daily_locked'
+      : dailyAlreadyDone ? 'already_completed' : 'content_unavailable';
+    trackOnce('puzzle_blocked', `blocked:${isDaily ? selectedDailyDate : globalLevelId}:${reason}`, {
+      operation_id: `blocked_${isDaily ? selectedDailyDate : globalLevelId}_${reason}`,
+      mode: isDaily ? 'daily' : 'campaign', reason, retryable: reason === 'content_unavailable',
+      levelKey: isDaily ? `daily:${selectedDailyDate}` : `campaign:${globalLevelId}`, restore_state: 'unavailable',
+    });
+  }, [dailyAlreadyDone, dailyLocked, dailyUnavailable, globalLevelId, isDaily, level, saveError, selectedDailyDate]);
   useEffect(() => {
     const snapshot = useGame.getState().snapshot;
     if (!boardReady || !routeFocused || !level || !snapshot || !introPlayer || isDaily || globalLevelId !== 1) return;
@@ -486,17 +658,18 @@ export default function GameScreen() {
     }
   }, [done, introGuide.demoActive, level, routeFocused]);
   const refreshGuidance = introGuide.refreshGuidance;
-  const yandexGameplayActive = Boolean(level && play && !done);
+  const yandexGameplayActive = Boolean(level && play && !done && !helpReturnBlocked);
 
   useFocusEffect(useCallback(() => {
     focused.current = true;
     queueMicrotask(() => setRouteFocused(true));
     refreshGuidance();
+    queueMicrotask(resumeSelectedHelp);
     return () => {
       focused.current = false;
       queueMicrotask(() => setRouteFocused(false));
     };
-  }, [refreshGuidance]));
+  }, [refreshGuidance, resumeSelectedHelp]));
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -506,40 +679,64 @@ export default function GameScreen() {
   }, []);
 
   useEffect(() => {
-    if (!levelMenuOpen) return;
+    if (!routeFocused) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setLevelMenuOpen(false);
-      return true;
+      if (rewardedBusy.current) return true;
+      if (levelMenuOpen) {
+        setLevelMenuOpen(false);
+        return true;
+      }
+      if (!pendingHint && !clueOpen && !saveError) recordPuzzleExit('hardware_back');
+      return false;
     });
     return () => subscription.remove();
-  }, [levelMenuOpen]);
+  }, [clueOpen, levelMenuOpen, pendingHint, recordPuzzleExit, routeFocused, saveError]);
 
   useEffect(() => {
-    if (!level || !play || done || pendingHint || clueOpen || saveError || levelMenuOpen) return;
+    if (!level || !play || done || pendingHint || clueOpen || saveError || levelMenuOpen || rewardedWatching) return;
     const timer = setInterval(() => {
-      if (!focused.current || !appActive.current) return;
+      if (!focused.current || !appActive.current || getFullscreenSnapshot().owner !== null || hasActiveForm()) return;
       setIdleSec((seconds) => seconds + 5);
-      saveAdsMeta(recordVisibleGameplay(loadAdsMeta(), 5));
     }, 5_000);
     return () => clearInterval(timer);
-  }, [clueOpen, done, level, levelMenuOpen, pendingHint, play, saveError]);
+  }, [clueOpen, done, level, levelMenuOpen, pendingHint, play, saveError, rewardedWatching]);
 
   useEffect(() => {
-    if (!level || !play || done || pendingHint || levelMenuOpen || tapSelecting || !semanticClue
+    if (!level || !play || done || pendingHint || levelMenuOpen || tapSelecting || !hasClosedCell()
       || clueUsed || helpAccent || idleSec < shuffleQuietUntil
       || !focused.current || !appActive.current
       || !isStalled(idleSec, attempts, introPlayer && !isDaily && globalLevelId <= 5 ? 'intro' : 'standard')) return;
     const puzzleKey = isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`;
     if (!claimHelpNudge(getAnalyticsSession().sessionId, puzzleKey)) return;
-    queueMicrotask(() => setHelpAccent(true));
+    queueMicrotask(() => {
+      setHelpAccent(true);
+      if (!(introPlayer && !isDaily && globalLevelId <= 5)) setHintNudgeVisible(true);
+    });
     const snapshot = useGame.getState().snapshot;
     track('help_offer_shown', {
       ...(snapshot ? puzzleIdentity(level, snapshot) : { levelId: globalLevelId }),
-      trigger: attempts === 0 ? 'idle' : 'errors', activeTimeMs: snapshot?.activeTimeMs ?? 0,
+      trigger: attempts === 0 ? 'idle' : 'errors',
+      ...(snapshot && hasCurrentMeasurementEpoch(snapshot) ? { activeTimeMs: snapshot.activeTimeMs ?? 0 } : {}),
     });
   }, [attempts, clueUsed, dailyInstance?.dateKey, done, globalLevelId, helpAccent,
     idleSec, introGuide.demoActive, introPlayer, isDaily, level, levelMenuOpen, pendingHint, play, semanticClue,
     shuffleQuietUntil, tapSelecting]);
+
+  useEffect(() => {
+    if (!hintNudgeVisible) return;
+    const timer = setTimeout(() => setHintNudgeVisible(false), 7_000);
+    return () => clearTimeout(timer);
+  }, [hintNudgeVisible]);
+
+  useEffect(() => { queueMicrotask(() => setHintNudgeVisible(false)); }, [activeAttemptId, play?.solvedWords.length, pendingHint, clueOpen]);
+
+  useEffect(() => {
+    if (!routeFocused || rewardedWatching || recoveryBusy || !level || !play || done) return;
+    const earnedFlow = getEarnedRewardedHintFlow(activeAttemptId);
+    if (earnedFlow) queueMicrotask(() => applyEarnedSelectedHint(earnedFlow));
+    // The persisted revision/active attempt trigger recovery, not callback identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAttemptId, done, level, play, recoveryBusy, recoveryRevision, rewardedHintRevision, rewardedWatching, routeFocused]);
 
   useEffect(() => {
     if (introPlayer && !isDaily && globalLevelId <= 5 && completion.status === 'playing') {
@@ -598,6 +795,15 @@ export default function GameScreen() {
     return () => setYandexGameplayActive(false);
   }, [yandexGameplayActive]);
 
+  if (helpReturnBlocked) {
+    return <View style={{ flex: 1 }}><WorldBackground world={DEFAULT_WORLD} dim />
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 16 }}>
+        <AppText preset="title" style={{ textAlign: 'center' }}>Исходная попытка недоступна</AppText>
+        <AppText preset="body" style={{ textAlign: 'center' }}>Слово уже изменено или начато заново. Полученная награда сохранена для исходной головоломки.</AppText>
+        <AppButton label="Карта" onPress={() => router.replace('/')} />
+      </SafeAreaView></View>;
+  }
+
   if (!level || !play) {
     return (
       <View style={{ flex: 1 }}>
@@ -621,9 +827,12 @@ export default function GameScreen() {
   }
 
   const onWord = (w: string): FeedbackKind => {
+    if (rewardedBusy.current) return 'blocked';
+    const submissionId = nextInteractionId();
     let r: SubmitResult;
     try {
       flushGameplayTime();
+      noteSessionAction('word_submitted');
       r = submit(w);
       setSaveError(null);
     } catch (error) {
@@ -643,18 +852,21 @@ export default function GameScreen() {
     track('word_submit_outcome', {
       ...(snapshot ? puzzleIdentity(level, snapshot) : {}),
       kind: r.kind,
-      reason: r.kind === 'invalid' ? r.reason : r.kind === 'blocked' ? r.reason : undefined,
+      reason: r.kind === 'invalid' || r.kind === 'blocked' || r.kind === 'constraint' ? r.reason : undefined,
       len: w.length,
       levelId: globalLevelId,
       mode: isDaily ? 'daily' : 'campaign',
       contentVersion: level.contentVersion ?? 'legacy',
-      policyRevision: level.policyRevision ?? null,
+      ...(level.policyRevision != null ? { policyRevision: level.policyRevision } : {}),
+      submission_id: submissionId,
+      manual: true,
+      bonus_reward_eligible: r.kind === 'bonus' ? r.rewarded : false,
     });
     if (r.kind === 'grid') {
       const answerIndex = level.answers.findIndex((answer) => answer.word === r.word);
       if (snapshot && answerIndex >= 0) track('target_word_accepted', {
         ...puzzleIdentity(level, snapshot), answerIndex,
-        activeTimeMs: snapshot.activeTimeMs ?? 0,
+        ...(hasCurrentMeasurementEpoch(snapshot) ? { activeTimeMs: snapshot.activeTimeMs ?? 0 } : {}),
         remaining: level.answers.length - (useGame.getState().play?.solvedWords.length ?? 0),
       });
       setIdleSec(0);
@@ -667,7 +879,8 @@ export default function GameScreen() {
         introGuide.markTargetAccepted();
         trackOnce('first_target_word_accepted', 'intro:first-target:v2', {
           ...(snapshot ? puzzleIdentity(level, snapshot) : { levelId: 1 }),
-          activeTimeMs: snapshot?.activeTimeMs ?? 0, occurredAtMs: Date.now(),
+          ...(snapshot && hasCurrentMeasurementEpoch(snapshot) ? { activeTimeMs: snapshot.activeTimeMs ?? 0 } : {}),
+          occurredAtMs: Date.now(),
         });
         trackOnce('tutorial_prompt_dismissed', 'intro-v1:word', { levelId: 1, reason: 'action_completed' });
       }
@@ -704,6 +917,7 @@ export default function GameScreen() {
             word: r.word,
             bonus: r.kind === 'bonus' && (level.rewardedBonus ?? level.bonusPool).includes(r.word),
             manual: true,
+            occurredAtMs: Date.now(),
           });
           reconcileRewards((id, amount) => useCurrency.getState().addOnce(id, 'coins', amount));
           trackObservedRetentionMilestones(useRetention.getState());
@@ -721,45 +935,145 @@ export default function GameScreen() {
   const rewardedToday = new Set([
     ...Object.keys(useRetention.getState().rewardGrants).filter((id) => id.startsWith(`rewarded-hint:${dayKey()}:`)),
     ...Object.keys(useCurrency.getState().appliedRewards).filter((id) => id.startsWith(`rewarded-coins:${dayKey()}:`)),
-  ]).size;
+  ]).size + rewardedHintCountForDay();
 
-  const tryHint = (type: HintType) => {
-    if (type !== 'bulb' || hintBusy.current || !hasClosedCell()) return;
+  const prepareHelpRequest = (requestedHint: RequestedHint, cost: number, interactionId: string, existingId?: string, requestedAtMs = Date.now()): HelpFlow | null => {
+    const game = useGame.getState();
+    if (!level || !game.snapshot || game.snapshot.completion.status !== 'playing' || game.snapshot.globalLevel !== globalLevelId
+      || game.snapshot.mode !== (isDaily ? 'daily' : 'normal')) return null;
+    const continuationId = existingId ?? helpFlowRef.current;
+    if (continuationId) {
+      const existing = getHelpFlow(continuationId);
+      if (existing && existing.attemptId === game.snapshot.attemptId && existing.requestedHint === requestedHint
+        && existing.status !== 'closed' && existing.status !== 'applied' && !appliedHelpFlows.current.has(continuationId)
+        && !closedHelpFlows.current.has(continuationId) && currentHelpQuote(existing).helpAvailable) return existing;
+      if (existingId) return null;
+    }
+    if (cost === 0) return null;
+    const identity = puzzleIdentity(level, game.snapshot);
+    try {
+      const flow = createHelpFlow({ id: interactionId, attemptId: game.snapshot.attemptId,
+        levelKey: identity.levelKey, levelId: globalLevelId, mode: isDaily ? 'daily' : 'campaign',
+        ...(isDaily ? { dateKey: dailyInstance?.dateKey ?? selectedDailyDate } : {}),
+        contentVersion: game.snapshot.contentVersion, contentFingerprint: identity.content_fingerprint,
+        requestedHint, displayedCost: cost, balance: useCurrency.getState().coins, entrySource: 'game_help',
+        createdAtMs: requestedAtMs,
+        initialLetterHintCount: game.snapshot.hintsUsed.length,
+        previouslyCompleted: isDaily ? getDailyPriorCompletion(dailyInstance?.dateKey ?? selectedDailyDate)
+          : getCampaignPriorCompletion(globalLevelId) });
+      if (flow.mode === 'daily') setPinnedDailyHelpDate(flow.dateKey!);
+      return flow;
+    } catch {
+      setHelpPathError('Не удалось сохранить выбранную помощь. Попробуйте ещё раз.');
+      return null;
+    }
+  };
+
+  const pinHelpRequest = (flow: HelpFlow) => {
+    helpFlowRef.current = flow.id;
+    setAcceptedHelpOrigin(flow.id);
+    if (flow.mode === 'daily') setPinnedDailyHelpDate(flow.dateKey!);
+    try { router.setParams({ helpFlowId: flow.id, ...(flow.mode === 'daily' ? { date: flow.dateKey } : {}) }); } catch { /* The durable flow and mounted date remain canonical. */ }
+  };
+
+  const detachHelpRoute = (flowId?: string) => {
+    const id = flowId ?? helpFlowRef.current ?? incomingHelpFlowId;
+    if (!id) return;
+    setAcceptedHelpOrigin(id);
+    helpFlowRef.current = undefined;
+    try { router.setParams({ helpFlowId: undefined }); } catch { /* A completed/closed request cannot lock this mounted game. */ }
+  };
+
+  const finishHelpRequest = (flow: HelpFlow | null) => {
+    if (!flow) return;
+    // The game snapshot/payment are canonical even if optional UI metadata fails.
+    appliedHelpFlows.current.add(flow.id);
+    try { markHelpFlowApplied(flow.id); } catch { /* Counter/owned-clue quote prevents a second purchase. */ }
+    detachHelpRoute(flow.id);
+    setPendingHint(null);
+    setPendingHelpFlowId(null);
+    setHelpPathError(null);
+  };
+
+  const helpActionContext = (flow: HelpFlow | null, kind: RequestedHint, cost: number,
+    interactionId: string, modalId?: string): HelpAnalyticsContext => selectHelpContext({
+    ...puzzleIdentity(level, useGame.getState().snapshot!), ...(flow ? helpFlowProperties(flow) : {}),
+    interaction_id: interactionId, modal_id: modalId, requested_hint: kind,
+    displayed_cost: cost, balance: useCurrency.getState().coins, entry_source: modalId ? 'no_coins' : 'game_help',
+  });
+
+  const tryHint = (type: HintType, requestedFlowId?: string, actionInteractionId?: string, modalId?: string) => {
+    if (type !== 'bulb' || hintBusy.current || rewardedBusy.current) return;
+    const current = useGame.getState().snapshot;
+    if (!current || current.globalLevel !== globalLevelId || current.mode !== (isDaily ? 'daily' : 'normal')
+      || current.completion.status !== 'playing' || helpReturnBlocked) return;
+    const interactionId = actionInteractionId ?? nextInteractionId();
+    const displayedCost = freeIntroHelp ? 0 : hintCost('bulb');
+    const requestedAtMs = Date.now();
+    const available = hasClosedCell();
+    const flow = available ? prepareHelpRequest('letter', displayedCost, interactionId, requestedFlowId, requestedAtMs) : null;
+    if (requestedFlowId && !flow) return;
+    const context = helpActionContext(flow, 'letter', displayedCost, interactionId, modalId);
+    const hintRequest = { ...context, occurredAtMs: requestedAtMs, hint_type: 'letter', already_owned: false, is_available: available,
+      rewarded_state: rewardedState, rewarded_eligible: (!introPlayer || globalLevelId > 5) && rewardedToday < 3 };
+    noteSessionAction('hint_requested');
+    let requestRecorded = false;
+    const recordRequest = () => { if (!requestRecorded) { track('hint_requested', hintRequest); requestRecorded = true; } };
+    if (!available) {
+      recordRequest();
+      track('hint_rejected', { ...hintRequest, reason: 'unavailable' });
+      return;
+    }
     hintBusy.current = true;
     try {
       flushGameplayTime();
       const puzzleKey = isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`;
-      const outcome = revealLetter(puzzleKey);
+      let payment: AppliedHintPayment | undefined;
+      const outcome = revealLetter(puzzleKey, context, (applied) => { payment = applied; });
       if (outcome === 'insufficient') {
+        const decision = flow ? prepareHelpRequestDecision({ flow, requestedAtMs, interactionId, isAvailable: available,
+          alreadyOwned: false, free: freeIntroHelp, previouslyCompleted: flow.previouslyCompleted }) : null;
+        if (!decision?.captured) {
+          track('hint_requested', { ...hintRequest, ...decision?.firstRequestProperties });
+          track('hint_rejected', { ...hintRequest, ...decision?.firstRequestProperties, reason: 'insufficient_coins' });
+        }
+        requestRecorded = true;
+        setPendingHelpFlowId(flow?.id ?? null);
         setPendingHint(type);
         return;
       }
-      if (outcome !== 'applied') return;
+      recordRequest();
+      if (outcome !== 'applied') {
+        track('hint_rejected', { ...hintRequest, reason: 'unavailable' });
+        return;
+      }
       setIdleSec(0);
       setAttempts(0);
       setHelpAccent(false);
+      finishHelpRequest(flow);
       const snapshot = useGame.getState().snapshot;
-      const helpProperties = {
-        ...(snapshot && level ? puzzleIdentity(level, snapshot) : { levelId: globalLevelId }),
-        type: 'letter', paidWith: freeIntroHelp ? 'free' : 'coins', cost: freeIntroHelp ? 0 : hintCost('bulb'),
-      };
-      track('hint_used', helpProperties);
-      track('help_used', helpProperties);
+      if (snapshot && payment) trackAppliedHelp(level, snapshot, payment, { kind: 'letter', displayedCost });
       trackReminderGameplay('hint_used');
       trackGameplayAction('hint_used', { levelId: globalLevelId, mode: isDaily ? 'daily' : 'campaign' });
       if (haptics) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       if (useGame.getState().completion.status === 'completion_pending') settleCurrent();
     } catch (error) {
+      recordRequest();
       console.warn('[game] hint deferred', error);
-      setSaveError({ message: 'Подсказку не удалось завершить. Проверьте поле и попробуйте ещё раз.', action: 'hint' });
+      setSaveError({ message: 'Подсказку не удалось завершить. Проверьте поле и попробуйте ещё раз.', action: 'hint', helpFlowId: flow?.id });
       track('save_failed', { mode: isDaily ? 'daily' : 'campaign', reason: 'hint' });
+      track('hint_rejected', { ...hintRequest, reason: 'save_failed' });
     } finally {
       hintBusy.current = false;
     }
   };
 
-  const showClue = () => {
+  const showClue = (requestedFlowId?: string, actionInteractionId?: string, modalId?: string) => {
+    if (rewardedBusy.current) return;
     if (!semanticClue || !level || !play) return;
+    const current = useGame.getState().snapshot;
+    if (!current || current.globalLevel !== globalLevelId || current.mode !== (isDaily ? 'daily' : 'normal')
+      || current.completion.status !== 'playing' || helpReturnBlocked) return;
     if (clueOpen) {
       setClueOpen(false);
       return;
@@ -767,35 +1081,60 @@ export default function GameScreen() {
     const word = level.answers.find((answer) => !play.solvedWords.includes(answer.word))?.word;
     if (!word) return;
     const puzzleKey = isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`;
+    const revision = level.fingerprint ?? level.contentVersion ?? '';
+    const alreadyOwned = isSemanticClueUnlocked(puzzleKey, revision, word);
+    const chargedAmount = freeIntroHelp || alreadyOwned ? 0 : SEMANTIC_CLUE_COST;
+    const interactionId = actionInteractionId ?? nextInteractionId();
+    const requestedAtMs = Date.now();
+    const flow = prepareHelpRequest('semantic', chargedAmount, interactionId, requestedFlowId, requestedAtMs);
+    if (requestedFlowId && !flow) return;
+    const context = helpActionContext(flow, 'semantic', chargedAmount, interactionId, modalId);
+    const hintRequest = { ...context, occurredAtMs: requestedAtMs, hint_type: 'semantic', already_owned: alreadyOwned, is_available: true,
+      rewarded_state: rewardedState, rewarded_eligible: (!introPlayer || globalLevelId > 5) && rewardedToday < 3 };
+    noteSessionAction('hint_requested');
+    let requestRecorded = false;
+    const recordRequest = () => { if (!requestRecorded) { track('hint_requested', hintRequest); requestRecorded = true; } };
     try {
       flushGameplayTime();
-      if (purchaseSemanticClue(puzzleKey, level.fingerprint ?? level.contentVersion ?? '', word) === 'insufficient') {
+      let payment: AppliedHintPayment | undefined;
+      if (purchaseSemanticClue(puzzleKey, revision, word, context, (applied) => { payment = applied; }) === 'insufficient') {
+        const decision = flow ? prepareHelpRequestDecision({ flow, requestedAtMs, interactionId, isAvailable: true,
+          alreadyOwned, free: freeIntroHelp, previouslyCompleted: flow.previouslyCompleted }) : null;
+        if (!decision?.captured) {
+          track('hint_requested', { ...hintRequest, ...decision?.firstRequestProperties });
+          track('hint_rejected', { ...hintRequest, ...decision?.firstRequestProperties, reason: 'insufficient_coins' });
+        }
+        requestRecorded = true;
+        setPendingHelpFlowId(flow?.id ?? null);
         setPendingHint('clue');
         return;
       }
+      recordRequest();
       setClueOpen(true);
       setClueUsed(true);
       setHelpAccent(false);
+      finishHelpRequest(flow);
       dismissHelpNudge(puzzleKey);
       const snapshot = useGame.getState().snapshot;
-      const helpProperties = {
-        ...(snapshot ? puzzleIdentity(level, snapshot) : { levelId: globalLevelId }),
-        type: 'semantic', paidWith: freeIntroHelp ? 'free' : 'coins', cost: freeIntroHelp ? 0 : SEMANTIC_CLUE_COST,
-      };
-      track('semantic_clue_opened', helpProperties);
-      track('help_used', helpProperties);
+      if (snapshot && payment) trackAppliedHelp(level, snapshot, payment, {
+        kind: 'semantic', displayedCost: chargedAmount, alreadyOwned,
+      });
       trackReminderGameplay('hint_used');
       introGuide.refreshGuidance();
       trackGameplayAction('hint_used', { levelId: globalLevelId, mode: isDaily ? 'daily' : 'campaign' });
     } catch (error) {
+      recordRequest();
       console.warn('[game] clue save deferred', error);
-      setSaveError({ message: 'Не удалось сохранить оплату наводки. Повторите.', action: 'clue' });
+      track('hint_rejected', { ...hintRequest, reason: 'save_failed' });
+      setSaveError({ message: 'Не удалось сохранить оплату наводки. Повторите.', action: 'clue', helpFlowId: flow?.id });
     }
   };
 
   const tryShuffle = () => {
+    if (rewardedBusy.current) return;
     if (new Set(disk).size < 2) return;
     try {
+      noteSessionAction('shuffle_used');
       doShuffle();
       setSaveError(null);
       setHelpAccent(false);
@@ -807,38 +1146,159 @@ export default function GameScreen() {
     }
   };
 
-  const onWatchAdForCoins = async () => {
-    setPendingHint(null);
-    if (rewardedToday >= 3) return;
-    const instanceId = `rewarded-coins:${dayKey()}:${Date.now().toString(36)}`;
-    const res = await requestRewarded('hint', {
-      rewardId: instanceId,
-      persistGrant: (id) => useCurrency.getState().addOnce(id, 'coins', ECONOMY.rewardedCoins)
-        || useCurrency.getState().hasApplied(id),
-    });
-    if (res !== 'unavailable') saveAdsMeta(recordRewardedShown(loadAdsMeta()));
-    if (res !== 'rewarded') return;
+  function applyEarnedSelectedHint(flow: HelpFlow) {
+    if (!level || useGame.getState().snapshot?.attemptId !== flow.attemptId) return;
     try {
-      useCurrency.getState().addOnce(instanceId, 'coins', ECONOMY.rewardedCoins);
-    } catch (error) {
-      console.warn('[game] rewarded coin save deferred', error);
-      track('save_failed', { mode: isDaily ? 'daily' : 'campaign', reason: 'rewarded-coins' });
+      let payment: AppliedHintPayment | undefined;
+      const outcome = applyRewardedHint(flow.id, (value) => { payment = value; });
+      if (outcome !== 'applied') {
+        setPendingHelpFlowId(flow.id);
+        setPendingHint(flow.requestedHint === 'semantic' ? 'clue' : 'bulb');
+        setHelpPathError('Подсказка заработана. Повторите её открытие — реклама больше не нужна.');
+        return;
+      }
+      if (flow.requestedHint === 'semantic') { setClueOpen(true); setClueUsed(true); }
+      setIdleSec(0); setAttempts(0); setHelpAccent(false); setHintNudgeVisible(false);
+      finishHelpRequest(flow);
+      const snapshot = useGame.getState().snapshot;
+      if (snapshot && payment) trackAppliedHelp(level, snapshot, payment, {
+        kind: flow.requestedHint, displayedCost: 0,
+      });
+      trackReminderGameplay('hint_used');
+      if (haptics) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (useGame.getState().completion.status === 'completion_pending') settleCurrent();
+    } catch {
+      setPendingHelpFlowId(flow.id);
+      setPendingHint(flow.requestedHint === 'semantic' ? 'clue' : 'bulb');
+      setHelpPathError('Подсказка заработана и ожидает сохранения. Повторный просмотр не нужен.');
+    }
+  }
+
+  const onWatchAdForHint = async (actionInteractionId?: string, modalId?: string) => {
+    if (rewardedToday >= 3 || rewardedBusy.current || !rewardedReady || recoveryBusy) return;
+    const flow = getHelpFlow(pendingHelpFlowId ?? undefined);
+    if (!flow || !canResumeHelpFlow(flow) || useGame.getState().snapshot?.attemptId !== flow.attemptId) {
+      setHelpPathError('Не удалось подтвердить выбранную помощь. Вернитесь к слову и выберите её заново.');
       return;
     }
-    track('reward_granted', { rewardId: instanceId, amount: ECONOMY.rewardedCoins, source: 'rewarded' });
+    if (hasEarnedRewardedHint(flow.id)) { applyEarnedSelectedHint(flow); return; }
+    pinHelpRequest(flow);
+    const quote = currentHelpQuote(flow);
+    if (quote.deficit <= 0) {
+      if (flow.requestedHint === 'semantic') showClue(flow.id, actionInteractionId, modalId);
+      else tryHint('bulb', flow.id, actionInteractionId, modalId);
+      return;
+    }
+    const context = helpActionContext(flow, flow.requestedHint, quote.price,
+      actionInteractionId ?? nextInteractionId(), modalId);
+    flushGameplayTime();
+    rewardedBusy.current = true;
+    setRewardedWatching(true);
+    setPendingHint(null);
+    const instanceId = `rewarded-hint:${dayKey()}:${Date.now().toString(36)}`;
+    let res;
+    try {
+      const receipt = prepareRewardedHint(flow, instanceId, context);
+      if (!receipt) throw new Error('Selected hint could not be prepared');
+      res = await requestRewarded('hint', {
+        rewardId: receipt.rewardId,
+        receipt,
+        persistGrant: (id) => id === receipt.rewardId && persistRewardedHint(receipt),
+      });
+    } catch {
+      setPendingHelpFlowId(flow.id);
+      setPendingHint(flow.requestedHint === 'semantic' ? 'clue' : 'bulb');
+      setHelpPathError('Не удалось подготовить подсказку. Попробуйте ещё раз.');
+      return;
+    } finally {
+      rewardedBusy.current = false;
+      setRewardedWatching(false);
+    }
+    if (res !== 'rewarded') {
+      if (flow && useGame.getState().snapshot?.attemptId === flow.attemptId) {
+        setPendingHelpFlowId(flow.id);
+        setPendingHint(flow.requestedHint === 'semantic' ? 'clue' : 'bulb');
+        setHelpPathError(res === 'dismissed' ? 'Просмотр закрыт без награды.' : rewardedStateMessage(getAds().getRewardedFailure?.() ?? 'not_ready'));
+      }
+      return;
+    }
+    void recoverRewardedGrants().catch(() => {});
+    applyEarnedSelectedHint(flow);
   };
 
-  const finalize = async () => {
+  const openHelpWheel = (free: boolean, actionInteractionId?: string, modalId?: string) => {
+    const flow = getHelpFlow(pendingHelpFlowId ?? undefined);
+    if (!flow || !canResumeHelpFlow(flow) || useGame.getState().snapshot?.attemptId !== flow.attemptId) {
+      setHelpPathError('Исходная попытка недоступна. Выберите помощь заново.');
+      return;
+    }
+    try {
+      flushGameplayTime();
+      pinHelpRequest(flow);
+      const interactionId = actionInteractionId ?? nextInteractionId();
+      const context = helpActionContext(flow, flow.requestedHint, currentHelpQuote(flow).price, interactionId, modalId);
+      if (free && !useWheel.getState().spin(false, undefined, context)) {
+        setHelpPathError('Бесплатное вращение сейчас недоступно. Можно открыть колесо или вернуться к слову.');
+        return;
+      }
+      setPendingHint(null);
+      router.push({ pathname: '/wheel', params: { helpFlowId: flow.id, source: 'no_coins',
+        entryInteractionId: interactionId, ...(modalId ? { modalId } : {}) } });
+    } catch {
+      setHelpPathError('Не удалось открыть колесо. Выбранная помощь сохранена. Попробуйте ещё раз.');
+      setPendingHint(flow.requestedHint === 'semantic' ? 'clue' : 'bulb');
+    }
+  };
+
+  const applyPendingHelp = (interactionId?: string, modalId?: string) => {
+    const flow = getHelpFlow(pendingHelpFlowId ?? undefined);
+    if (flow && hasEarnedRewardedHint(flow.id)) { applyEarnedSelectedHint(flow); return; }
+    if (!flow || appliedHelpFlows.current.has(flow.id) || closedHelpFlows.current.has(flow.id)
+      || useGame.getState().snapshot?.attemptId !== flow.attemptId
+      || !currentHelpQuote(flow).helpAvailable) {
+      setHelpPathError('Выбранная помощь уже применена или попытка изменилась. Продолжите игру.');
+      return;
+    }
+    const quote = currentHelpQuote(flow);
+    if (quote.deficit > 0) return;
+    if (flow.requestedHint === 'semantic') showClue(flow.id, interactionId, modalId);
+    else tryHint('bulb', flow.id, interactionId, modalId);
+  };
+
+  const closePendingHelp = () => {
+    const flow = getHelpFlow(pendingHelpFlowId ?? undefined);
+    if (flow) {
+      closedHelpFlows.current.add(flow.id);
+      try { closeHelpFlow(flow.id); } catch { /* Closing the UI never depends on metadata storage. */ }
+      detachHelpRoute(flow.id);
+    }
+    setPendingHint(null);
+    setPendingHelpFlowId(null);
+    setHelpPathError(null);
+  };
+
+  const recoverSelectedReward = async () => {
+    if (useRewardRecovery.getState().checking) return;
+    try {
+      const result = await recoverRewardedGrants();
+      setHelpPathError(result.pending.length ? 'Награда ожидает сохранения. Повторный просмотр не нужен.' : null);
+    } catch {
+      setHelpPathError(rewardedStateMessage('reward_check_failed'));
+    }
+  };
+
+  const finalize = async (): Promise<SubscriptionPromptResult> => {
+    // A restored result may be the first screen of this visit: reset its interval
+    // before taking the policy snapshot, just as opening a playable board does.
+    const gameplaySession = beginGameplayAdSession();
     const meta = loadAdsMeta();
     const ads = getAds();
-    const analyticsSession = getAnalyticsSession();
-    const decision = evaluateInterstitial(meta, {
+    const decision = evaluateConfiguredInterstitial(meta, {
       enabled: MONETIZATION.adsEnabled,
       removeAds,
       loaded: ads.isInterstitialReady(),
       nowMs: Date.now(),
-      sessionId: analyticsSession.sessionId,
-      isFirstAnalyticsSession: analyticsSession.isFirstSession,
+      isFirstGameplaySession: gameplaySession.isFirstGameplaySession,
       campaignLevelId: isDaily ? null : globalLevelId,
       userContinued: true,
       rewardsCommitted: useGame.getState().completion.status === 'reward_claimed',
@@ -847,17 +1307,17 @@ export default function GameScreen() {
         || Boolean(settlement?.collectibleIds.length),
     });
     if (!decision.allowed) {
-      track('interstitial_skipped', { reason: decision.reason });
-      return;
+      recordInterstitialPolicySkip(decision.reason);
+      return 'continue';
     }
-    track('interstitial_eligible', { placement: 'level_complete', levelId: globalLevelId });
     const res = await ads.showInterstitial('level_complete');
     if (res === 'shown') {
-      saveAdsMeta(recordInterstitialShown(meta, Date.now(), analyticsSession.sessionId));
-      track('interstitial_shown', { placement: 'level_complete' });
+      saveAdsMeta(recordInterstitialShown(loadAdsMeta(), Date.now()));
+      return subscriptionOffer.afterInterstitial(useLevels.getState().completed.length);
     } else if (res === 'unavailable') {
       track('ad_failed', { placement: 'level_complete', kind: 'interstitial' });
     }
+    return 'continue';
   };
 
   const rewardedBonusPool = level.rewardedBonus ?? level.bonusPool;
@@ -868,7 +1328,7 @@ export default function GameScreen() {
     : undefined;
 
   const onNext = async (destination: 'campaign' | 'daily' = 'campaign'): Promise<boolean> => {
-    if (claiming.current) return false;
+    if (claiming.current || getFullscreenSnapshot().owner !== null || hasActiveForm()) return false;
     claiming.current = true;
     if (useGame.getState().completion.status === 'completion_pending') settleCurrent();
     if (useGame.getState().completion.status !== 'reward_claimed') {
@@ -876,14 +1336,17 @@ export default function GameScreen() {
       return false;
     }
     try {
+      detachHelpRoute();
       const globalId = globalLevelId;
       if (isDaily) {
         finish();
+        applyRemoteConfigAtSafePoint();
         router.replace('/game?mode=normal' as never);
         return true;
       }
       if (destination === 'daily' && introPlayer && globalId === 5) {
         finish();
+        applyRemoteConfigAtSafePoint();
         setString(KEYS.introSurface, 'menu');
         router.replace('/daily?source=intro_completion' as never);
         return true;
@@ -891,22 +1354,35 @@ export default function GameScreen() {
       void useLeaderboard.getState().syncProgress(useLevels.getState().completed.length);
       if (globalId >= totalLevelCount()) {
         finish();
+        applyRemoteConfigAtSafePoint();
         setString(KEYS.introSurface, 'menu');
         router.replace('/' as never);
         return true;
       }
-      const reviewResult = await requestCampaignReview({
+      const updateAttempted = hasUpdateAttemptForResult(useGame.getState().snapshot?.attemptId);
+      const reviewResult = updateAttempted ? 'unavailable' : await requestCampaignReview({
         levelId: globalId,
         completedCount: useLevels.getState().completed.length,
         firstCompletion: settlement?.firstCompletion === true,
         postcardMilestone: earnedCard !== null,
         daily: isDaily,
+      }, () => {
+        const recovery = useRewardRecovery.getState();
+        return focused.current && appActive.current
+          && useGame.getState().completion.status === 'reward_claimed'
+          && !recovery.checking && !recovery.readFailed && recovery.pendingIds.length === 0
+          && !useWheel.getState().pendingSpin && !useWheel.getState().preparedReward;
       });
-      if (reviewResult === 'skipped') await finalize();
-      else track('review_flow_finished', { levelId: globalId, result: reviewResult });
+      const offerResult = reviewResult === 'skipped' ? await finalize() : 'continue';
+      if (offerResult === 'aborted' || !focused.current || !appActive.current) {
+        claiming.current = false;
+        return false;
+      }
       finish();
+      applyRemoteConfigAtSafePoint();
       if (introPlayer && globalId === 5) setString(KEYS.introSurface, 'menu');
       setCampaignLevelId(globalId + 1);
+      if (offerResult === 'subscribe') router.push('/shop?source=post_ad' as never);
       return true;
     } catch (error) {
       console.warn('[game] leaving result deferred', error);
@@ -917,6 +1393,8 @@ export default function GameScreen() {
   };
 
   const onExit = () => {
+    if (rewardedBusy.current) return;
+    recordPuzzleExit('menu_home');
     if (introPlayer && !isDaily && globalLevelId <= 5) {
       setString(KEYS.introSurface, 'menu');
       router.replace('/' as never);
@@ -925,13 +1403,16 @@ export default function GameScreen() {
     goBack();
   };
 
-  const onMenuFromResult = () => {
+  const onMenuFromResult = (): boolean => {
+    if (getFullscreenSnapshot().owner !== null || hasActiveForm()) return false;
     if (useGame.getState().completion.status === 'completion_pending') settleCurrent();
-    if (useGame.getState().completion.status !== 'reward_claimed') return;
+    if (useGame.getState().completion.status !== 'reward_claimed') return false;
     try {
+      detachHelpRoute();
       finish();
       if (introPlayer && !isDaily && globalLevelId <= 5) setString(KEYS.introSurface, 'menu');
       router.replace('/' as never);
+      return true;
     } catch (error) {
       console.warn('[game] leaving result deferred', error);
       setSaveError({ message: 'Результат сохранён, но выход пока недоступен. Повторите действие.', action: 'finish' });
@@ -947,11 +1428,14 @@ export default function GameScreen() {
     setSaveError(null);
     try {
       if (failure.action === 'word' && failure.word) onWord(failure.word);
-      else if (failure.action === 'hint') tryHint('bulb');
-      else if (failure.action === 'clue') showClue();
+      else if (failure.action === 'hint') tryHint('bulb', failure.helpFlowId);
+      else if (failure.action === 'clue') showClue(failure.helpFlowId);
       else if (failure.action === 'shuffle') tryShuffle();
       else if (failure.action === 'replay') {
-        replayPendingLetterHint(isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`);
+        replayPendingLetterHint(isDaily ? `daily:${dailyInstance?.dateKey ?? ''}` : `campaign:${globalLevelId}`, (payment) => {
+          const applied = useGame.getState().snapshot;
+          if (applied) trackAppliedHelp(level, applied, payment, { kind: 'letter', recovery: true });
+        });
         const saved = useGame.getState().snapshot;
         if (saved) reconcileAcceptedWords(level, isDaily ? 'daily' : 'normal', saved);
       }
@@ -973,21 +1457,27 @@ export default function GameScreen() {
     (amount, effect) => amount + (effect.kind === 'coins' && effect.source !== 'campaign' ? effect.amount ?? 0 : 0), 0,
   ) ?? 0;
   const awardedCoins = completion.status === 'reward_claimed' ? settledCoins : 0;
+  const pendingHelpQuote = pendingHelpFlow ? currentHelpQuote(pendingHelpFlow) : null;
+  const pendingHelpMatches = Boolean(pendingHelpFlow && pendingHelpFlow.attemptId === activeAttemptId && pendingHelpQuote?.canResume);
 
   return (
     <View style={{ flex: 1 }}>
+      <View testID="game-content" style={{ flex: 1 }} importantForAccessibility={pendingHint && !done && routeFocused ? 'no-hide-descendants' : 'auto'}>
       <WorldBackground world={level.world} image={latestLandmarkAt(level.world, done ? globalLevelId : globalLevelId - 1)?.image} dim />
       {showGameplay ? (
-      <Animated.View
+      <View
         key={transitionKey}
-        entering={reducedMotion ? FadeIn.duration(120) : FadeIn.duration(300)}
-        exiting={reducedMotion ? FadeOut.duration(100) : FadeOut.duration(150)}
-        pointerEvents={done ? 'none' : 'auto'}
+        pointerEvents={done || rewardedWatching ? 'none' : 'auto'}
         style={{ flex: 1 }}
       >
         <SafeAreaView style={{ flex: 1 }}>
+        <View pointerEvents="none" style={{ position: 'absolute', top: 88, left: horizontalInset,
+          right: horizontalInset, zIndex: 8, alignItems: 'center' }}>
+          <LevelStartNote level={level} visible={startNoteAttempt === activeAttemptId && gameplayVisible
+            && !isDaily && globalLevelId > 5} />
+        </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: horizontalInset, gap: 8 }}>
-          <IconButton name="back" onPress={() => setLevelMenuOpen(true)} />
+          <IconButton name="back" onPress={() => { if (!rewardedBusy.current) setLevelMenuOpen(true); }} />
           <AppText
             preset="title"
             numberOfLines={2}
@@ -999,18 +1489,27 @@ export default function GameScreen() {
         </View>
 
         <View
+          testID="game-play-area"
           onLayout={(event) => recordHeight(event, playAreaHeight, setPlayAreaHeight)}
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            gap: gameLayout.contentGap,
-            paddingTop: gameLayout.paddingTop,
-            paddingBottom: gameLayout.paddingBottom,
-          }}
+          style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
         >
+          <ScrollView
+            testID="game-play-scroll"
+            style={{ flex: 1, width: '100%' }}
+            scrollEnabled={scrollPlayArea}
+            nestedScrollEnabled
+            contentContainerStyle={{
+              height: scrollPlayArea ? minimumPlayAreaHeight : playAreaHeight,
+              alignItems: 'center',
+              gap: gameLayout.contentGap,
+              paddingTop: gameLayout.paddingTop,
+              paddingBottom: gameLayout.paddingBottom,
+            }}
+          >
           <ScrollView
             key={levelId}
             testID="game-board-scroll"
+            nestedScrollEnabled
             style={{ flex: 1, width: '100%' }}
             contentContainerStyle={{
               flexGrow: 1,
@@ -1048,7 +1547,11 @@ export default function GameScreen() {
                 onLayout={(event) => recordHeight(event, objectiveHeight, setObjectiveHeight, true)}
                 style={{ width: Math.min(340, width - horizontalInset * 2), alignSelf: 'center' }}
               >
-                <LevelObjective
+                {level.mechanic === 'bonus_chest' ? <CompactBonusObjective
+                  level={level} foundBonus={rewardedBonusFound} bankUnits={bonusBankUnits}
+                  clue={clueText} clueOpen={clueOpen} clueAccent={helpAccent}
+                  cluePrice={semanticDisplayedPrice} onCluePress={semanticClue ? () => showClue() : undefined}
+                /> : <LevelObjective
                   level={level}
                   foundBonus={rewardedBonusFound}
                   hintsUsed={hintsUsed.length}
@@ -1059,9 +1562,9 @@ export default function GameScreen() {
                   clue={clueText}
                   clueOpen={clueOpen}
                   clueAccent={helpAccent}
-                  cluePrice={freeIntroHelp ? 0 : SEMANTIC_CLUE_COST}
-                  onCluePress={semanticClue ? showClue : undefined}
-                />
+                  cluePrice={semanticDisplayedPrice}
+                  onCluePress={semanticClue ? () => showClue() : undefined}
+                />}
               </View>
             ) : null}
             {needsManualWordsAfterReveal ? (
@@ -1077,6 +1580,10 @@ export default function GameScreen() {
             >
               {tapSelecting ? null : (
                 <>
+                  <HintNudge visible={hintNudgeVisible && helpAccent && routeFocused && !done && !pendingHint
+                    && !clueOpen && !levelMenuOpen && !rewardedWatching && !saveError && !introCaption}
+                    onPress={() => { setHintNudgeVisible(false); tryHint('bulb'); }}
+                    style={{ position: 'absolute', left: 0, bottom: gameLayout.diskSize + 4, zIndex: 5 }} />
                   <HintChip
                     icon="bulb"
                     label="Буква"
@@ -1088,8 +1595,8 @@ export default function GameScreen() {
                     <HintChip
                       icon="wand"
                       label="Наводка"
-                      cost={freeIntroHelp ? 0 : SEMANTIC_CLUE_COST}
-                      onPress={showClue}
+                      cost={semanticDisplayedPrice}
+                      onPress={() => showClue()}
                       style={{ position: 'absolute', right: 0, top: 6, zIndex: 2, borderColor: helpAccent ? colors.amber : colors.goldBorder }}
                     />
                   ) : null}
@@ -1133,11 +1640,12 @@ export default function GameScreen() {
               ) : null}
             </View>
           </View>
+          </ScrollView>
         </View>
 
         {introPlayer && !isDaily && globalLevelId <= 5 ? null : <AdBanner />}
         </SafeAreaView>
-      </Animated.View>
+      </View>
       ) : null}
 
       {levelMenuOpen && !done ? (
@@ -1189,6 +1697,9 @@ export default function GameScreen() {
         </View>
       ) : null}
 
+      <PostAdSubscriptionOffer plan={subscriptionOffer.prompt} onShown={subscriptionOffer.onShown}
+        onLater={subscriptionOffer.onLater} onSubscribe={subscriptionOffer.onSubscribe} />
+
       {showResult ? (
         <LevelComplete
           coins={awardedCoins}
@@ -1197,6 +1708,10 @@ export default function GameScreen() {
           giftProgress={nextGiftProgress}
           journeyFinal={!isDaily && globalLevelId === totalLevelCount()}
           onNext={onNext}
+          secondaryAction={activeAttemptId ? <UpdateAction attemptId={activeAttemptId} isSafePoint={() => isSavedUpdateSafePoint(
+            focused.current && appActive.current && !claiming.current && !settling.current && !saveError
+              && useGame.getState().snapshot?.attemptId === activeAttemptId,
+          )} /> : null}
           introComplete={introPlayer && !isDaily && globalLevelId === 5}
           onDaily={introPlayer && !isDaily && globalLevelId === 5 ? () => onNext('daily') : undefined}
           onMenu={onMenuFromResult}
@@ -1224,23 +1739,45 @@ export default function GameScreen() {
           heroCaption={earnedCard?.title}
         />
       ) : null}
+      </View>
       {pendingHint && !done ? (
         <NoCoinsModal
-          priceCoins={pendingHint === 'clue' ? SEMANTIC_CLUE_COST : hintCost('bulb')}
+          focusedOffer
+          earned={hasEarnedRewardedHint(pendingHelpFlowId)}
+          requestedHint={pendingHint === 'clue' ? 'semantic' : 'letter'}
+          attemptId={activeAttemptId}
+          originInteractionId={pendingHelpFlow?.id}
+          helpContext={pendingHelpFlow ? selectHelpContext({ ...helpFlowProperties(pendingHelpFlow), entry_source: 'no_coins' }) : undefined}
+          routeFocused={routeFocused}
+          uxVariant={resolveHelpUxVariant(pendingHelpFlow)}
+          priceCoins={pendingHelpQuote?.price ?? (pendingHint === 'clue' ? semanticDisplayedPrice : freeIntroHelp ? 0 : hintCost('bulb'))}
           currentCoins={coins}
           hintName={pendingHint === 'clue' ? 'наводку' : 'букву'}
-          canWatchAd={!introPlayer || globalLevelId > 5 ? isRewardedReady() && rewardedToday < 3 : false}
+          canWatchAd={pendingHelpMatches && !recoveryBusy && (!introPlayer || globalLevelId > 5) && rewardedReady && rewardedToday < 3}
+          rewardedEligible={(!introPlayer || globalLevelId > 5) && rewardedToday < 3}
+          rewardedState={rewardedState}
+          canFreeSpin={pendingHelpMatches && canFreeWheel}
+          wheelRewardedRemaining={wheelRewardedRemaining}
+          wheelPending={wheelPending}
+          busy={rewardedWatching || recoveryBusy}
+          errorMessage={helpPathError ?? (pendingHelpFlow && !pendingHelpQuote?.helpAvailable
+            ? 'Выбранная помощь уже применена или недоступна. Продолжите слово и при необходимости выберите помощь заново.' : null)}
+          onRecoverReward={recoveryBusy ? () => { void recoverSelectedReward(); } : undefined}
+          recoveryChecking={useRewardRecovery.getState().checking}
           canShop={MONETIZATION.iapEnabled}
-          onWatchAd={onWatchAdForCoins}
-          onWheel={() => {
-            setPendingHint(null);
-            router.push('/wheel' as never);
-          }}
+          onWatchAd={onWatchAdForHint}
+          onFreeWheel={(interactionId, modalId) => openHelpWheel(true, interactionId, modalId)}
+          onWheel={(interactionId, modalId) => openHelpWheel(false, interactionId, modalId)}
+          onApplyHint={pendingHelpMatches && (pendingHelpQuote?.helpAvailable || hasEarnedRewardedHint(pendingHelpFlowId)) ? applyPendingHelp : undefined}
           onShop={() => {
+            if (pendingHelpFlow) {
+              pinHelpRequest(pendingHelpFlow);
+              try { markHelpFlowReturned(pendingHelpFlow.id); } catch { /* Navigation keeps the saved origin. */ }
+            }
             setPendingHint(null);
             router.push('/shop' as never);
           }}
-          onClose={() => setPendingHint(null)}
+          onClose={closePendingHelp}
         />
       ) : null}
     </View>

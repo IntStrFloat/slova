@@ -1,0 +1,50 @@
+{
+  "game_id": "portfolio",
+  "run_id": "monetization-recovery-2026-10-22",
+  "product_version": "Slova 0.1.26/code30; Block Blast recovery fixes 1.1.44+; Sudoku 1.0.5/code6; actual deployment to verify",
+  "geography": "Russia initially for controlled comparison; retain all-country operational report",
+  "store": "RuStore / Android",
+  "date": "2026-10-22",
+  "status": "draft",
+  "business_question": "Does a verified ad delivery/mediation configuration improve seven-day ad revenue per assigned player while preserving retention and gameplay?",
+  "evidence": [
+    {"id":"E1","source":"output/monetization-audit-2026-10-22/decomposition.json","date":"2026-10-22","type":"observation","limitation":"Descriptive historical-rate decomposition, not causal attribution or guaranteed recoverable revenue."},
+    {"id":"E2","source":"output/monetization-audit-2026-10-22/controlled-comparison.json","date":"2026-10-22","type":"observation","limitation":"Country/version/SDK fixed; acquisition source, player and advertiser composition not controlled."},
+    {"id":"E3","source":"output/release/slova-0.1.26-vc30-verification.json","date":"2026-10-22","type":"observation","limitation":"Verified signed build; publication and active-user adoption must be measured separately."},
+    {"id":"H1","source":"Proposed controlled test","date":"2026-10-22","type":"hypothesis","limitation":"No new experiment has been launched or measured."}
+  ],
+  "experiments_in_order": [
+    {
+      "id":"EXP-MON-MEDIATION-01",
+      "game":"com.intstrfloat.slova",
+      "hypothesis":"SM increases seven-day ad revenue per assigned player under the same verified client and ad policy.",
+      "control":"Legacy placement family",
+      "intervention":"SM placement family",
+      "assignment_unit":"Player; stable randomized assignment before exposure",
+      "allocation_ratio":null,
+      "scope":"Same client, policy, country eligibility and concurrent calendar recruitment; account for acquisition source and shared-device identity.",
+      "primary_metric":"Sum of validated ad revenue from all formats during first 7x24 hours after assignment / all assigned eligible players, including zeros and churned players",
+      "guardrails":["Mature D1/D7 retention","Level completion","Early exits","Ad transition errors","No duplicate or missing earned rewards"],
+      "prelaunch_requirements":["Verify routing capability and stable assignment","Reconcile revenue and user coverage","Determine traffic availability and user-level variance","Specify practically useful revenue effect, MDE, alpha, power and guardrail bounds","Set maximum duration, delayed-revenue allowance and allowed control cost"],
+      "sample_size":null,
+      "incremental_spend_authorized":false,
+      "control_cost_limit_rub":null,
+      "decision_rule":"Assess after fixed planned information/maturity; expand only with useful revenue benefit and acceptable guardrails; insufficient information remains inconclusive. Stop critical delivery/reward defects immediately without calling the experiment successful."
+    },
+    {
+      "id":"EXP-MON-FREQUENCY-02",
+      "game":"Select Slova or Block Blast after delivery verification",
+      "hypothesis":"One isolated frequency-policy change improves seven-day ad revenue per assigned player without unacceptable retention loss.",
+      "depends_on":"Stable loaders, telemetry and mediation configuration",
+      "assignment_unit":"Player; stable randomized assignment",
+      "control":"Verified currently delivered frequency policy",
+      "intervention":null,
+      "primary_metric":"Seven-day ad revenue per assigned eligible player, including zeros and churned players",
+      "prelaunch_requirements":["Choose exactly one changed gate based on measured skipped opportunities","Freeze SDK, mediation and acquisition changes","Specify sample size, useful effect, guardrail bounds, duration and experiment cost"],
+      "incremental_spend_authorized":false,
+      "status":"draft"
+    }
+  ],
+  "decisions":["Prioritize Slova and Sudoku rate issues and Block Blast delivery losses using E1/E2","Verify delivery of existing fixes before rewriting them using E3","Separate reporting repair, mediation comparison and frequency experiment","No fixed universal impression threshold or seven-day learning claim"],
+  "next_action":{"owner":"Technical owner with publisher access; Yandex manager for platform-side history","condition":"Begin with read-only deployment/measurement verification; complete prelaunch requirements before any experiment assignment or new spend","plan":".omx/plans/monetization-recovery-2026-10-22.md"}
+}

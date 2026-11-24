@@ -2,23 +2,18 @@ const crypto = require('node:crypto');
 const tls = require('node:tls');
 const { Buffer } = require('node:buffer');
 const { noticeError } = require('./renewal-notices.cjs');
+const { isEmail: email } = require('./email.cjs');
 
 const HOST = 'smtp.timeweb.ru';
 const MAX_REPLY_BYTES = 65_536;
 const MAX_MESSAGE_BYTES = 65_536;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const BODY_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
-const LOCAL_PART = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
-const LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
 const OPTIONS = new Set(['username', 'password', 'sender', 'connectImpl', 'timeoutMs']);
-
-function email(value) {
-  if (typeof value !== 'string' || value.length > 254) return false;
-  const parts = value.split('@');
-  if (parts.length !== 2 || parts[0].length > 64 || !LOCAL_PART.test(parts[0])) return false;
-  const labels = parts[1].split('.');
-  return labels.length > 1 && labels.every((label) => LABEL.test(label));
-}
+// Only known network failures may be retried. TLS/certificate/configuration
+// errors and unclassified exceptions require an operator to fix the cause.
+const TRANSIENT_NETWORK_ERRORS = new Set(['ECONNREFUSED', 'ECONNRESET', 'ECONNABORTED',
+  'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'ENETUNREACH', 'EHOSTUNREACH', 'ENETDOWN', 'EHOSTDOWN', 'EPIPE']);
 
 function senderParts(value) {
   if (typeof value !== 'string' || value.length > 320 || CONTROL.test(value)) return null;
@@ -100,7 +95,9 @@ function createTimewebMailTransport(options = {}) {
       try {
         socket = connectImpl({ host: HOST, port: 465, servername: HOST,
           rejectUnauthorized: true, minVersion: 'TLSv1.2' });
-      } catch { throw noticeError('renewal_notice_gateway_unavailable'); }
+      } catch (error) {
+        throw noticeError('renewal_notice_gateway_unavailable', { retryable: TRANSIENT_NETWORK_ERRORS.has(error?.code) });
+      }
       if (!socket || ['on', 'once', 'write', 'destroy'].some((name) => typeof socket[name] !== 'function')) {
         try { socket?.destroy?.(); } catch { /* Invalid injected connections fail closed. */ }
         throw noticeError('renewal_notice_gateway_unavailable');
@@ -120,8 +117,8 @@ function createTimewebMailTransport(options = {}) {
       let resolveSecure;
       let rejectSecure;
       const connected = new Promise((resolve, reject) => { resolveSecure = resolve; rejectSecure = reject; });
-      function unavailable() {
-        return noticeError('renewal_notice_gateway_unavailable', { ambiguous: dataStarted });
+      function unavailable(retryable = true) {
+        return noticeError('renewal_notice_gateway_unavailable', { retryable: !dataStarted && retryable, ambiguous: dataStarted });
       }
       function invalidReply() {
         return noticeError('renewal_notice_gateway_invalid_response', { ambiguous: dataStarted });
@@ -182,18 +179,18 @@ function createTimewebMailTransport(options = {}) {
       async function command(value, codes, acceptance = false) {
         if (failure) throw failure;
         const response = readReply(acceptance);
-        try { socket.write(value); } catch { fail(unavailable()); }
+        try { socket.write(value); } catch (error) { fail(unavailable(TRANSIENT_NETWORK_ERRORS.has(error?.code))); }
         return expect(await response, codes);
       }
       const timer = setTimeout(() => fail(unavailable()), timeoutMs);
       try {
-        socket.on('error', () => fail(unavailable())); // Never expose TLS/SMTP error text.
+        socket.on('error', (error) => fail(unavailable(TRANSIENT_NETWORK_ERRORS.has(error?.code)))); // Never expose TLS/SMTP error text.
         socket.on('close', () => fail(unavailable()));
         socket.on('end', () => fail(unavailable()));
         socket.on('timeout', () => fail(unavailable()));
         socket.on('data', onData);
         socket.once('secureConnect', () => {
-          if (socket.encrypted !== true || socket.authorized !== true) { fail(unavailable()); return; }
+          if (socket.encrypted !== true || socket.authorized !== true) { fail(unavailable(false)); return; }
           secure = true;
           resolveSecure();
         });
@@ -226,7 +223,7 @@ function createTimewebMailTransport(options = {}) {
           'renewal_notice_gateway_rejected'].includes(error?.code)) {
           throw noticeError(error.code, { retryable: error.retryable === true, ambiguous: error.ambiguous === true });
         }
-        throw unavailable();
+        throw unavailable(false);
       } finally {
         finished = true;
         clearTimeout(timer);

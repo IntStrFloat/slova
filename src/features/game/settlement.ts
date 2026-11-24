@@ -8,7 +8,7 @@ import { trackObservedRetentionMilestones } from '@/features/analytics/retention
 import { useCollection } from '@/features/collection';
 import { useCurrency } from '@/features/currency';
 import { useDailyPuzzle } from '@/features/dailypuzzle';
-import { useLevels } from '@/features/levels';
+import { totalLevelCount, useLevels } from '@/features/levels';
 import { getMarathonCompletionRewards, recordMarathonCompletion, reconcileMarathonRewards, useMarathon } from '@/features/marathon';
 import { loadAdsMeta, recordCampaignLevelComplete, saveAdsMeta } from '@/features/monetization';
 import { cancelDailyReminderForDate, syncDailyReminders } from '@/features/notifications';
@@ -68,6 +68,7 @@ export function isIndependentIntroCompletion(
     && snapshot.completion.source === 'submit'
     && Array.isArray(snapshot.hintsUsed)
     && snapshot.hintsUsed.length === 0
+    && !snapshot.semanticHelpUsed
     && !readIntroGuidance().demoHelpedLevelIds.includes(id)
     && level.grid.cells.every((cell) => snapshot.filled[cellKey(cell)] === cell.ch)
     && level.answers.every((answer) => snapshot.solvedWords.includes(answer.word)
@@ -140,6 +141,16 @@ export function settlePuzzleCompletion(
     useLevels.getState().completeLevelOnce(`campaign:${campaignId}:progress`, campaignId);
     useCollection.getState().maybeUnlockAtLevel(level.world, campaignId);
     saveAdsMeta(recordCampaignLevelComplete(loadAdsMeta(), campaignId));
+    const total = totalLevelCount();
+    if (campaignId === total && useLevels.getState().completed.length >= total) {
+      const catalogVersion = `campaign-${total}-${snapshot.contentVersion}`;
+      trackOnce('campaign_completed', catalogVersion, {
+        catalog_version: catalogVersion, last_level_id: total,
+        completed_count: useLevels.getState().completed.length,
+        content_version: snapshot.contentVersion,
+        occurredAtMs: completedAtMs,
+      });
+    }
   }
 
   if (isIndependentIntroCompletion(level, mode, snapshot, introPlayer)) {
@@ -167,12 +178,14 @@ export function settlePuzzleCompletion(
   reconcileRewards((id, amount) => useCurrency.getState().addOnce(id, 'coins', amount));
   trackObservedRetentionMilestones(useRetention.getState());
   const demoHelped = introPlayer && readIntroGuidance().demoHelpedLevelIds.includes(campaignId);
-  const assisted = snapshot.hintsUsed.length > 0 || demoHelped || snapshot.completion.source !== 'submit';
+  const assisted = snapshot.hintsUsed.length > 0 || snapshot.semanticHelpUsed === true
+    || demoHelped || snapshot.completion.source !== 'submit';
   trackPuzzleCompletion(level, snapshot, {
     introPlayer,
     assisted,
     assistanceType: snapshot.hintsUsed.length > 0
-      ? snapshot.hintsUsed.some((hint) => hint !== 'bulb') ? 'word_reveal' : 'letter' : demoHelped ? 'intro_help'
+      ? snapshot.hintsUsed.some((hint) => hint !== 'bulb') ? 'word_reveal' : 'letter'
+      : snapshot.semanticHelpUsed ? 'semantic' : demoHelped ? 'intro_help'
       : snapshot.completion.source !== 'submit' ? snapshot.completion.source ?? 'unknown' : 'none',
     dailyActionDays: Object.values(useRetention.getState().dailyCompletions),
   });

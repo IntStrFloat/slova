@@ -1,0 +1,536 @@
+{
+  "game_id": "slova",
+  "run_id": "slova-appmetrica-audit-2026-11-01",
+  "date": "2026-11-01",
+  "status": "measured",
+  "app_id": 6321823,
+  "source": "Authenticated AppMetrica Events report read in Chrome via DOM; 101 visible top-level rows, all pagination loaded",
+  "url": "https://appmetrica.yandex.ru/statistic?report=events&appId=6321823&period=month&group=day&currency=rub&accuracy=medium",
+  "period_label": "2 окт — 1 ноя",
+  "period_from": "2026-10-02",
+  "period_to": "2026-11-01",
+  "includes_incomplete_current_day": true,
+  "timezone": "App setting not verified; planned analysis timezone Europe/Moscow",
+  "sampling_display": "100 %",
+  "accuracy_url": "medium",
+  "segment_display": "Не выбран; a generic Произвольный сегмент strip remained after reset; URL had no segment conditions",
+  "sessions_scope": "по всем сессиям",
+  "displayed_total_events": 5172378,
+  "displayed_users_with_events": 2272,
+  "row_sum": 5172380,
+  "row_count": 101,
+  "limitations": [
+    "Live pagination is not an atomic export: row sum is 2 greater than displayed header total; retain both, do not silently reconcile.",
+    "No per-version or raw-event cohort export in this audit.",
+    "Absent event name in this window is not proof of zero actions or missing implementation.",
+    "UI showed service recovery warning; completeness and latency not independently established.",
+    "Users across rows overlap; counts must not be summed."
+  ],
+  "rows": [
+    {
+      "name": "gameplay_action",
+      "events": 1930225,
+      "users_with_event": 1937
+    },
+    {
+      "name": "word_submit_outcome",
+      "events": 1016568,
+      "users_with_event": 2061
+    },
+    {
+      "name": "ad_request_ads_sdk",
+      "events": 318577,
+      "users_with_event": 2163
+    },
+    {
+      "name": "ad_attempt_ads_sdk",
+      "events": 287410,
+      "users_with_event": 2104
+    },
+    {
+      "name": "target_word_accepted",
+      "events": 283941,
+      "users_with_event": 1726
+    },
+    {
+      "name": "ad_filled_request_ads_sdk",
+      "events": 251795,
+      "users_with_event": 2077
+    },
+    {
+      "name": "ad_impression_ads_sdk",
+      "events": 225527,
+      "users_with_event": 1784
+    },
+    {
+      "name": "level_reward_claimed",
+      "events": 95688,
+      "users_with_event": 2000
+    },
+    {
+      "name": "puzzle_completed",
+      "events": 91034,
+      "users_with_event": 1866
+    },
+    {
+      "name": "puzzle_started",
+      "events": 84147,
+      "users_with_event": 1843
+    },
+    {
+      "name": "interstitial_skipped",
+      "events": 78968,
+      "users_with_event": 1829
+    },
+    {
+      "name": "shuffle_used",
+      "events": 74359,
+      "users_with_event": 1014
+    },
+    {
+      "name": "reward_granted",
+      "events": 55110,
+      "users_with_event": 1730
+    },
+    {
+      "name": "event_progressed",
+      "events": 38094,
+      "users_with_event": 1018
+    },
+    {
+      "name": "help_progressed",
+      "events": 25766,
+      "users_with_event": 1686
+    },
+    {
+      "name": "hint_used",
+      "events": 24822,
+      "users_with_event": 1261
+    },
+    {
+      "name": "collectible_unlocked",
+      "events": 22596,
+      "users_with_event": 1668
+    },
+    {
+      "name": "home_viewed",
+      "events": 19445,
+      "users_with_event": 1466
+    },
+    {
+      "name": "quest_created",
+      "events": 18558,
+      "users_with_event": 1572
+    },
+    {
+      "name": "help_used",
+      "events": 18401,
+      "users_with_event": 1084
+    },
+    {
+      "name": "daily_entry_seen",
+      "events": 16465,
+      "users_with_event": 1243
+    },
+    {
+      "name": "level_start",
+      "events": 16062,
+      "users_with_event": 425
+    },
+    {
+      "name": "home_primary_action",
+      "events": 14619,
+      "users_with_event": 1356
+    },
+    {
+      "name": "game_session_start",
+      "events": 13364,
+      "users_with_event": 2057
+    },
+    {
+      "name": "quest_completed",
+      "events": 12823,
+      "users_with_event": 1480
+    },
+    {
+      "name": "daily_bonus_seen",
+      "events": 11457,
+      "users_with_event": 1136
+    },
+    {
+      "name": "interstitial_eligible",
+      "events": 10071,
+      "users_with_event": 959
+    },
+    {
+      "name": "interstitial_shown",
+      "events": 9385,
+      "users_with_event": 953
+    },
+    {
+      "name": "puzzle_resumed",
+      "events": 9275,
+      "users_with_event": 1272
+    },
+    {
+      "name": "rewarded_requested",
+      "events": 7210,
+      "users_with_event": 429
+    },
+    {
+      "name": "ad_click_ads_sdk",
+      "events": 6862,
+      "users_with_event": 842
+    },
+    {
+      "name": "weekly_day_qualified",
+      "events": 5396,
+      "users_with_event": 1660
+    },
+    {
+      "name": "coins_earned",
+      "events": 5307,
+      "users_with_event": 599
+    },
+    {
+      "name": "coins_spent",
+      "events": 4909,
+      "users_with_event": 127
+    },
+    {
+      "name": "level_complete",
+      "events": 4796,
+      "users_with_event": 157
+    },
+    {
+      "name": "ad_reward_ads_sdk",
+      "events": 4402,
+      "users_with_event": 275
+    },
+    {
+      "name": "rewarded_completed",
+      "events": 4059,
+      "users_with_event": 268
+    },
+    {
+      "name": "quest_set_completed",
+      "events": 3682,
+      "users_with_event": 1333
+    },
+    {
+      "name": "event_milestone_granted",
+      "events": 3611,
+      "users_with_event": 912
+    },
+    {
+      "name": "album_completed",
+      "events": 2355,
+      "users_with_event": 1128
+    },
+    {
+      "name": "ad_failed",
+      "events": 2341,
+      "users_with_event": 240
+    },
+    {
+      "name": "weekly_milestone_granted",
+      "events": 2053,
+      "users_with_event": 845
+    },
+    {
+      "name": "first_open",
+      "events": 2002,
+      "users_with_event": 1816
+    },
+    {
+      "name": "onboarding_assigned",
+      "events": 1980,
+      "users_with_event": 1795
+    },
+    {
+      "name": "reward_presentation_seen",
+      "events": 1858,
+      "users_with_event": 698
+    },
+    {
+      "name": "session_start",
+      "events": 1808,
+      "users_with_event": 211
+    },
+    {
+      "name": "onboarding_field_ready",
+      "events": 1807,
+      "users_with_event": 1792
+    },
+    {
+      "name": "tutorial_prompt_shown",
+      "events": 1801,
+      "users_with_event": 1789
+    },
+    {
+      "name": "wrong_word",
+      "events": 1730,
+      "users_with_event": 16
+    },
+    {
+      "name": "first_target_word_accepted",
+      "events": 1664,
+      "users_with_event": 1658
+    },
+    {
+      "name": "tutorial_prompt_dismissed",
+      "events": 1663,
+      "users_with_event": 1658
+    },
+    {
+      "name": "independent_level_completed",
+      "events": 1588,
+      "users_with_event": 1583
+    },
+    {
+      "name": "first_level_completed",
+      "events": 1542,
+      "users_with_event": 1539
+    },
+    {
+      "name": "intro_completed",
+      "events": 1471,
+      "users_with_event": 1464
+    },
+    {
+      "name": "daily_entry_clicked",
+      "events": 1437,
+      "users_with_event": 315
+    },
+    {
+      "name": "daily_eligible",
+      "events": 1411,
+      "users_with_event": 1264
+    },
+    {
+      "name": "fifth_level_completed",
+      "events": 1390,
+      "users_with_event": 1386
+    },
+    {
+      "name": "daily_entered",
+      "events": 1323,
+      "users_with_event": 419
+    },
+    {
+      "name": "review_flow_finished",
+      "events": 1271,
+      "users_with_event": 1269
+    },
+    {
+      "name": "event_eligible",
+      "events": 1133,
+      "users_with_event": 944
+    },
+    {
+      "name": "daily_completed",
+      "events": 1060,
+      "users_with_event": 409
+    },
+    {
+      "name": "help_offer_shown",
+      "events": 949,
+      "users_with_event": 641
+    },
+    {
+      "name": "daily_started",
+      "events": 913,
+      "users_with_event": 433
+    },
+    {
+      "name": "daily_menu_viewed",
+      "events": 903,
+      "users_with_event": 171
+    },
+    {
+      "name": "word_found",
+      "events": 841,
+      "users_with_event": 15
+    },
+    {
+      "name": "weekly_period_closed",
+      "events": 774,
+      "users_with_event": 448
+    },
+    {
+      "name": "semantic_clue_opened",
+      "events": 756,
+      "users_with_event": 336
+    },
+    {
+      "name": "subscription_offer_shown",
+      "events": 685,
+      "users_with_event": 162
+    },
+    {
+      "name": "event_finished",
+      "events": 616,
+      "users_with_event": 466
+    },
+    {
+      "name": "daily_bonus_claimed",
+      "events": 581,
+      "users_with_event": 236
+    },
+    {
+      "name": "marathon_screen_viewed",
+      "events": 571,
+      "users_with_event": 237
+    },
+    {
+      "name": "marathon_entry_clicked",
+      "events": 447,
+      "users_with_event": 236
+    },
+    {
+      "name": "subscription_error",
+      "events": 427,
+      "users_with_event": 141
+    },
+    {
+      "name": "marathon_play_clicked",
+      "events": 318,
+      "users_with_event": 165
+    },
+    {
+      "name": "album_opened",
+      "events": 212,
+      "users_with_event": 103
+    },
+    {
+      "name": "collection_opened",
+      "events": 212,
+      "users_with_event": 103
+    },
+    {
+      "name": "home_secondary_action",
+      "events": 185,
+      "users_with_event": 99
+    },
+    {
+      "name": "setting_changed",
+      "events": 164,
+      "users_with_event": 102
+    },
+    {
+      "name": "event_screen_viewed",
+      "events": 159,
+      "users_with_event": 67
+    },
+    {
+      "name": "collectible_opened",
+      "events": 154,
+      "users_with_event": 23
+    },
+    {
+      "name": "reminder_scheduled",
+      "events": 149,
+      "users_with_event": 39
+    },
+    {
+      "name": "daily_repeat_completed",
+      "events": 144,
+      "users_with_event": 121
+    },
+    {
+      "name": "quest_screen_viewed",
+      "events": 120,
+      "users_with_event": 62
+    },
+    {
+      "name": "feature_exposed",
+      "events": 98,
+      "users_with_event": 76
+    },
+    {
+      "name": "album_help_seen",
+      "events": 92,
+      "users_with_event": 92
+    },
+    {
+      "name": "event_action_selected",
+      "events": 76,
+      "users_with_event": 43
+    },
+    {
+      "name": "route_card_opened",
+      "events": 70,
+      "users_with_event": 35
+    },
+    {
+      "name": "quest_action_selected",
+      "events": 60,
+      "users_with_event": 41
+    },
+    {
+      "name": "reminder_consent",
+      "events": 45,
+      "users_with_event": 40
+    },
+    {
+      "name": "reminder_delivered",
+      "events": 34,
+      "users_with_event": 9
+    },
+    {
+      "name": "daily_album_action",
+      "events": 28,
+      "users_with_event": 19
+    },
+    {
+      "name": "notification_opt_in_clicked",
+      "events": 28,
+      "users_with_event": 28
+    },
+    {
+      "name": "subscription_offer_clicked",
+      "events": 23,
+      "users_with_event": 19
+    },
+    {
+      "name": "notification_soft_ask_result",
+      "events": 21,
+      "users_with_event": 21
+    },
+    {
+      "name": "subscription_offer_dismissed",
+      "events": 16,
+      "users_with_event": 16
+    },
+    {
+      "name": "subscription_shop_viewed",
+      "events": 16,
+      "users_with_event": 12
+    },
+    {
+      "name": "cover_selected",
+      "events": 8,
+      "users_with_event": 7
+    },
+    {
+      "name": "notification_permission_result",
+      "events": 7,
+      "users_with_event": 7
+    },
+    {
+      "name": "subscription_form_opened",
+      "events": 2,
+      "users_with_event": 2
+    },
+    {
+      "name": "reminder_gameplay",
+      "events": 1,
+      "users_with_event": 1
+    },
+    {
+      "name": "reminder_opened",
+      "events": 1,
+      "users_with_event": 1
+    }
+  ]
+}

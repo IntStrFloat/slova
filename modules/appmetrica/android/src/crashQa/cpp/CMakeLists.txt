@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(slova_crash_qa LANGUAGES CXX)
+add_library(slova_crash_qa SHARED crash_fixture.cpp)
+target_compile_options(slova_crash_qa PRIVATE -g -O0 -fno-omit-frame-pointer -fno-optimize-sibling-calls)
+target_link_options(slova_crash_qa PRIVATE -Wl,--build-id=sha1)

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { allLandmarks, landmarkUnlockedAt } from '@/core/config/worlds';
 import { getJSON, KEYS, storage } from '@/core/storage';
 import { useRetention } from '@/features/retention';
+import { trackOnce } from '@/features/analytics';
 
 import { coverImageForId } from './coverArt';
 
@@ -50,6 +51,8 @@ export const useCollection = create<Store>((set, get) => ({
     const opened = [...get().opened, id];
     if (!persist({ opened, selectedCoverId: get().selectedCoverId })) return false;
     set({ opened });
+    try { trackOnce('collectible_unlocked', `route:${id}`, { collectibleId: `route:${id}`, source: 'route',
+      occurredAtMs: Date.now(), timeKnown: true, recovery: false }); } catch { /* collection is committed */ }
     return true;
   },
   maybeUnlockAtLevel: (world, levelId) => {
@@ -69,6 +72,10 @@ export const useCollection = create<Store>((set, get) => ({
     const opened = [...get().opened, ...missing];
     if (!persist({ opened, selectedCoverId: get().selectedCoverId })) return [];
     set({ opened });
+    for (const id of missing) {
+      try { trackOnce('collectible_unlocked', `route:${id}`, { collectibleId: `route:${id}`, source: 'route',
+        timeKnown: false, recovery: true }); } catch { /* historical backfill has no exact unlock time */ }
+    }
     return missing;
   },
   selectCover: (id) => {

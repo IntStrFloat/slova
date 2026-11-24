@@ -1,5 +1,8 @@
 import { MONETIZATION } from '@/core/config/monetization';
 
+// Keep recent diagnostic timestamps without limiting the number of ad shows.
+const INTERSTITIAL_HISTORY_WINDOW_MS = 60 * 60 * 1000;
+
 /** Persisted ad counters. Optional fields allow existing ads.meta saves to migrate. */
 export interface AdsMeta {
   /** Legacy count; eligibility uses campaignCompletedIds instead. */
@@ -8,6 +11,9 @@ export interface AdsMeta {
   campaignCompletedIds?: number[];
   lifetimeVisibleGameplaySec?: number;
   visibleGameplaySinceFullscreenSec?: number;
+  visibleGameplaySinceInterstitialSec?: number;
+  rewardedCooldownActive?: boolean;
+  /** Retained storage name; rewarded ads no longer reset this counter. */
   newCampaignCompletionsSinceFullscreen?: number;
   interstitialShownAt?: number[];
   sessionId?: string | null;
@@ -22,6 +28,8 @@ export const EMPTY_ADS_META: AdsState = {
   campaignCompletedIds: [],
   lifetimeVisibleGameplaySec: 0,
   visibleGameplaySinceFullscreenSec: 0,
+  visibleGameplaySinceInterstitialSec: 0,
+  rewardedCooldownActive: false,
   newCampaignCompletionsSinceFullscreen: 0,
   interstitialShownAt: [],
   sessionId: null,
@@ -31,13 +39,9 @@ export const EMPTY_ADS_META: AdsState = {
 export interface InterstitialCfg {
   onboardingProtectedThroughLevel: number;
   minUniqueCampaignCompletions: number;
-  minLifetimeVisibleGameplaySec: number;
-  minVisibleGameplaySinceFullscreenSec: number;
+  minVisibleGameplaySinceInterstitialSec: number;
   minNewCampaignCompletionsSinceFullscreen: number;
-  maxFirstSession: number;
-  maxLaterSession: number;
-  maxRollingHour: number;
-  rollingWindowMs: number;
+  rewardedCooldownSec: number;
 }
 
 export interface InterstitialContext {
@@ -45,9 +49,8 @@ export interface InterstitialContext {
   removeAds: boolean;
   loaded: boolean;
   nowMs: number;
-  /** The analytics session ID must survive a brief process restart. */
-  sessionId: string;
-  isFirstAnalyticsSession: boolean;
+  /** Installation-level first gameplay visit, independent of analytics inactivity. */
+  isFirstGameplaySession: boolean;
   /** Null for daily puzzles, app launch, menu and other placements. */
   campaignLevelId: number | null;
   userContinued: boolean;
@@ -67,15 +70,11 @@ export type InterstitialSkipReason =
   | 'protected_transition'
   | 'not_user_continuation'
   | 'rewards_not_committed'
-  | 'session_unavailable'
   | 'ad_not_loaded'
   | 'invalid_time'
   | 'insufficient_unique_completions'
-  | 'insufficient_lifetime_gameplay'
-  | 'insufficient_gameplay_since_fullscreen'
-  | 'insufficient_completions_since_fullscreen'
-  | 'session_cap'
-  | 'rolling_hour_cap';
+  | 'insufficient_interstitial_interval'
+  | 'rewarded_cooldown';
 
 export type InterstitialDecision =
   | { allowed: true; reason: null }
@@ -107,6 +106,9 @@ export function normalizeAdsMeta(value: unknown): AdsState {
     campaignCompletedIds: ids,
     lifetimeVisibleGameplaySec: nonNegative(raw.lifetimeVisibleGameplaySec),
     visibleGameplaySinceFullscreenSec: nonNegative(raw.visibleGameplaySinceFullscreenSec),
+    visibleGameplaySinceInterstitialSec: nonNegative(raw.visibleGameplaySinceInterstitialSec === undefined
+      ? raw.visibleGameplaySinceFullscreenSec : raw.visibleGameplaySinceInterstitialSec),
+    rewardedCooldownActive: raw.rewardedCooldownActive === true,
     newCampaignCompletionsSinceFullscreen: Math.min(
       ids.length,
       Math.floor(nonNegative(raw.newCampaignCompletionsSinceFullscreen)),
@@ -128,7 +130,7 @@ export function evaluateInterstitial(meta: AdsMeta, context: InterstitialContext
   const state = normalizeAdsMeta(meta);
   if (!context.enabled) return skip('ads_disabled');
   if (context.removeAds) return skip('remove_ads');
-  if (context.isFirstAnalyticsSession) return skip('first_session_protected');
+  if (context.isFirstGameplaySession) return skip('first_session_protected');
   if (typeof context.campaignLevelId !== 'number' ||
       !Number.isSafeInteger(context.campaignLevelId) || context.campaignLevelId < 1) {
     return skip('not_campaign_result');
@@ -139,29 +141,33 @@ export function evaluateInterstitial(meta: AdsMeta, context: InterstitialContext
   if (context.protectedTransition) return skip('protected_transition');
   if (!context.userContinued) return skip('not_user_continuation');
   if (!context.rewardsCommitted) return skip('rewards_not_committed');
-  if (!context.sessionId.trim()) return skip('session_unavailable');
   if (!context.loaded) return skip('ad_not_loaded');
   if (!validTimestamp(context.nowMs)) return skip('invalid_time');
   if (state.campaignCompletedIds.length < cfg.minUniqueCampaignCompletions) {
     return skip('insufficient_unique_completions');
   }
-  if (state.lifetimeVisibleGameplaySec < cfg.minLifetimeVisibleGameplaySec) {
-    return skip('insufficient_lifetime_gameplay');
+  if (state.rewardedCooldownActive &&
+      state.visibleGameplaySinceFullscreenSec < cfg.rewardedCooldownSec) {
+    return skip('rewarded_cooldown');
   }
-  if (state.visibleGameplaySinceFullscreenSec < cfg.minVisibleGameplaySinceFullscreenSec) {
-    return skip('insufficient_gameplay_since_fullscreen');
+  if (state.visibleGameplaySinceInterstitialSec < cfg.minVisibleGameplaySinceInterstitialSec &&
+      state.newCampaignCompletionsSinceFullscreen < cfg.minNewCampaignCompletionsSinceFullscreen) {
+    return skip('insufficient_interstitial_interval');
   }
-  if (state.newCampaignCompletionsSinceFullscreen < cfg.minNewCampaignCompletionsSinceFullscreen) {
-    return skip('insufficient_completions_since_fullscreen');
-  }
-  const sessionCount = state.sessionId === context.sessionId ? state.sessionInterstitialCount : 0;
-  const sessionCap = context.isFirstAnalyticsSession ? cfg.maxFirstSession : cfg.maxLaterSession;
-  if (sessionCount >= sessionCap) return skip('session_cap');
-  const inWindow = state.interstitialShownAt.filter(
-    (at) => context.nowMs - at < cfg.rollingWindowMs,
-  );
-  if (inWindow.length >= cfg.maxRollingHour) return skip('rolling_hour_cap');
   return { allowed: true, reason: null };
+}
+
+/** Warm one upcoming pause, at most one campaign completion or 30 gameplay seconds ahead. */
+export function shouldPreloadInterstitial(meta: AdsMeta, context: InterstitialContext): boolean {
+  const state = normalizeAdsMeta(meta);
+  const cfg = context.cfg ?? MONETIZATION.interstitial;
+  // Warmup must not predict its way out of incomplete onboarding.
+  if (state.campaignCompletedIds.length < cfg.minUniqueCampaignCompletions ||
+      Array.from({ length: cfg.onboardingProtectedThroughLevel }, (_, i) => i + 1)
+        .some((id) => !state.campaignCompletedIds.includes(id))) return false;
+  const upcoming = recordCampaignLevelComplete(recordVisibleGameplay(state, 30), context.campaignLevelId ?? 0);
+  return evaluateInterstitial(upcoming, { ...context, loaded: true, userContinued: true,
+    rewardsCommitted: true }).allowed;
 }
 
 /** Compatibility facade: old callers without the safety context fail closed. */
@@ -170,8 +176,7 @@ export function shouldShowInterstitial(
   opts: Partial<InterstitialContext> & Pick<InterstitialContext, 'enabled' | 'removeAds' | 'nowMs'>,
 ): boolean {
   if (
-    typeof opts.loaded !== 'boolean' || typeof opts.sessionId !== 'string' ||
-    typeof opts.isFirstAnalyticsSession !== 'boolean' ||
+    typeof opts.loaded !== 'boolean' || typeof opts.isFirstGameplaySession !== 'boolean' ||
     opts.campaignLevelId === undefined || typeof opts.userContinued !== 'boolean' ||
     typeof opts.rewardsCommitted !== 'boolean' || typeof opts.protectedTransition !== 'boolean'
   ) return false;
@@ -221,15 +226,16 @@ export function recordVisibleGameplay(meta: AdsMeta, seconds: number): AdsState 
     ...state,
     lifetimeVisibleGameplaySec: state.lifetimeVisibleGameplaySec + seconds,
     visibleGameplaySinceFullscreenSec: state.visibleGameplaySinceFullscreenSec + seconds,
+    visibleGameplaySinceInterstitialSec: state.visibleGameplaySinceInterstitialSec + seconds,
   };
 }
 
-/** Any shown rewarded fullscreen restarts both interstitial intervals. */
+/** Rewarded ads add a short cooldown while preserving the next interstitial's progress. */
 export function recordRewardedShown(meta: AdsMeta): AdsState {
   return {
     ...normalizeAdsMeta(meta),
     visibleGameplaySinceFullscreenSec: 0,
-    newCampaignCompletionsSinceFullscreen: 0,
+    rewardedCooldownActive: true,
   };
 }
 
@@ -242,9 +248,11 @@ export function recordInterstitialShown(meta: AdsMeta, nowMs: number, sessionId?
     ...state,
     lastInterstitialAt: nowMs,
     visibleGameplaySinceFullscreenSec: 0,
+    visibleGameplaySinceInterstitialSec: 0,
     newCampaignCompletionsSinceFullscreen: 0,
+    rewardedCooldownActive: false,
     interstitialShownAt: [...state.interstitialShownAt.filter(
-      (at) => nowMs - at < MONETIZATION.interstitial.rollingWindowMs,
+      (at) => nowMs - at < INTERSTITIAL_HISTORY_WINDOW_MS,
     ), nowMs],
     sessionId: id,
     sessionInterstitialCount: id === null ? 0

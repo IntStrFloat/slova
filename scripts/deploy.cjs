@@ -96,7 +96,7 @@ async function main() {
   log('local health', await run('curl -fs http://127.0.0.1:8788/api/health || echo FAIL'));
 
   // 5) nginx HTTP-first (чтобы certbot выпустил cert), затем certbot добавит TLS
-  const httpConf = `server {\n  listen 80;\n  listen [::]:80;\n  server_name ${SUB};\n  location /api/ {\n    proxy_pass http://127.0.0.1:8788;\n    proxy_http_version 1.1;\n    proxy_set_header Host $host;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto $scheme;\n    client_max_body_size 2m;\n  }\n  location / { return 404; }\n}\n`;
+  const httpConf = `server {\n  listen 80;\n  listen [::]:80;\n  server_name ${SUB};\n  location /api/ {\n    proxy_pass http://127.0.0.1:8788;\n    proxy_http_version 1.1;\n    proxy_set_header Host $host;\n    proxy_set_header X-Forwarded-For $remote_addr;\n    proxy_set_header X-Forwarded-Proto $scheme;\n    client_max_body_size 2m;\n  }\n  location / { return 404; }\n}\n`;
   await run(`cat > /etc/nginx/sites-available/slova <<'NGINX'\n${httpConf}NGINX`);
   await run('ln -sf /etc/nginx/sites-available/slova /etc/nginx/sites-enabled/slova');
   const t = await run('nginx -t 2>&1');

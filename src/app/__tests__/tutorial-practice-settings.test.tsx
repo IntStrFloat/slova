@@ -7,6 +7,7 @@ import { readIntroGuidance, setIntroGuidanceEnabled } from '@/features/onboardin
 import Settings from '../settings';
 
 const mockPush = jest.fn();
+const mockTrackSubscription = jest.fn();
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { version: '0.1.0' } } }));
@@ -14,6 +15,9 @@ jest.mock('@/core/nav', () => ({ useGoBack: () => jest.fn() }));
 jest.mock('@/core/i18n', () => ({ t: (key: string) => key }));
 jest.mock('@/features/analytics', () => ({
   useAnalyticsPrefs: (selector: (value: unknown) => unknown) => selector({ optOut: false, setOptOut: jest.fn() }),
+}));
+jest.mock('@/features/analytics/subscription', () => ({
+  trackSubscription: (...args: unknown[]) => mockTrackSubscription(...args),
 }));
 jest.mock('@/features/audio', () => ({ isAudioAvailable: () => false }));
 jest.mock('@/features/monetization', () => ({
@@ -51,8 +55,12 @@ test('settings re-enables the lesson and opens safe practice', () => {
   const progressBefore = storage.getString(KEYS.levelsProgress);
   const currencyBefore = storage.getString(KEYS.currency);
   mockPush.mockClear();
+  mockTrackSubscription.mockClear();
   let tree!: ReactTestRenderer;
   act(() => { tree = TestRenderer.create(<Settings />); });
+  act(() => { tree.root.findByProps({ accessibilityLabel: 'Отключить рекламу?' }).props.onPress(); });
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/shop', params: { source: 'settings' } });
+  expect(mockTrackSubscription).toHaveBeenCalledWith('subscription_offer_clicked', { source: 'settings' });
   act(() => { tree.root.findByProps({ accessibilityLabel: 'Показать обучение снова' }).props.onPress(); });
   expect(readIntroGuidance().guidanceEnabled).toBe(true);
   expect(mockPush).toHaveBeenCalledWith('/tutorial-practice');

@@ -1,0 +1,74 @@
+{
+  "game_id": "slova",
+  "run_id": "slova-marketing-2026-10-14",
+  "date": "2026-10-14",
+  "status": "pass",
+  "checks": {
+    "markdown_files": 3,
+    "local_links_checked": 35,
+    "broken_links": [],
+    "vk_campaign_scope_only": 35085115,
+    "vk_snapshot_utc": "2026-10-13T23:17:38.576Z",
+    "vk_totals_verified": {
+      "shows": 8639,
+      "clicks": 217,
+      "vk_installs": 28,
+      "spent_rub": "66.17",
+      "cpi_rub": 2.36
+    },
+    "vk_daily": [
+      {
+        "date": "2026-10-11",
+        "shows": 671,
+        "clicks": 96,
+        "vk_installs": 5,
+        "spent_rub": "37.37"
+      },
+      {
+        "date": "2026-10-12",
+        "shows": 3293,
+        "clicks": 87,
+        "vk_installs": 12,
+        "spent_rub": "11.54"
+      },
+      {
+        "date": "2026-10-13",
+        "shows": 4516,
+        "clicks": 34,
+        "vk_installs": 11,
+        "spent_rub": "16.56"
+      },
+      {
+        "date": "2026-10-14",
+        "shows": 159,
+        "clicks": 0,
+        "vk_installs": 0,
+        "spent_rub": "0.7"
+      }
+    ],
+    "historical_retention_arithmetic_verified": true,
+    "budget_allocation_rub": [
+      15000,
+      3000,
+      2000,
+      10000
+    ],
+    "budget_total_rub": 30000,
+    "budget_applied_to_account": false,
+    "window_days": 30,
+    "roadmap_days": 90,
+    "live_vk_api_called": false,
+    "external_mutations": false,
+    "source_code_changed_by_this_task": false,
+    "independent_reviews": {
+      "product": "completed; Direct gate aligned",
+      "ads_and_budget": "completed; unknown moderation wording clarified"
+    },
+    "followup_2026_10_14": "User clarified VK Ads. Direct-specific amendment withdrawn. VK dashboard redirected to auth blocked by browser security policy; no workaround or campaign mutation attempted."
+  },
+  "limitations": [
+    "Store binary and live VK account not verified in this audit",
+    "AppMetrica historical cohorts predate current VK campaign",
+    "No new player interviews or paid experiments executed"
+  ]
+}

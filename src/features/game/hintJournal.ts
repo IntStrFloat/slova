@@ -1,7 +1,8 @@
 import { ECONOMY } from '@/core/config/economy';
 import { cellKey } from '@/core/engine/types';
 import { getJSON, KEYS, storage } from '@/core/storage';
-import { useCurrency } from '@/features/currency';
+import { type HelpAnalyticsContext, selectHelpContext } from '@/features/analytics/helpContext';
+import { useCurrency, type WalletTransactionRecord } from '@/features/currency';
 import { useRetention } from '@/features/retention';
 import { recordIntroDemoHelpUsed } from '@/features/onboarding/introGuide';
 import { isFreeIntroHelpLevel } from '@/features/onboarding/onboardingHelp';
@@ -12,6 +13,16 @@ import { useGame } from './store';
 type LetterPayment = 'free' | 'ticket' | 'coins';
 export type LetterHintOutcome = 'applied' | 'insufficient' | 'unavailable';
 
+export interface AppliedHintPayment {
+  /** Local idempotency key; content-derived keys must never be emitted to analytics. */
+  effectId: string;
+  transaction: WalletTransactionRecord | null;
+  chargedNow: number;
+  context: HelpAnalyticsContext;
+  appliedAtMs?: number;
+  timeKnown: boolean;
+}
+
 interface LegacyHintIntent {
   version: 1;
   puzzleKey: string;
@@ -19,6 +30,9 @@ interface LegacyHintIntent {
   effectId: string;
   payment: LetterPayment;
   status?: 'applied' | 'cancelled';
+  context?: HelpAnalyticsContext;
+  initialLetterHintCount?: number;
+  appliedAtMs?: number;
 }
 
 interface IntroFreeHintIntent {
@@ -32,6 +46,9 @@ interface IntroFreeHintIntent {
   contentVersion: string;
   levelFingerprint: string;
   status?: 'applied' | 'cancelled';
+  context?: HelpAnalyticsContext;
+  initialLetterHintCount?: number;
+  appliedAtMs?: number;
 }
 
 type HintIntent = LegacyHintIntent | IntroFreeHintIntent;
@@ -91,15 +108,45 @@ function settledStatus(intent: HintIntent): 'applied' | 'cancelled' | null {
     ? intent.status : settledEffects.get(intent.effectId) ?? null;
 }
 
-function settleIntent(intent: HintIntent, status: 'applied' | 'cancelled'): void {
+function settleIntent(intent: HintIntent, status: 'applied' | 'cancelled', appliedAtMs?: number): void {
   settledEffects.set(intent.effectId, status);
   try {
-    save({ ...intent, status });
+    save({ ...intent, status, ...(appliedAtMs === undefined ? {} : { appliedAtMs }) });
   } catch {
     // Keep the in-process marker. Cleanup must not turn a committed hint into
     // a reported failure; the game snapshot and payment ledger remain canonical.
   }
   if (clear()) settledEffects.delete(intent.effectId);
+}
+
+function hintContext(context?: HelpAnalyticsContext): HelpAnalyticsContext {
+  try { return selectHelpContext(context); } catch { return {}; }
+}
+
+function notifyApplied(intent: HintIntent, chargedNow: number, onApplied?: (payment: AppliedHintPayment) => void,
+  appliedAtMs = intent.appliedAtMs): void {
+  if (!onApplied) return;
+  try {
+    const timeKnown = Number.isSafeInteger(appliedAtMs) && (appliedAtMs ?? -1) >= 0;
+    onApplied({ effectId: intent.effectId, chargedNow, timeKnown,
+      ...(timeKnown ? { appliedAtMs } : {}),
+      transaction: intent.payment === 'coins' ? useCurrency.getState().getTransaction(intent.effectId) : null,
+      context: hintContext(intent.context) });
+  } catch { /* An optional observer cannot change committed help. */ }
+}
+
+/** A filled cell alone may have been a manual answer; require saved hint evidence. */
+function hasAppliedLetter(intent: HintIntent): boolean {
+  const { snapshot, play } = useGame.getState();
+  if (!snapshot || !play || !Number.isSafeInteger(intent.initialLetterHintCount)
+    || (intent.initialLetterHintCount ?? -1) < 0) return false;
+  const puzzleKey = snapshot.mode === 'daily' ? `daily:${snapshot.dailyId}` : `campaign:${snapshot.globalLevel}`;
+  const baseEffectId = `hint:${puzzleKey}:${snapshot.attemptId}:${intent.cell}`;
+  const cell = play.level.grid.cells.find((candidate) => cellKey(candidate) === intent.cell);
+  return Boolean(cell && intent.puzzleKey === puzzleKey
+    && (intent.effectId === baseEffectId || intent.effectId.startsWith(`${baseEffectId}:retry:`))
+    && snapshot.filled[intent.cell] === cell.ch
+    && snapshot.hintsUsed.filter((hint) => hint === 'bulb').length > intent.initialLetterHintCount!);
 }
 
 function savedSnapshotFor(intent: HintIntent): GameSnapshot | null {
@@ -202,7 +249,8 @@ export function hasClosedCell(): boolean {
 }
 
 /** Persist the authorized intent, pay if needed, reveal, then clear. A crash replays it. */
-export function revealLetter(puzzleKey: string): LetterHintOutcome {
+export function revealLetter(puzzleKey: string, context?: HelpAnalyticsContext,
+  onApplied?: (payment: AppliedHintPayment) => void): LetterHintOutcome {
   const { play, mode, completion, snapshot } = useGame.getState();
   if (completion.status !== 'playing' || !play || !puzzleKey) return 'unavailable';
   let stored = pending();
@@ -230,7 +278,9 @@ export function revealLetter(puzzleKey: string): LetterHintOutcome {
   if (play.filled[key] === cell.ch) {
     if (stored) {
       if (stored.version === 2) recordIntroDemoHelpUsed(stored.levelId);
+      const applied = hasAppliedLetter(stored);
       settleIntent(stored, 'applied');
+      if (applied) notifyApplied(stored, 0, onApplied);
       return 'applied';
     }
     return 'unavailable';
@@ -248,34 +298,43 @@ export function revealLetter(puzzleKey: string): LetterHintOutcome {
     levelId: play.level.id,
     contentVersion: play.level.contentVersion!,
     levelFingerprint: play.level.fingerprint!,
+    context: hintContext(context),
+    initialLetterHintCount: snapshot.hintsUsed.filter((hint) => hint === 'bulb').length,
   } : {
     version: 1,
     puzzleKey,
     cell: key,
     effectId: nextEffectId(baseEffectId),
     payment: 'coins',
+    context: hintContext(context),
+    initialLetterHintCount: snapshot?.hintsUsed.filter((hint) => hint === 'bulb').length ?? 0,
   });
   if (!stored) {
     settledEffects.delete(intent.effectId);
     save(intent);
   }
 
+  let chargedNow = 0;
   if (intent.version === 1) {
-    const debit = useCurrency.getState().spendOnce(intent.effectId, 'coins', ECONOMY.hints.bulb);
+    const debit = useCurrency.getState().spendOnce(intent.effectId, 'coins', ECONOMY.hints.bulb, intent.context);
     if (debit === 'insufficient') {
       settleIntent(intent, 'cancelled');
       return 'insufficient';
     }
+    chargedNow = debit === 'spent' ? ECONOMY.hints.bulb : 0;
   }
   const result = useGame.getState().hint('bulb', cell);
   if (!result?.changed) return 'unavailable';
+  const appliedAtMs = Date.now();
   if (intent.version === 2) recordIntroDemoHelpUsed(intent.levelId);
-  settleIntent(intent, 'applied');
+  settleIntent(intent, 'applied', appliedAtMs);
+  notifyApplied(intent, chargedNow, onApplied, appliedAtMs);
   return 'applied';
 }
 
 /** Call after restoring a saved puzzle, before allowing another hint. */
-export function replayPendingLetterHint(puzzleKey: string): LetterHintOutcome | null {
+export function replayPendingLetterHint(puzzleKey: string,
+  onApplied?: (payment: AppliedHintPayment) => void): LetterHintOutcome | null {
   const intent = pending();
   if (!intent) return null;
   if (intent.version === 1 && intent.payment !== 'coins') {
@@ -297,14 +356,17 @@ export function replayPendingLetterHint(puzzleKey: string): LetterHintOutcome | 
   const status = settledStatus(intent);
   if (status) {
     if (clear()) settledEffects.delete(intent.effectId);
+    if (status === 'applied') notifyApplied(intent, 0, onApplied);
     return status === 'cancelled' ? null : 'applied';
   }
   const { play } = useGame.getState();
   if (!play) return null;
   if (play.filled[intent.cell]) {
     if (intent.version === 2) recordIntroDemoHelpUsed(intent.levelId);
+    const applied = hasAppliedLetter(intent);
     settleIntent(intent, 'applied');
+    if (applied) notifyApplied(intent, 0, onApplied);
     return 'applied';
   }
-  return revealLetter(puzzleKey);
+  return revealLetter(puzzleKey, undefined, onApplied);
 }

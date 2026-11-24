@@ -159,3 +159,26 @@ describe('marathon durable progress and coin outbox', () => {
     expect(decodeMarathonSnapshot(JSON.stringify(copy()))).not.toBeNull();
   });
 });
+
+
+test('late valid completion recovery corrects expiry once with a higher final status revision', () => {
+  jest.useFakeTimers().setSystemTime(MARATHON.endAtMs + 10_000);
+  try {
+    jest.isolateModules(() => {
+      const { storage } = require('@/core/storage');
+      storage.clearAll();
+      const { useMarathon, recoverMarathonProgress, recordMarathonCompletion } = require('../index');
+      recoverMarathonProgress({ campaignCompletions: {}, dailyCompletions: {} });
+      expect(useMarathon.getState().terminalStatus).toMatchObject({ result: 'expired', revision: 1 });
+      const proof = { campaignCompletions: {} as Record<string, string>, dailyCompletions: {} };
+      for (let id = 1; id <= 21; id++) {
+        proof.campaignCompletions[String(id)] = MARATHON.startDay;
+        recordMarathonCompletion({ ...action, puzzleKey: String(id) }, proof);
+      }
+      expect(useMarathon.getState().terminalStatus).toMatchObject({ result: 'completed', revision: 2,
+        occurredAtMs: MARATHON.startAtMs });
+      recoverMarathonProgress(proof);
+      expect(useMarathon.getState().terminalStatus.revision).toBe(2);
+    });
+  } finally { jest.useRealTimers(); }
+});

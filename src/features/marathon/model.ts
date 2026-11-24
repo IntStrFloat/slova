@@ -14,6 +14,11 @@ export interface MarathonSnapshot {
   rewardGrants: Record<string, RewardGrant>;
   completionEffectIds: Record<string, string[]>;
   pendingCoinGrants: Record<string, number>;
+  completionTimes?: Record<string, number>;
+  milestoneTimes?: Record<string, number>;
+  grantedTimes?: Record<string, number>;
+  analyticsSuppressed?: Record<string, 1>;
+  terminalStatus?: { result: 'expired' | 'completed'; revision: number; progress: number; occurredAtMs?: number };
 }
 
 export interface MarathonTransition {
@@ -76,12 +81,13 @@ export function getMarathonCompletionRewards(snapshot: MarathonSnapshot, mode: C
   return rewardsForCompletion(snapshot, `${mode}:${puzzleKey}`);
 }
 
-function advance(snapshot: MarathonSnapshot, key: string, day: string): MarathonTransition {
+function advance(snapshot: MarathonSnapshot, key: string, day: string, occurredAtMs?: number): MarathonTransition {
   if (snapshot.completions[key]) {
     return { snapshot, accepted: false, effects: rewardsForCompletion(snapshot, key) };
   }
   const draft = JSON.parse(JSON.stringify(snapshot)) as MarathonSnapshot;
   draft.completions[key] = day;
+  if (Number.isFinite(occurredAtMs)) draft.completionTimes = { ...draft.completionTimes, [key]: occurredAtMs! };
   const count = Object.keys(draft.completions).length;
   const effects: RewardGrant[] = [];
   const grant = (id: string, amount: number) => {
@@ -94,6 +100,7 @@ function advance(snapshot: MarathonSnapshot, key: string, day: string): Marathon
   for (const target of MARATHON.thresholds) {
     if (count < target || draft.claimedTiers.includes(target)) continue;
     draft.claimedTiers.push(target);
+    if (Number.isFinite(occurredAtMs)) draft.milestoneTimes = { ...draft.milestoneTimes, [target]: occurredAtMs! };
     grant(marathonStageRewardId(target), MARATHON.stageCoins);
     if (target === MARATHON.thresholds[MARATHON.thresholds.length - 1]) {
       grant(marathonFinalRewardId(), MARATHON.finalBonusCoins);
@@ -123,7 +130,7 @@ export function reduceMarathonCompletion(
     || action.mode === 'daily' && action.puzzleKey !== action.actionDay) {
     return { snapshot, accepted: false, effects: [] };
   }
-  return advance(snapshot, key, action.actionDay);
+  return advance(snapshot, key, action.actionDay, action.completedAtMs);
 }
 
 /** Full Moscow-day bounds let durable first-completion dates recover after expiry. */

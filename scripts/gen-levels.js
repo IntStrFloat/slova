@@ -12,11 +12,18 @@ const IDX = {};
 const VOWELS = new Set(['а', 'е', 'и', 'о', 'у', 'ы', 'э', 'ю', 'я']);
 const MAX_ACCEPTED_BONUS = 14;
 const REPEAT_CAP = 3;
-const PRESERVED_LEVELS = 500;
+const PRESERVED_LEVELS = 1000;
+const EXTENSION_START_LEVEL = 500;
 const EARLY_ROUTE_POLICY = require('../assets/content/early-route-policy.json');
 const EXTENSION_GRID_LIMITS = { rows: 9, cols: 10 };
 const EXTENSION_BLOCKED = Object.entries(require('../assets/content/extension-blocked.json'))
   .flatMap(([reason, words]) => words.map((word) => ({ word, reason })));
+const THIRD_ROUTE_BLOCKED = Object.entries(require('../assets/content/third-route-blocked.json'))
+  .flatMap(([reason, words]) => words.map((word) => ({ word, reason })));
+const THIRD_ROUTE_VARIETY = Object.freeze({ letterWindow: 20, answerWindow: 5, maxSharedAnswers: 2 });
+const THIRD_ROUTE_ROLE_ANSWERS = Object.freeze({ easy: 4, baseline: 4, hard: 5, breather: 4, climax: 6 });
+const THIRD_ROUTE_ROOT_FAMILIES = require('../assets/content/third-route-root-families.json').families;
+const THIRD_ROUTE_FAMILY_BY_WORD = new Map(THIRD_ROUTE_ROOT_FAMILIES.flatMap((words, index) => words.map((word) => [word, index])));
 const WORLD_SPECS = [
   { world: 'world1', count: 90, globalOffset: 0 },
   { world: 'world2', count: 80, globalOffset: 90 },
@@ -32,12 +39,19 @@ const WORLD_SPECS = [
   { world: 'world12', count: 60, globalOffset: 810 },
   { world: 'world13', count: 60, globalOffset: 870 },
   { world: 'world14', count: 70, globalOffset: 930 },
+  { world: 'world15', count: 90, globalOffset: 1000 },
+  { world: 'world16', count: 80, globalOffset: 1090 },
+  { world: 'world17', count: 80, globalOffset: 1170 },
+  { world: 'world18', count: 60, globalOffset: 1250 },
+  { world: 'world19', count: 60, globalOffset: 1310 },
+  { world: 'world20', count: 60, globalOffset: 1370 },
+  { world: 'world21', count: 70, globalOffset: 1430 },
 ];
 const TOTAL_LEVELS = WORLD_SPECS.reduce((sum, spec) => sum + spec.count, 0);
 const WORLD_FINALES = new Map(WORLD_SPECS.map((spec) => [spec.globalOffset + spec.count, spec.world]));
-const LANDMARK_LEVELS = new Set([45, 125, 205, 285, 365, 445, 545, 625, 705, 785, 865, 945]);
-const ORDERED_LEVELS = new Set([75, 145, 225, 305, 385, 465, 575, 645, 725, 805, 885, 965]);
-const MASTERY_LEVELS = new Set([210, 290, 350, 410, 490, 710, 790, 850, 910, 990]);
+const LANDMARK_LEVELS = new Set([45, 125, 205, 285, 365, 445, 545, 625, 705, 785, 865, 945, 1045, 1125, 1205, 1285, 1365, 1445]);
+const ORDERED_LEVELS = new Set([75, 145, 225, 305, 385, 465, 575, 645, 725, 805, 885, 965, 1075, 1145, 1225, 1305, 1385, 1465]);
+const MASTERY_LEVELS = new Set([210, 290, 350, 410, 490, 710, 790, 850, 910, 990, 1210, 1290, 1350, 1410, 1490]);
 const CURATED_EARLY_BASES = {
   ...Object.fromEntries(Object.entries(EARLY_ROUTE_POLICY.levels).map(([level, policy]) => [level, policy.base])),
   11: 'вина',
@@ -122,6 +136,13 @@ const CURATED_FINALE_BASE_OPTIONS = {
   870: ['почитать'],
   930: ['подлодка'],
   1000: ['бордовый'],
+  1090: ['карамель'],
+  1170: ['директор'],
+  1250: ['писатель'],
+  1310: ['гарнитур'],
+  1370: ['клубника'],
+  1430: ['гармошка'],
+  1500: ['кораблик'],
 };
 const CURATED_FINALE_ANSWERS = {
   90: ['память', 'мать', 'тьма', 'мята', 'яма'],
@@ -138,6 +159,13 @@ const CURATED_FINALE_ANSWERS = {
   870: ['почитать', 'питать', 'топать', 'точить', 'почта', 'чтить'],
   930: ['подлодка', 'доклад', 'колода', 'полка', 'подол'],
   1000: ['бордовый', 'добро', 'выбор', 'обрыв', 'боров', 'роды'],
+  1090: ['карамель', 'реклама', 'кальмар', 'макрель', 'камера', 'лекарь'],
+  1170: ['директор', 'кредитор', 'рекорд', 'диктор', 'дротик', 'ордер'],
+  1250: ['писатель', 'спалить', 'слепить', 'платье', 'плести', 'пьеса'],
+  1310: ['гарнитур', 'турнир', 'рутина', 'гарнир', 'гранит', 'траур'],
+  1370: ['клубника', 'каблук', 'улика', 'кубик', 'бак', 'бук'],
+  1430: ['гармошка', 'ромашка', 'кошмар', 'корма', 'горка', 'марш'],
+  1500: ['кораблик', 'кролик', 'калибр', 'карлик', 'брак', 'краб'],
 };
 const CURATED_FINALE_BASES = Object.fromEntries(
   Object.entries(CURATED_FINALE_BASE_OPTIONS).map(([level, bases]) => [level, bases[0]])
@@ -249,18 +277,28 @@ function sameRoot(a, b) {
   return consonantsA.length >= 2 && consonantsA === consonantsB && commonPrefixLen(a, b) >= 2;
 }
 
-function conflictsWithAny(word, words) {
-  return words.some((other) => sameRoot(word, other));
+function sameThirdRouteRoot(a, b) {
+  const family = THIRD_ROUTE_FAMILY_BY_WORD.get(a);
+  return sameRoot(a, b) || (family !== undefined && family === THIRD_ROUTE_FAMILY_BY_WORD.get(b));
 }
 
-function rootConflicts(words) {
+function conflictsWithAny(word, words, rootMatcher = sameRoot) {
+  return words.some((other) => rootMatcher(word, other));
+}
+
+function rootConflicts(words, rootMatcher = sameRoot) {
   const conflicts = [];
   for (let left = 0; left < words.length; left += 1) {
     for (let right = left + 1; right < words.length; right += 1) {
-      if (sameRoot(words[left], words[right])) conflicts.push([words[left], words[right]]);
+      if (rootMatcher(words[left], words[right])) conflicts.push([words[left], words[right]]);
     }
   }
   return conflicts;
+}
+
+function wordScarcityCost(words, wordDemand, surfaceUsage) {
+  return words.reduce((sum, word) => sum + (wordDemand.get(word) || 1)
+    / Math.max(1, (EARLY_ROUTE_POLICY.familiarWordRepeatCaps[word] ?? REPEAT_CAP) - (surfaceUsage.get(word) || 0)), 0);
 }
 
 function roleBand(size, role) {
@@ -283,8 +321,8 @@ function difficultyRoleFor(globalId) {
 }
 
 function milestoneFor(globalId) {
-  // Keep the released first-route finale immutable for saved games and rewards.
-  if (globalId === PRESERVED_LEVELS || globalId === TOTAL_LEVELS) return 'journey_finale';
+  // Keep both released route finales immutable for saved games and rewards.
+  if (globalId === 500 || globalId === PRESERVED_LEVELS || globalId === TOTAL_LEVELS) return 'journey_finale';
   if (WORLD_FINALES.has(globalId)) return 'world_finale';
   if (LANDMARK_LEVELS.has(globalId)) return 'landmark';
   if (globalId % 10 === 0) return 'chest';
@@ -329,7 +367,7 @@ function puzzleSignature(level) {
   });
 }
 
-function placeCrossword(answerWords, maxWords) {
+function placeCrossword(answerWords, maxWords, rootMatcher = sameRoot) {
   const occupied = new Map();
   const placed = [];
   const occ = (row, col) => occupied.get(`${row},${col}`);
@@ -365,7 +403,7 @@ function placeCrossword(answerWords, maxWords) {
   for (const word of answerWords.slice(1)) {
     if (placed.length >= maxWords) break;
     if (placed.some((entry) => entry.word === word)) continue;
-    if (conflictsWithAny(word, placed.map((entry) => entry.word))) continue;
+    if (conflictsWithAny(word, placed.map((entry) => entry.word), rootMatcher)) continue;
 
     let done = false;
     for (const placedWord of placed) {
@@ -416,6 +454,7 @@ function placeCrossword(answerWords, maxWords) {
 }
 
 function validate(level) {
+  const rootMatcher = level.globalId > PRESERVED_LEVELS ? sameThirdRouteRoot : sameRoot;
   const covered = new Set();
   for (const answer of level.answers) {
     if (answer.cells.length !== answer.word.length) return false;
@@ -429,7 +468,7 @@ function validate(level) {
   }
 
   const answerWords = level.answers.map((answer) => answer.word);
-  if (rootConflicts(answerWords).length > 0) return false;
+  if (rootConflicts(answerWords, rootMatcher).length > 0) return false;
 
   const answerSet = new Set(answerWords);
   const acceptedBonus = level.acceptedBonus ?? level.bonusPool ?? [];
@@ -438,9 +477,9 @@ function validate(level) {
 
   for (const bonus of acceptedBonus) {
     if (answerSet.has(bonus) || !isConstructible(bonus, level.letters)) return false;
-    if (conflictsWithAny(bonus, answerWords)) return false;
+    if (conflictsWithAny(bonus, answerWords, rootMatcher)) return false;
   }
-  if (rootConflicts(acceptedBonus).length > 0) return false;
+  if (rootConflicts(acceptedBonus, rootMatcher).length > 0) return false;
 
   for (const blocked of level.blockedPool ?? []) {
     if (answerSet.has(blocked.word)) return false;
@@ -488,14 +527,17 @@ function buildLevel({
   seed,
   maxAnswers,
   maxRewardedBonus = MAX_ACCEPTED_BONUS,
+  maxAcceptedBonus = MAX_ACCEPTED_BONUS,
   contentVersion,
   difficultyRole,
   answerUsage = new Map(),
   surfaceUsage = new Map(),
   repeatCap = REPEAT_CAP,
+  wordDemand = new Map(),
 }) {
   if (!dicts.isGridApproved(base)) return null;
   const earlyPolicy = EARLY_ROUTE_POLICY.levels[globalId];
+  const rootMatcher = globalId > PRESERVED_LEVELS ? sameThirdRouteRoot : sameRoot;
   if (earlyPolicy) maxAnswers = earlyPolicy.answers.length;
 
   const letters = [...base];
@@ -517,7 +559,8 @@ function buildLevel({
     if (dicts.isGridApproved(entry.w)) answerCandidates.push(entry.w);
   }
   answerCandidates.sort((left, right) => {
-    return right.length - left.length
+    return (globalId > PRESERVED_LEVELS && !curatedAnswers ? wordScarcityCost([left], wordDemand, surfaceUsage) - wordScarcityCost([right], wordDemand, surfaceUsage) : 0)
+      || right.length - left.length
       || (dicts.commonRank.get(left) ?? Number.MAX_SAFE_INTEGER) - (dicts.commonRank.get(right) ?? Number.MAX_SAFE_INTEGER)
       || left.localeCompare(right, 'ru');
   });
@@ -530,13 +573,26 @@ function buildLevel({
     answerCandidates.unshift(base);
   }
 
-  const built = placeCrossword(answerCandidates, maxAnswers);
+  let built = placeCrossword(answerCandidates, maxAnswers, rootMatcher);
+  // Search other word orders before discarding an approved eight-letter base.
+  // Released boards retain their original deterministic placement.
+  if (globalId > PRESERVED_LEVELS) {
+    const alternatives = answerCandidates.slice(1);
+    const compact = (board) => board && board.grid.rows <= EXTENSION_GRID_LIMITS.rows && board.grid.cols <= EXTENSION_GRID_LIMITS.cols;
+    const cost = (board) => wordScarcityCost(board.answers.map((answer) => answer.word), wordDemand, surfaceUsage);
+    for (let offset = 1; offset < Math.min(alternatives.length, 9); offset += 1) {
+      const next = placeCrossword([base, ...alternatives.slice(offset), ...alternatives.slice(0, offset)], maxAnswers, rootMatcher);
+      if (compact(next) && (!compact(built) || next.answers.length > built.answers.length
+        || (next.answers.length === built.answers.length && (cost(next) < cost(built)
+          || (cost(next) === cost(built) && next.grid.rows * next.grid.cols < built.grid.rows * built.grid.cols))))) built = next;
+    }
+  }
   if (!built) return null;
 
   const answerSet = new Set(built.answers.map((answer) => answer.word));
   const acceptedBonus = [];
   for (const entry of dicts.validEntries) {
-    if (acceptedBonus.length >= MAX_ACCEPTED_BONUS) break;
+    if (acceptedBonus.length >= maxAcceptedBonus) break;
     if (entry.len < 3 || entry.len > letters.length) continue;
     if (answerSet.has(entry.w)) continue;
     if ((entry.mask & ~diskMask) !== 0) continue;
@@ -545,8 +601,8 @@ function buildLevel({
     if ((surfaceUsage.get(entry.w) || 0) >= (EARLY_ROUTE_POLICY.familiarWordRepeatCaps[entry.w] ?? repeatCap)) continue;
     if (RESERVED_ANSWER_LEVELS.has(entry.w) && RESERVED_ANSWER_LEVELS.get(entry.w) !== globalId) continue;
     if (curatedBonus && !curatedBonus.includes(entry.w)) continue;
-    if (conflictsWithAny(entry.w, built.answers.map((answer) => answer.word))) continue;
-    if (conflictsWithAny(entry.w, acceptedBonus)) continue;
+    if (conflictsWithAny(entry.w, built.answers.map((answer) => answer.word), rootMatcher)) continue;
+    if (conflictsWithAny(entry.w, acceptedBonus, rootMatcher)) continue;
     acceptedBonus.push(entry.w);
   }
 
@@ -759,6 +815,22 @@ function candidateBaseFor(globalId) {
   return null;
 }
 
+function localVarietyConflicts(level, recentLevels) {
+  const letters = [...level.letters].sort().join('');
+  const answers = new Set(level.answers.map((answer) => answer.word));
+  return recentLevels.flatMap((previous) => {
+    const distance = Math.abs(level.globalId - previous.globalId);
+    if (distance < 1) return [];
+    const conflicts = [];
+    if (distance <= THIRD_ROUTE_VARIETY.letterWindow && [...previous.letters].sort().join('') === letters) conflicts.push({ kind: 'letters', previousGlobalId: previous.globalId });
+    if (distance <= THIRD_ROUTE_VARIETY.answerWindow) {
+      const sharedAnswers = previous.answers.map((answer) => answer.word).filter((word) => answers.has(word));
+      if (sharedAnswers.length > THIRD_ROUTE_VARIETY.maxSharedAnswers) conflicts.push({ kind: 'answers', previousGlobalId: previous.globalId, sharedAnswers });
+    }
+    return conflicts;
+  });
+}
+
 function collectCandidates({
   world,
   localId,
@@ -771,11 +843,14 @@ function collectCandidates({
   surfaceUsage,
   signatures,
   contentVersion,
+  deferBonus = false,
+  recentLevels = [],
+  wordDemand = new Map(),
   count = 80,
 }) {
   const size = diskSizeFor(globalId);
   const role = difficultyRoleFor(globalId);
-  const earlyAnswerCount = EARLY_ROUTE_POLICY.levels[globalId]?.answers.length;
+  const earlyAnswerCount = globalId > PRESERVED_LEVELS ? THIRD_ROUTE_ROLE_ANSWERS[role] : EARLY_ROUTE_POLICY.levels[globalId]?.answers.length;
   const [minAnswers, maxAnswers] = earlyAnswerCount
     ? [earlyAnswerCount, earlyAnswerCount]
     : roleBand(size, role);
@@ -796,21 +871,27 @@ function collectCandidates({
       seed: hashStr(`${world}:${globalId}:${base}`) + seedOffset,
       maxAnswers,
       maxRewardedBonus: MAX_ACCEPTED_BONUS,
+      maxAcceptedBonus: deferBonus ? (mechanicFor(globalId) === 'bonus_chest' ? 1 : 0) : MAX_ACCEPTED_BONUS,
       contentVersion,
       difficultyRole: role,
       answerUsage,
       surfaceUsage,
       repeatCap: REPEAT_CAP,
+      wordDemand,
     });
     if (!built) return;
     if (built.answers.length < minAnswers) return;
-    if (globalId > PRESERVED_LEVELS && (
+    if (globalId > EXTENSION_START_LEVEL && (
       built.grid.rows > EXTENSION_GRID_LIMITS.rows || built.grid.cols > EXTENSION_GRID_LIMITS.cols
     )) return;
     applyCampaignMetadata(built);
     const signature = puzzleSignature(built);
     if (signatures.has(signature)) return;
-    candidates.push({ base, level: built, signature });
+    if (globalId > PRESERVED_LEVELS && localVarietyConflicts(built, recentLevels).length) return;
+    const scarcityCost = globalId > PRESERVED_LEVELS
+      ? wordScarcityCost([...built.answers.map((answer) => answer.word), ...built.acceptedBonus], wordDemand, surfaceUsage)
+      : 0;
+    candidates.push({ base, level: built, signature, scarcityCost });
   };
 
   if (forcedBases) {
@@ -833,13 +914,34 @@ function collectCandidates({
 }
 
 function pickCandidate(role, candidates, waveState, globalId) {
+  if (globalId > PRESERVED_LEVELS) {
+    candidates = candidates.filter(({ level }) => {
+      if (role === 'easy') return level.difficultyScore <= (waveState.baseline?.difficultyScore ?? waveState.hard?.difficultyScore ?? Number.MAX_SAFE_INTEGER);
+      if (role === 'baseline') return level.difficultyScore >= (waveState.easy?.difficultyScore ?? 0)
+        && level.difficultyScore <= (waveState.hard?.difficultyScore ?? Number.MAX_SAFE_INTEGER);
+      if (role === 'hard') return level.difficultyScore >= (waveState.baseline?.difficultyScore ?? 0)
+        && level.difficultyScore <= (waveState.climax?.difficultyScore ?? Number.MAX_SAFE_INTEGER);
+      if (role === 'breather') return level.difficultyScore < (waveState.hard?.difficultyScore ?? Number.MAX_SAFE_INTEGER);
+      if (role === 'climax') return level.difficultyScore >= (waveState.hard?.difficultyScore ?? 0);
+      return true;
+    });
+  }
   if (!candidates.length) return null;
   const preferred = mechanicFor(globalId) === 'bonus_chest' && candidates.some((candidate) => candidate.level.rewardedBonus.length > 0)
     ? candidates.filter((candidate) => candidate.level.rewardedBonus.length > 0)
     : candidates;
+  if (globalId > PRESERVED_LEVELS) {
+    const answerCounts = preferred.map((candidate) => candidate.level.answers.length);
+    const targetCount = role === 'climax' ? Math.max(...answerCounts) : Math.min(...answerCounts);
+    return preferred.filter((candidate) => candidate.level.answers.length === targetCount)
+      .sort((left, right) => left.scarcityCost - right.scarcityCost
+        || (['climax', 'breather'].includes(role) ? right.level.difficultyScore - left.level.difficultyScore : left.level.difficultyScore - right.level.difficultyScore)
+        || left.base.localeCompare(right.base, 'ru'))[0];
+  }
   const sorted = [...preferred].sort((left, right) => {
     return left.level.difficultyScore - right.level.difficultyScore
       || left.level.answers.length - right.level.answers.length
+      || left.scarcityCost - right.scarcityCost
       || left.base.localeCompare(right.base, 'ru');
   });
 
@@ -856,33 +958,168 @@ function pickCandidate(role, candidates, waveState, globalId) {
   return [...sorted].reverse().find((candidate) => candidate.level.difficultyScore >= (waveState.hard?.difficultyScore ?? 0)) ?? sorted[sorted.length - 1];
 }
 
-function generateWorld({
-  world,
-  count,
-  globalOffset = 0,
-  dicts,
-  usedBases,
-  answerUsage = new Map(),
-  surfaceUsage = new Map(),
-  signatures = new Set(),
-  contentVersion,
-}) {
-  if (globalOffset >= PRESERVED_LEVELS) {
-    const blockedByWord = new Map([
-      ...dicts.blockedByWord,
-      ...EXTENSION_BLOCKED.map((entry) => [entry.word, entry]),
-    ]);
-    const allowed = (word) => !blockedByWord.has(word) && !FUNCTION_WORDS.has(word);
-    const originalApproved = dicts.isGridApproved;
-    dicts = {
-      ...dicts,
-      commonEntries: dicts.commonEntries.filter((entry) => allowed(entry.w)),
-      validEntries: dicts.validEntries.filter((entry) => allowed(entry.w)),
-      blockedByWord,
-      blockedEntries: [...blockedByWord.values()].sort((left, right) => left.word.localeCompare(right.word, 'ru')),
-      isGridApproved: (word) => allowed(word) && originalApproved(word),
-    };
+function extensionDicts(dicts, globalOffset) {
+  if (globalOffset < EXTENSION_START_LEVEL) return dicts;
+  const blockedByWord = new Map([
+    ...dicts.blockedByWord,
+    ...EXTENSION_BLOCKED.map((entry) => [entry.word, entry]),
+    ...(globalOffset >= PRESERVED_LEVELS ? THIRD_ROUTE_BLOCKED.map((entry) => [entry.word, entry]) : []),
+  ]);
+  const allowed = (word) => !blockedByWord.has(word) && !FUNCTION_WORDS.has(word);
+  const originalApproved = dicts.isGridApproved;
+  return {
+    ...dicts,
+    commonEntries: dicts.commonEntries.filter((entry) => allowed(entry.w)),
+    validEntries: dicts.validEntries.filter((entry) => allowed(entry.w)),
+    blockedByWord,
+    blockedEntries: [...blockedByWord.values()].sort((left, right) => left.word.localeCompare(right.word, 'ru')),
+    isGridApproved: (word) => allowed(word) && originalApproved(word),
+  };
+}
+
+/** Spend optional-word capacity only after every mandatory puzzle is secured. */
+function fillDeferredBonus(levels, dicts, surfaceUsage) {
+  const filtered = extensionDicts(dicts, PRESERVED_LEVELS);
+  const choices = new Map(levels.map((level) => {
+    const diskMask = maskOf(level.letters.join(''));
+    const diskCounts = countsOf(level.letters.join(''));
+    return [level.globalId, filtered.validEntries.filter((entry) => entry.len >= 3 && entry.len <= level.letters.length
+      && (entry.mask & ~diskMask) === 0 && fitsCounts(countsOf(entry.w), diskCounts))];
+  }));
+  // Rounds give every board a chance at another bonus before early boards fill up.
+  for (let round = 1; round <= MAX_ACCEPTED_BONUS; round += 1) {
+    for (const level of levels) {
+      if (level.acceptedBonus.length >= round) continue;
+      const answers = level.answers.map((answer) => answer.word);
+      const choice = choices.get(level.globalId).find((entry) => {
+        const repeatCap = EARLY_ROUTE_POLICY.familiarWordRepeatCaps[entry.w] ?? REPEAT_CAP;
+        return (surfaceUsage.get(entry.w) || 0) < repeatCap
+          && !answers.includes(entry.w) && !level.acceptedBonus.includes(entry.w)
+          && (!RESERVED_ANSWER_LEVELS.has(entry.w) || RESERVED_ANSWER_LEVELS.get(entry.w) === level.globalId)
+          && !conflictsWithAny(entry.w, [...answers, ...level.acceptedBonus], sameThirdRouteRoot);
+      });
+      if (!choice) continue;
+      level.acceptedBonus.push(choice.w);
+      surfaceUsage.set(choice.w, (surfaceUsage.get(choice.w) || 0) + 1);
+    }
   }
+  for (const level of levels) {
+    level.bonusPool = [...level.acceptedBonus];
+    level.rewardedBonus = [...level.acceptedBonus];
+    applyCampaignMetadata(level);
+    if (!validate(level)) throw new Error(`Bonus allocation invalidated level ${level.globalId}`);
+  }
+}
+
+/** Allocate constrained roles before flexible roles, then emit chronological packs. */
+function generateThirdRoute({ specs, dicts, usedBases, answerUsage = new Map(), surfaceUsage = new Map(), signatures = new Set(), contentVersion, deferBonus = true, recentLevels = [] }) {
+  dicts = extensionDicts(dicts, PRESERVED_LEVELS);
+  const byLen = new Map();
+  for (const entry of dicts.commonEntries) {
+    if (!byLen.has(entry.len)) byLen.set(entry.len, []);
+    byLen.get(entry.len).push(entry.w);
+  }
+  // Prefer word families that few remaining bases can use, protecting shared quota.
+  const wordDemand = new Map();
+  const available = dicts.commonEntries.filter((entry) => entry.len >= 3 && entry.len <= 8
+    && !RESERVED_ANSWER_LEVELS.has(entry.w)
+    && (surfaceUsage.get(entry.w) || 0) < (EARLY_ROUTE_POLICY.familiarWordRepeatCaps[entry.w] ?? REPEAT_CAP))
+    .map((entry) => ({ ...entry, counts: countsOf(entry.w) }));
+  for (const base of byLen.get(8) || []) {
+    if (usedBases.has(base) || RESERVED_BASE_LEVELS.has(base)
+      || (surfaceUsage.get(base) || 0) >= (EARLY_ROUTE_POLICY.familiarWordRepeatCaps[base] ?? REPEAT_CAP)) continue;
+    const mask = maskOf(base);
+    const counts = countsOf(base);
+    for (const entry of available) {
+      if ((entry.mask & ~mask) === 0 && fitsCounts(entry.counts, counts)) wordDemand.set(entry.w, (wordDemand.get(entry.w) || 0) + 1);
+    }
+  }
+  const priority = { climax: 1, hard: 2, easy: 3, baseline: 4, breather: 5 };
+  const slots = specs.flatMap((spec) => Array.from({ length: spec.count }, (_, index) => ({
+    world: spec.world, localId: index + 1, globalId: spec.globalOffset + index + 1,
+  }))).sort((left, right) => {
+    const rank = (slot) => CURATED_FINALE_BASE_OPTIONS[slot.globalId] ? 0 : priority[difficultyRoleFor(slot.globalId)];
+    return rank(left) - rank(right) || left.globalId - right.globalId;
+  });
+  const planned = new Map();
+  const cursorsByWorld = new Map();
+  const decisions = [];
+  const startedAt = Date.now();
+  let index = 0;
+  let backtracks = 0;
+  let furthest = 0;
+  const waveFor = (globalId) => {
+    const start = globalId - ((globalId - 1) % 5);
+    return Object.fromEntries(Array.from({ length: 5 }, (_, offset) => planned.get(start + offset))
+      .filter(Boolean).map((level) => [level.difficultyRole, level]));
+  };
+  const commit = (chosen, frame) => {
+    decisions.push({ ...frame, remaining: frame.remaining.filter((candidate) => candidate.base !== chosen.base), chosen });
+    planned.set(chosen.level.globalId, chosen.level);
+    usedBases.add(chosen.base);
+    bumpUsage(chosen.level, answerUsage, surfaceUsage);
+    signatures.add(chosen.signature);
+  };
+  const rollback = (frame) => {
+    const { chosen } = frame;
+    planned.delete(chosen.level.globalId);
+    usedBases.delete(chosen.base);
+    signatures.delete(chosen.signature);
+    const subtract = (usage, word) => {
+      const next = (usage.get(word) || 0) - 1;
+      if (next > 0) usage.set(word, next);
+      else usage.delete(word);
+    };
+    for (const answer of chosen.level.answers) {
+      subtract(answerUsage, answer.word);
+      subtract(surfaceUsage, answer.word);
+    }
+    for (const word of chosen.level.acceptedBonus) subtract(surfaceUsage, word);
+    cursorsByWorld.set(chosen.level.world, new Map(frame.cursorAfter));
+  };
+  while (index < slots.length) {
+    const slot = slots[index];
+    const role = difficultyRoleFor(slot.globalId);
+    if (!cursorsByWorld.has(slot.world)) cursorsByWorld.set(slot.world, new Map());
+    const cursors = cursorsByWorld.get(slot.world);
+    const candidates = collectCandidates({ ...slot, dicts, byLen, cursors, usedBases, answerUsage, surfaceUsage, signatures,
+      contentVersion, deferBonus, wordDemand, recentLevels: [...recentLevels, ...planned.values()] });
+    const chosen = pickCandidate(role, candidates, waveFor(slot.globalId), slot.globalId);
+    if (chosen) {
+      commit(chosen, { index, remaining: candidates, cursorAfter: new Map(cursors) });
+      index += 1;
+      if (index > furthest) {
+        furthest = index;
+        if (index % 50 === 0) console.log(`route3: planned ${index}/${slots.length}; current=${slot.globalId}; role=${role}; retries=${backtracks}`);
+      }
+      continue;
+    }
+    let recovered = false;
+    while (decisions.length) {
+      const frame = decisions.pop();
+      rollback(frame);
+      backtracks += 1;
+      if (backtracks > 5000) throw new Error(`Route planning backtracking budget exhausted at ${slot.globalId}`);
+      if (backtracks % 25 === 0) console.log(`route3: retries=${backtracks}; reconsidering=${frame.chosen.level.globalId}; furthestSlots=${furthest}; elapsedMs=${Date.now() - startedAt}`);
+      const alternative = pickCandidate(frame.chosen.level.difficultyRole, frame.remaining, waveFor(frame.chosen.level.globalId), frame.chosen.level.globalId);
+      if (alternative) {
+        commit(alternative, frame);
+        index = frame.index + 1;
+        recovered = true;
+        break;
+      }
+    }
+    if (!recovered) throw new Error(`Unable to build level ${slot.globalId} (${slot.world}:${slot.localId})`);
+  }
+  return { packs: specs.map((spec) => ({ world: spec.world,
+    levels: Array.from({ length: spec.count }, (_, offset) => planned.get(spec.globalOffset + offset + 1)), backtracks })), backtracks };
+}
+
+function generateWorld({ world, count, globalOffset = 0, dicts, usedBases, answerUsage = new Map(), surfaceUsage = new Map(),
+  signatures = new Set(), contentVersion, deferBonus = false, recentLevels = [] }) {
+  if (globalOffset >= PRESERVED_LEVELS) return generateThirdRoute({ specs: [{ world, count, globalOffset }], dicts, usedBases,
+    answerUsage, surfaceUsage, signatures, contentVersion, deferBonus, recentLevels }).packs[0];
+  dicts = extensionDicts(dicts, globalOffset);
   const byLen = new Map();
   for (const entry of dicts.commonEntries) {
     if (!byLen.has(entry.len)) byLen.set(entry.len, []);
@@ -891,7 +1128,6 @@ function generateWorld({
   const cursors = new Map();
   const levels = [];
   const waveState = {};
-
   if (world === 'world1' && globalOffset === 0) {
     const tutorial = applyCampaignMetadata(tutorialLevel({ contentVersion }));
     levels.push(tutorial);
@@ -900,45 +1136,24 @@ function generateWorld({
     signatures.add(puzzleSignature(tutorial));
     waveState.easy = tutorial;
   }
-
   while (levels.length < count) {
     const localId = levels.length + 1;
     const globalId = globalOffset + localId;
     const role = difficultyRoleFor(globalId);
-    if (role === 'easy') {
-      delete waveState.easy;
-      delete waveState.baseline;
-      delete waveState.hard;
-      delete waveState.breather;
-      delete waveState.climax;
-    }
-
-    const candidates = collectCandidates({
-      world,
-      localId,
-      globalId,
-      dicts,
-      byLen,
-      cursors,
-      usedBases,
-      answerUsage,
-      surfaceUsage,
-      signatures,
-      contentVersion,
-    });
+    if (role === 'easy') for (const key of Object.keys(waveState)) delete waveState[key];
+    const candidates = collectCandidates({ world, localId, globalId, dicts, byLen, cursors, usedBases, answerUsage,
+      surfaceUsage, signatures, contentVersion, deferBonus, recentLevels });
     const chosen = pickCandidate(role, candidates, waveState, globalId);
-    if (!chosen) {
-      throw new Error(`Unable to build level ${globalId} (${world}:${localId})`);
-    }
-
+    if (!chosen) throw new Error(`Unable to build level ${globalId} (${world}:${localId})`);
     levels.push(chosen.level);
     usedBases.add(chosen.base);
     bumpUsage(chosen.level, answerUsage, surfaceUsage);
     signatures.add(chosen.signature);
+    recentLevels.push(chosen.level);
+    if (recentLevels.length > THIRD_ROUTE_VARIETY.letterWindow) recentLevels.shift();
     waveState[role] = chosen.level;
   }
-
-  return { world, levels };
+  return { world, levels, backtracks: 0 };
 }
 
 function writePack(pack) {
@@ -959,6 +1174,7 @@ module.exports = {
   CURATED_FINALE_ANSWERS,
   EXTENSION_BLOCKED,
   EXTENSION_GRID_LIMITS,
+  EXTENSION_START_LEVEL,
   LANDMARK_LEVELS,
   MASTERY_LEVELS,
   MAX_ACCEPTED_BONUS,
@@ -966,20 +1182,30 @@ module.exports = {
   PRESERVED_LEVELS,
   REPEAT_CAP,
   TOTAL_LEVELS,
+  THIRD_ROUTE_BLOCKED,
+  THIRD_ROUTE_VARIETY,
+  THIRD_ROUTE_ROLE_ANSWERS,
+  THIRD_ROUTE_ROOT_FAMILIES,
   WORLD_FINALES,
   WORLD_SPECS,
   buildLevel,
   difficultyRoleFor,
   diskSizeFor,
   generateWorld,
+  generateThirdRoute,
+  fillDeferredBonus,
   levelFingerprintPayload,
   loadDicts,
+  localVarietyConflicts,
   mechanicFor,
   milestoneFor,
   placeCrossword,
   puzzleSignature,
   rootConflicts,
+  roleBand,
   sameRoot,
+  sameThirdRouteRoot,
+  scoreLevel,
   validate,
   worldSpecFor,
 };
@@ -997,6 +1223,7 @@ if (require.main === module) {
   const answerUsage = new Map();
   const surfaceUsage = new Map();
   const signatures = new Set();
+  const recentLevels = [];
   const oneWorld = get('--world', null);
   const requestedCount = get('--count', null);
   const requestedOffset = get('--global-offset', null);
@@ -1004,7 +1231,7 @@ if (require.main === module) {
   const appendFromRaw = get('--append-from', oneWorld ? null : String(PRESERVED_LEVELS));
   const appendFrom = appendFromRaw == null ? 0 : Number(appendFromRaw);
   if (!Number.isInteger(appendFrom) || appendFrom < 0 || appendFrom > TOTAL_LEVELS) {
-    throw new Error('--append-from must be a campaign boundary between 0 and 1000');
+    throw new Error(`--append-from must be a campaign boundary between 0 and ${TOTAL_LEVELS}`);
   }
   if (appendFrom && (oneWorld || requestedCount || requestedOffset || !WORLD_FINALES.has(appendFrom))) {
     throw new Error('--append-from requires a complete world boundary and cannot be combined with --world/--count/--global-offset');
@@ -1025,6 +1252,8 @@ if (require.main === module) {
       usedBases.add(level.answers[0].word);
       bumpUsage(level, answerUsage, surfaceUsage);
       signatures.add(puzzleSignature(level));
+      recentLevels.push(level);
+      if (recentLevels.length > THIRD_ROUTE_VARIETY.letterWindow) recentLevels.shift();
     });
     console.log(`${spec.world}: preserving ${spec.count} existing levels`);
   }
@@ -1041,7 +1270,8 @@ if (require.main === module) {
     })()
     : WORLD_SPECS.filter((spec) => spec.globalOffset >= appendFrom);
 
-  for (const spec of plan) {
+  const packs = [];
+  for (const spec of plan.filter((entry) => entry.globalOffset < PRESERVED_LEVELS)) {
     const generated = generateWorld({
       world: spec.world,
       count: spec.count,
@@ -1052,15 +1282,28 @@ if (require.main === module) {
       surfaceUsage,
       signatures,
       contentVersion,
+      deferBonus: spec.globalOffset >= PRESERVED_LEVELS,
+      recentLevels,
     });
-    const pack = {
+    packs.push({
       schemaVersion: 2,
       contentVersion,
       world: spec.world,
       generatedAt,
       dictionaryHash,
       levels: generated.levels,
-    };
+    });
+    console.log(`${spec.world}: planned ${generated.levels.length} mandatory puzzles; retries=${generated.backtracks}`);
+  }
+  const thirdRouteSpecs = plan.filter((spec) => spec.globalOffset >= PRESERVED_LEVELS);
+  if (thirdRouteSpecs.length) {
+    const generated = generateThirdRoute({ specs: thirdRouteSpecs, dicts, usedBases, answerUsage, surfaceUsage, signatures,
+      contentVersion, recentLevels });
+    for (const pack of generated.packs) packs.push({ schemaVersion: 2, contentVersion, world: pack.world, generatedAt,
+      dictionaryHash, levels: pack.levels });
+  }
+  fillDeferredBonus(packs.flatMap((pack) => pack.levels.filter((level) => level.globalId > PRESERVED_LEVELS)), dicts, surfaceUsage);
+  for (const pack of packs) {
     const out = writePack(pack);
     const avgBonus = (
       pack.levels.reduce((sum, level) => sum + (level.acceptedBonus?.length ?? 0), 0) / Math.max(1, pack.levels.length)

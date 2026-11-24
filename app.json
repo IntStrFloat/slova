@@ -2,7 +2,7 @@
   "expo": {
     "name": "Слова: Игра в слова",
     "slug": "slova",
-    "version": "0.1.14",
+    "version": "0.1.31",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "slova",
@@ -10,7 +10,7 @@
     "backgroundColor": "#101826",
     "android": {
       "package": "com.intstrfloat.slova",
-      "versionCode": 18,
+      "versionCode": 35,
       "adaptiveIcon": {
         "backgroundColor": "#101826",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -42,9 +42,11 @@
       "expo-asset",
       "./plugins/withAndroidResourceFallbacks",
       "./plugins/withAppMetrica",
-      "./plugins/withYandexMediationVk",
+      "./plugins/withYandexEasyMonetization",
       "./plugins/withRuStorePush",
-      "./plugins/withRuStoreReview"
+      "./plugins/withRuStoreReview",
+      "./plugins/withRuStoreRemoteConfig",
+      "./plugins/withRuStoreUpdates"
     ],
     "experiments": {
       "typedRoutes": true,

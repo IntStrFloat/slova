@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from docx import Document
+from docx.enum.section import WD_SECTION_START
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
@@ -19,29 +20,28 @@ from PIL import Image
 
 
 HEADINGS = {
-    "Сначала посмотрите на буквы и клетки",
-    "Начните с короткого слова и его пересечений",
-    "Перебирайте варианты в понятном порядке",
-    "Различайте ответы кроссворда и бонусные слова",
-    "Закрепите приём на нескольких головоломках",
+    "Как из одного набора получаются разные слова",
+    "Что происходит с ошибками и дополнительными словами",
+    "Как продолжить, если слово не находится",
+    "Что открывается между головоломками",
+    "Как устроен Марафон слов",
     "Часто задаваемые вопросы",
-    "Нужно ли использовать все буквы в одном слове",
-    "Что делать если подходит несколько слов",
-    "Почему правильное слово не появляется в кроссворде",
-    "Почему за бонусное слово не дали монеты",
-    "Когда пользоваться подсказкой",
-    "Есть ли ограничение по времени или жизням",
-    "Обязательно ли заходить каждый день ради марафона",
+    "Что нужно сделать для прохождения уровня",
+    "Нужно ли использовать весь набор букв",
+    "Почему игра приняла слово, но клетки остались пустыми",
+    "Можно ли проиграть из-за долгого поиска или ошибки",
+    "Что дают перемешивание и подсказка",
+    "Нужно ли входить каждый день ради марафона",
 }
 
 
 def load_inputs(folder: Path) -> tuple[dict, list[str], list[dict]]:
     metadata = json.loads((folder / "metadata.json").read_text(encoding="utf-8"))
-    article = (folder / "article.txt").read_text(encoding="utf-8")
+    article = (folder / "article.txt").read_text(encoding="utf-8-sig")
     manifest = json.loads((folder / "images.json").read_text(encoding="utf-8"))
     blocks = article.strip().split("\n\n")
-    if len(article) > 7000:
-        raise ValueError(f"Article exceeds 7000 characters: {len(article)}")
+    if len(article) > 10000:
+        raise ValueError(f"Review exceeds 10000 characters: {len(article)}")
     if len(metadata["seoTitle"]) > 70 or len(metadata["description"]) > 170:
         raise ValueError("SEO metadata exceeds RuStore limits")
     if metadata["title"] == metadata["seoTitle"]:
@@ -91,7 +91,7 @@ def configure_styles(document: Document) -> None:
     section.page_width = Inches(8.5)
     section.page_height = Inches(11)
     section.top_margin = Inches(0.7)
-    section.bottom_margin = Inches(0.7)
+    section.bottom_margin = Inches(1.15)
     section.left_margin = Inches(0.85)
     section.right_margin = Inches(0.85)
     for name in ["Normal", "Heading 1", "Caption"]:
@@ -147,7 +147,7 @@ def add_images(document: Document, folder: Path, images: list[dict], anchor: str
         with Image.open(path) as im:
             width, height = im.size
         is_portrait = height > width
-        display_width = 2.5 if is_portrait else 6.8
+        display_width = 2.3 if is_portrait else 6.8
         paragraph = document.add_paragraph()
         paragraph.paragraph_format.keep_with_next = bool(item.get("caption"))
         shape = paragraph.add_run().add_picture(str(path), width=Inches(display_width))
@@ -161,32 +161,39 @@ def build(folder: Path, output: Path) -> None:
     document = Document()
     configure_styles(document)
     document.core_properties.title = metadata["title"]
-    document.core_properties.subject = "Инструкция для блога RuStore"
+    document.core_properties.subject = "Обзор игры для блога RuStore"
     document.core_properties.author = "Слова"
     document.core_properties.keywords = "слова из букв, кроссворд, поиск слов"
     for line in blocks[0].splitlines():
         document.add_paragraph(line)
     for index, block in enumerate(blocks[1:], start=1):
+        if block == "Часто задаваемые вопросы":
+            document.add_section(WD_SECTION_START.NEW_PAGE)
         if block == metadata["title"] or block in HEADINGS:
             document.add_paragraph(block, style="Heading 1")
+        elif block.startswith("Скачать «"):
+            paragraph = document.add_paragraph()
+            add_link(paragraph, block, metadata["appUrl"])
         elif index == 2:
             paragraph = document.add_paragraph()
             prefix, app_name, suffix = block.partition(f"«{metadata['appName']}»")
             paragraph.add_run(prefix)
             if not app_name:
                 raise ValueError("The app name is missing from the introduction")
-            add_link(paragraph, app_name, metadata["appUrl"])
+            paragraph.add_run("«")
+            add_link(paragraph, "Слова из букв", metadata["appUrl"])
+            paragraph.add_run(" — кроссворды»")
             paragraph.add_run(suffix)
         else:
             document.add_paragraph(block)
         if index == 2:
             add_images(document, folder, images, "intro")
-        if block.startswith("Для простого примера возьмём буквы"):
+        if block.startswith("Последняя Т в слове"):
             add_images(document, folder, images, "lettersExample")
-        if block.startswith("С 26 октября по 1 ноября 2026 года"):
+        if block.startswith("Решать по три головоломки каждый день"):
             add_images(document, folder, images, "marathon")
-    if sum(len(p.text) for p in document.paragraphs) + len(metadata["appName"]) + 2 > 7000:
-        raise ValueError("The final DOCX text exceeds 7000 characters")
+    if sum(len(p.text) for p in document.paragraphs) + len(metadata["appName"]) + 2 > 10000:
+        raise ValueError("The final DOCX text exceeds 10000 characters")
     output.parent.mkdir(parents=True, exist_ok=True)
     document.save(output)
     if output.stat().st_size > 5_000_000:

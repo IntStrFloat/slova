@@ -1,11 +1,17 @@
 import { ENV } from './env';
 
-/** Реклама — Yandex. Подписка ЮKassa управляется каталогом backend, см. runbook. */
+/** Реклама — Yandex. Подписка Робокасса управляется каталогом backend, см. runbook. */
 export const MONETIZATION = {
   adsEnabled: true,
   bannerEnabled: true,
   appOpenEnabled: false,
-  iapEnabled: false, // старые заготовки покупок валюты; к подписке ЮKassa не относится
+  subscriptionVisible: true, // видимость UI; доступность оплаты определяет backend
+  subscriptionOffer: {
+    minCompletedLevels: 6,
+    minShownInterstitials: 3,
+    dismissForMs: 7 * 24 * 60 * 60 * 1000,
+  },
+  iapEnabled: false, // старые заготовки покупок валюты; к подписке Робокасса не относится
   yandex: {
     bannerAdUnitId: ENV.yandex.bannerAdUnitId,
     interstitialAdUnitId: ENV.yandex.interstitialAdUnitId,
@@ -14,13 +20,9 @@ export const MONETIZATION = {
   interstitial: {
     onboardingProtectedThroughLevel: 5,
     minUniqueCampaignCompletions: 5,
-    minLifetimeVisibleGameplaySec: 300,
-    minVisibleGameplaySinceFullscreenSec: 180,
+    minVisibleGameplaySinceInterstitialSec: 300,
     minNewCampaignCompletionsSinceFullscreen: 3,
-    maxFirstSession: 1,
-    maxLaterSession: 3,
-    maxRollingHour: 6,
-    rollingWindowMs: 60 * 60 * 1000,
+    rewardedCooldownSec: 120,
   },
   fakeRewardedInDev: false,
 } as const;

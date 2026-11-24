@@ -56,6 +56,15 @@ test('schedules only verified local content after opt-in', async () => {
   expect(native.cancelAll).not.toHaveBeenCalled();
 });
 
+test('remote receipts consume the same native history budget used by the local planner', async () => {
+  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 18);
+  (native.sentHistory as jest.Mock).mockReturnValue(JSON.stringify([{ dateKey: '2026-09-26',
+    localDateKey: '2026-09-26', sentAtMs: date.getTime(), reminderId: 'remote_receipt', fireAtMs: 0, channel: 'remote' }]));
+  await syncDailyReminders(date);
+  const plan = JSON.parse((native.replaceSchedules as jest.Mock).mock.calls[0][0]) as { fireAtMs: number }[];
+  expect(plan).toHaveLength(2); expect(plan.some((item) => item.fireAtMs === today.getTime())).toBe(false);
+});
+
 test('setting off or revoked permission cancels pending alarms, zero daily wins do not', async () => {
   (useSettings.getState as jest.Mock).mockReturnValueOnce({ notifications: false });
   await syncDailyReminders(date);

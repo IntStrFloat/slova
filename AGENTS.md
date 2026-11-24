@@ -1,3 +1,7 @@
+<!-- ANDROID-AVD-POLICY:START -->
+Local Android tests follow `C:/Users/Dima2/.codex/android-avd-policy/README.md` and `registry.json`: zero stored AVDs between test sessions. Create only for actual tests; default one temporary local AVD, reused within the active session, with APIs tested sequentially. At finish/cancel/session end, stop the owned device, check ownership/processes/leases/locks/paths, remove its exact directory and INI, verify absence, and set `absent_create_on_next_test`. Preserve SDK/system-images, source, APK/evidence and keys; no full-VM backups. Resolve current name/serial and record fresh evidence for each new VM.
+<!-- ANDROID-AVD-POLICY:END -->
+
 # Agent contract — slova
 
 ## Expo

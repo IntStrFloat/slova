@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import Home from '../index';
 
@@ -18,6 +18,9 @@ let mockFocusCallback: (() => void | (() => void)) | null = null;
 const mockProgress = { ensureDay: jest.fn() };
 let mockDay = '2026-09-26';
 const mockRefreshDay = jest.fn(() => mockDay);
+let mockSubscriptionVisible = false;
+const mockSubscriptionShown = jest.fn();
+let mockHelpFlow: Record<string, unknown> | null = null;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn() }),
@@ -25,7 +28,13 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('@/features/retention-ui/MarathonEntry', () => ({ MarathonEntry: () => null }));
+jest.mock('@/features/monetization/SubscriptionOffer', () => ({
+  SubscriptionOffer: () => null,
+  useSubscriptionOffer: () => ({ visible: mockSubscriptionVisible, trackShown: mockSubscriptionShown }),
+}));
 jest.mock('@/features/analytics', () => ({ track: jest.fn(), trackOnce: jest.fn() }));
+// Home view fixtures provide their own assigned/recoverable flow; real default-control is covered separately.
+jest.mock('@/features/hints/help-experiment', () => ({ useHelpExperimentState: () => 0, exposeHelpExperiment: jest.fn() }));
 jest.mock('@/features/analytics/retentionEvents', () => ({ trackObservedRetentionMilestones: jest.fn() }));
 jest.mock('@/core/storage', () => ({
   KEYS: { introSurface: 'onboarding.surface.v1' },
@@ -47,7 +56,15 @@ jest.mock('@/core/config/worlds', () => ({
     ? { id: 'first', title: 'Острова Сены', image: 1, untilLevel: 5 } : null,
 }));
 jest.mock('@/core/time', () => ({ dayKey: () => mockDay, isDayKey: (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) }));
-jest.mock('@/features/currency', () => ({ useCurrency: (selector: any) => selector({ coins: 42 }) }));
+jest.mock('@/features/currency', () => ({ useCurrency: Object.assign((selector: any) => selector({ coins: 42 }), { getState: () => ({ coins: 42 }) }) }));
+jest.mock('@/features/hints/help-flow', () => ({
+  useHelpFlows: (selector: any) => selector({ flows: {} }), latestResumableHelpFlow: () => mockHelpFlow,
+  currentHelpQuote: () => ({ price: 50, helpAvailable: true }), canResumeHelpFlow: () => true,
+  getHelpFlow: () => mockHelpFlow, markHelpFlowReturned: jest.fn(),
+  helpFlowProperties: (flow: any) => ({ origin_interaction_id: flow.id, attemptId: flow.attemptId,
+    levelKey: 'campaign:6', levelId: 6, mode: 'campaign', requested_hint: 'letter', displayed_cost: 50 }),
+  helpFlowGameHref: (flow: any) => ({ pathname: '/game', params: { helpFlowId: flow.id, source: 'help_return' } }),
+}));
 jest.mock('@/features/dailybonus', () => {
   const useDailyBonus: any = (selector: any) => selector({ canClaim: () => mockGiftClaimable, pendingGift: null });
   useDailyBonus.getState = () => ({ claim: mockClaimGift, reconcilePending: mockReconcileGift, lastDay: '2026-09-25' });
@@ -70,7 +87,7 @@ jest.mock('@/features/levels', () => ({
     answers: [{ word: 'КОТ' }, { word: 'ТОК' }], bonusPool: [],
   }),
 }));
-jest.mock('@/features/monetization', () => ({ AdBanner: () => null, MONETIZATION: { iapEnabled: false } }));
+jest.mock('@/features/monetization', () => ({ AdBanner: () => null, MONETIZATION: { iapEnabled: false }, useRewardedState: () => 'loading' }));
 jest.mock('@/features/onboarding/introPack', () => ({ assignIntroPackForCurrentProfile: () => true }));
 jest.mock('@/features/progression/store', () => ({
   giftProgress: (completedLevel: number) => ({
@@ -115,6 +132,7 @@ function labels(tree: ReactTestRenderer): string[] {
 
 describe('retention home', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     AppState.currentState = 'active';
     (AppState.addEventListener as jest.Mock).mockImplementation(() => ({ remove: jest.fn() }));
     mockPush.mockClear();
@@ -124,6 +142,9 @@ describe('retention home', () => {
     mockFocusCallback = null;
     mockDay = '2026-09-26';
     mockRefreshDay.mockClear();
+    mockSubscriptionVisible = false;
+    mockSubscriptionShown.mockClear();
+    mockHelpFlow = null;
     mockProgress.ensureDay.mockClear();
     mockWins = 2;
     mockSurface = 'menu';
@@ -132,6 +153,8 @@ describe('retention home', () => {
     mockFlags = { daily: true, week: true, quests: true, event: true };
     mockCards = [{ id: 'first', kind: 'journey', title: 'Эйфелева башня', image: 1, owned: false, seen: false }];
   });
+
+  afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
 
   it('keeps play prominent after an early exit and hides daily and social distractions', () => {
     mockSnapshot = {
@@ -233,9 +256,11 @@ describe('retention home', () => {
       tree.root.findByProps({ testID: 'home-daily-card' }).props.onLayout({ nativeEvent: { layout: { y: 80, height: 100 } } });
       tree.root.findByProps({ testID: 'home-gift-card' }).props.onLayout({ nativeEvent: { layout: { y: 600, height: 70 } } });
     });
+    act(() => { jest.advanceTimersByTime(1_000); });
     expect(track).toHaveBeenCalledWith('daily_entry_seen', expect.objectContaining({ screen: 'home', source: 'home_card' }));
     expect(track).not.toHaveBeenCalledWith('daily_bonus_seen', expect.anything());
     act(() => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 450 }, layoutMeasurement: { height: 300 } } }); });
+    act(() => { jest.advanceTimersByTime(1_000); });
     expect(track).toHaveBeenCalledWith('daily_bonus_seen', expect.objectContaining({ screen: 'home' }));
     act(() => { cleanup?.(); tree.unmount(); });
   });
@@ -261,6 +286,61 @@ describe('retention home', () => {
     act(() => { cleanup?.(); tree.unmount(); });
   });
 
+  it('measures the subscription card only after scrolling it into the focused viewport', () => {
+    mockWins = 6;
+    mockSubscriptionVisible = true;
+    let tree!: ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<Home />); });
+    const scroll = tree.root.findAll((node) => node.props.scrollEventThrottle === 100 && typeof node.props.onScroll === 'function')[0];
+    let cleanup: void | (() => void);
+    act(() => {
+      scroll.props.onLayout({ nativeEvent: { layout: { height: 300 } } });
+      tree.root.findByProps({ testID: 'home-subscription-card' }).props.onLayout({ nativeEvent: { layout: { y: 500, height: 200 } } });
+    });
+    expect(mockSubscriptionShown).not.toHaveBeenCalled();
+    act(() => { cleanup = mockFocusCallback?.(); });
+    expect(mockSubscriptionShown).not.toHaveBeenCalled();
+    act(() => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 250 }, layoutMeasurement: { height: 300 } } }); });
+    expect(mockSubscriptionShown).not.toHaveBeenCalled();
+    act(() => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 300 }, layoutMeasurement: { height: 300 } } }); });
+    act(() => { jest.advanceTimersByTime(1_000); });
+    expect(mockSubscriptionShown).toHaveBeenCalledTimes(1);
+    act(() => {
+      scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 0 }, layoutMeasurement: { height: 300 } } });
+      scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 300 }, layoutMeasurement: { height: 300 } } });
+      tree.update(<Home />);
+    });
+    act(() => { jest.advanceTimersByTime(1_000); });
+    expect(mockSubscriptionShown).toHaveBeenCalledTimes(1);
+    act(() => { cleanup?.(); tree.unmount(); });
+  });
+
+  it('does not count a background subscription card or reuse its layout after it becomes hidden', () => {
+    const callbacks: ((state: string) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback: any) => {
+      callbacks.push(callback); return { remove: jest.fn() };
+    });
+    mockWins = 6;
+    mockSubscriptionVisible = true;
+    let tree!: ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<Home />); });
+    const scroll = tree.root.findAll((node) => node.props.scrollEventThrottle === 100 && typeof node.props.onScroll === 'function')[0];
+    let cleanup: void | (() => void);
+    act(() => { cleanup = mockFocusCallback?.(); callbacks.forEach((callback) => callback('background')); });
+    act(() => {
+      scroll.props.onLayout({ nativeEvent: { layout: { height: 500 } } });
+      tree.root.findByProps({ testID: 'home-subscription-card' }).props.onLayout({ nativeEvent: { layout: { y: 100, height: 200 } } });
+    });
+    expect(mockSubscriptionShown).not.toHaveBeenCalled();
+    mockSubscriptionVisible = false;
+    act(() => { tree.update(<Home />); callbacks.forEach((callback) => callback('active')); });
+    act(() => { cleanup?.(); cleanup = mockFocusCallback?.(); scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 0 }, layoutMeasurement: { height: 500 } } }); });
+    expect(mockSubscriptionShown).not.toHaveBeenCalled();
+    expect(tree.root.findAllByProps({ testID: 'home-subscription-card' })).toHaveLength(0);
+    act(() => { cleanup?.(); tree.unmount(); });
+    jest.restoreAllMocks();
+  });
+
   it('refreshes the daily date and gift immediately on next-day foreground return', () => {
     const callbacks: ((state: string) => void)[] = [];
     const listener = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback: any) => {
@@ -283,6 +363,7 @@ describe('retention home', () => {
     act(() => { callbacks.forEach((callback) => callback('active')); });
     expect(mockRefreshDay).toHaveBeenCalledTimes(1);
     expect(mockProgress.ensureDay).toHaveBeenCalledWith({ actionDay: '2026-09-27' });
+    act(() => { jest.advanceTimersByTime(1_000); });
     expect(track).toHaveBeenCalledWith('daily_entry_seen', expect.objectContaining({ dateKey: '2026-09-27' }));
     act(() => { cleanup?.(); tree.unmount(); });
     listener.mockRestore();
@@ -323,5 +404,84 @@ describe('retention home', () => {
     expect(visible.some((label) => label.startsWith('Задания дня'))).toBe(false);
     expect(visible.some((label) => label.startsWith('Собери чемодан'))).toBe(false);
     expect(visible).toContain('Открыть альбом');
+  });
+
+  it('measures the nested wheel entry against content coordinates and carries only its own tap ID', () => {
+    const { track } = require('@/features/analytics'); track.mockClear(); mockWins = 15;
+    let rootNode: unknown;
+    const measuredRoots: unknown[] = [];
+    let tree!: ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<Home />); });
+    rootNode = tree.root.findByProps({ testID: 'home-content-root' }).instance;
+    tree.root.findByProps({ testID: 'home-wheel-entry' }).instance.measureLayout = (root: unknown, callback: (...args: number[]) => void) => {
+      measuredRoots.push(root); callback(0, 700, 200, 50);
+    };
+    const scroll = tree.root.findAll((node) => node.props.scrollEventThrottle === 100 && typeof node.props.onScroll === 'function')[0];
+    let cleanup: void | (() => void);
+    act(() => { cleanup = mockFocusCallback?.(); scroll.props.onLayout({ nativeEvent: { layout: { height: 300 } } }); jest.advanceTimersByTime(1_000); });
+    expect(track.mock.calls.filter(([name, props]: [string, any]) => name === 'feature_exposed' && props.feature === 'wheel_entry')).toHaveLength(0);
+    expect(measuredRoots.length).toBeGreaterThan(0); expect(measuredRoots.every((node) => node === rootNode)).toBe(true);
+    act(() => { scroll.props.onScroll({ nativeEvent: { contentOffset: { y: 600 }, layoutMeasurement: { height: 300 } } }); jest.advanceTimersByTime(999); });
+    expect(track.mock.calls.filter(([name, props]: [string, any]) => name === 'feature_exposed' && props.feature === 'wheel_entry')).toHaveLength(0);
+    act(() => { jest.advanceTimersByTime(1); });
+    const seen = track.mock.calls.filter(([name, props]: [string, any]) => name === 'feature_exposed' && props.feature === 'wheel_entry');
+    expect(seen).toHaveLength(1);
+    expect(seen[0][1]).toEqual(expect.objectContaining({ entry_source: 'home', balance: 42, is_available: true,
+      rewarded_state: 'loading', visibility_ms: 1_000, visibility_rule: 'half_1s_v2' }));
+    expect(seen[0][1]).not.toHaveProperty('origin_interaction_id');
+    act(() => { tree.root.findByProps({ accessibilityLabel: 'Колесо' }).props.onPress(); });
+    const action = track.mock.calls.find(([name, props]: [string, any]) => name === 'ui_action' && props.element_id === 'wheel');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/wheel', params: { source: 'home', entryInteractionId: action[1].interaction_id } });
+    expect(action[1]).not.toHaveProperty('origin_interaction_id');
+    act(() => { cleanup?.(); tree.unmount(); });
+  });
+
+  it('retains the saved help origin only for the explicit resume-help entry', () => {
+    const { track } = require('@/features/analytics'); track.mockClear(); mockWins = 15;
+    mockHelpFlow = { id: 'origin:saved', attemptId: 'attempt:saved', mode: 'campaign', levelId: 6 };
+    let rootNode: unknown;
+    let tree!: ReactTestRenderer;
+    act(() => { tree = TestRenderer.create(<Home />); });
+    rootNode = tree.root.findByProps({ testID: 'home-content-root' }).instance;
+    tree.root.findByProps({ testID: 'home-help-resume-entry' }).instance.measureLayout = (root: unknown, callback: (...args: number[]) => void) => {
+      expect(root).toBe(rootNode); callback(0, 100, 200, 50);
+    };
+    const scroll = tree.root.findAll((node) => node.props.scrollEventThrottle === 100 && typeof node.props.onScroll === 'function')[0];
+    let cleanup: void | (() => void);
+    act(() => { cleanup = mockFocusCallback?.(); scroll.props.onLayout({ nativeEvent: { layout: { height: 300 } } }); jest.advanceTimersByTime(1_000); });
+    expect(track).toHaveBeenCalledWith('feature_exposed', expect.objectContaining({ feature: 'help_resume',
+      origin_interaction_id: 'origin:saved', attemptId: 'attempt:saved', displayed_cost: 50, balance: 42,
+      entry_source: 'home_help_resume', visibility_rule: 'half_1s_v2' }));
+    act(() => { tree.root.findByProps({ accessibilityLabel: 'Вернуться к выбранной помощи' }).props.onPress(); });
+    const action = track.mock.calls.find(([name, props]: [string, any]) => name === 'ui_action' && props.element_id === 'resume_help');
+    expect(action[1]).toEqual(expect.objectContaining({ origin_interaction_id: 'origin:saved', attemptId: 'attempt:saved' }));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/game', params: { helpFlowId: 'origin:saved', source: 'help_return', entryInteractionId: action[1].interaction_id } });
+    act(() => { cleanup?.(); tree.unmount(); });
+  });
+
+  it('requires a new continuous second after Android shade focus without re-exposing an already seen Home entry', () => {
+    const { track } = require('@/features/analytics'); track.mockClear(); mockWins = 15;
+    const platform = jest.replaceProperty(Platform, 'OS', 'android');
+    const callbacks = new Map<string, Set<(...args: any[]) => void>>();
+    const listener = jest.spyOn(AppState, 'addEventListener').mockImplementation((event, callback: any) => {
+      if (!callbacks.has(event)) callbacks.set(event, new Set());
+      callbacks.get(event)!.add(callback); return { remove: () => callbacks.get(event)?.delete(callback) };
+    });
+    const emit = (event: string, value?: string) => { for (const callback of callbacks.get(event) ?? []) callback(value); };
+    const seen = () => track.mock.calls.filter(([name, props]: [string, any]) => name === 'feature_exposed' && props.feature === 'wheel_entry');
+    let tree!: ReactTestRenderer;
+    let cleanup: void | (() => void);
+    try {
+      act(() => { tree = TestRenderer.create(<Home />); });
+      tree.root.findByProps({ testID: 'home-wheel-entry' }).instance.measureLayout = (_root: unknown, callback: (...args: number[]) => void) => callback(0, 100, 200, 50);
+      const scroll = tree.root.findAll((node) => node.props.scrollEventThrottle === 100 && typeof node.props.onScroll === 'function')[0];
+      act(() => { cleanup = mockFocusCallback?.(); scroll.props.onLayout({ nativeEvent: { layout: { height: 300 } } }); jest.advanceTimersByTime(500); emit('blur'); jest.advanceTimersByTime(1_000); });
+      expect(seen()).toHaveLength(0);
+      act(() => { emit('change', 'background'); emit('focus'); jest.advanceTimersByTime(1_500); });
+      expect(seen()).toHaveLength(0);
+      act(() => { emit('change', 'active'); jest.advanceTimersByTime(999); }); expect(seen()).toHaveLength(0);
+      act(() => { jest.advanceTimersByTime(1); }); expect(seen()).toHaveLength(1);
+      act(() => { emit('blur'); emit('focus'); jest.advanceTimersByTime(1_000); }); expect(seen()).toHaveLength(1);
+    } finally { act(() => { cleanup?.(); tree.unmount(); }); listener.mockRestore(); platform.restore(); }
   });
 });

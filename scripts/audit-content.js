@@ -11,10 +11,15 @@ const {
   CURATED_FINALE_BASE_OPTIONS,
   EXTENSION_BLOCKED,
   EXTENSION_GRID_LIMITS,
+  EXTENSION_START_LEVEL,
   MAX_ACCEPTED_BONUS,
   PRESERVED_LEVELS,
   REPEAT_CAP,
   TOTAL_LEVELS,
+  THIRD_ROUTE_BLOCKED,
+  THIRD_ROUTE_VARIETY,
+  THIRD_ROUTE_ROLE_ANSWERS,
+  THIRD_ROUTE_ROOT_FAMILIES,
   WORLD_FINALES,
   WORLD_SPECS,
   difficultyRoleFor,
@@ -25,6 +30,8 @@ const {
   milestoneFor,
   puzzleSignature,
   sameRoot,
+  sameThirdRouteRoot,
+  scoreLevel,
   worldSpecFor,
 } = require('./gen-levels');
 
@@ -73,6 +80,65 @@ function worldExpectedGlobalId(world, localId) {
   return spec ? spec.globalOffset + localId : null;
 }
 
+/** Validate the actual board, independently of the generator's placement routine. */
+function gridErrors(level) {
+  const errors = [];
+  const grid = level.grid || {};
+  const cells = Array.isArray(grid.cells) ? grid.cells : [];
+  const answers = Array.isArray(level.answers) ? level.answers : [];
+  const byCell = new Map();
+  const memberships = new Map();
+  const key = (cell) => `${cell.row},${cell.col}`;
+  if (!Number.isInteger(grid.rows) || grid.rows < 1 || !Number.isInteger(grid.cols) || grid.cols < 1 || cells.length === 0) errors.push('invalid_dimensions');
+  for (const cell of cells) {
+    const id = key(cell);
+    if (byCell.has(id)) errors.push(`duplicate_cell:${id}`);
+    if (!Number.isInteger(cell.row) || !Number.isInteger(cell.col) || cell.row < 0 || cell.col < 0 || cell.row >= grid.rows || cell.col >= grid.cols) errors.push(`out_of_bounds:${id}`);
+    if (typeof cell.ch !== 'string' || !/^[а-я]$/.test(cell.ch)) errors.push(`invalid_character:${id}`);
+    byCell.set(id, cell);
+  }
+  answers.forEach((answer, index) => {
+    const wordCells = Array.isArray(answer.cells) ? answer.cells : [];
+    if (!['H', 'V'].includes(answer.dir) || wordCells.length !== answer.word.length || wordCells.length === 0) errors.push(`invalid_answer:${answer.word}`);
+    const first = wordCells[0];
+    wordCells.forEach((cell, offset) => {
+      const id = key(cell);
+      if (!byCell.has(id) || byCell.get(id).ch !== cell.ch || cell.ch !== answer.word[offset]) errors.push(`character_mismatch:${answer.word}:${id}`);
+      if (first && (cell.row !== first.row + (answer.dir === 'V' ? offset : 0) || cell.col !== first.col + (answer.dir === 'H' ? offset : 0))) errors.push(`nonlinear_answer:${answer.word}`);
+      if (!memberships.has(id)) memberships.set(id, []);
+      memberships.get(id).push({ index, dir: answer.dir });
+    });
+    if (first) {
+      const dr = answer.dir === 'V' ? 1 : 0;
+      const dc = answer.dir === 'H' ? 1 : 0;
+      if (byCell.has(`${first.row - dr},${first.col - dc}`) || byCell.has(`${first.row + dr * wordCells.length},${first.col + dc * wordCells.length}`)) errors.push(`touching_end:${answer.word}`);
+    }
+  });
+  for (const [id, cell] of byCell) {
+    const owners = memberships.get(id) || [];
+    if (owners.length === 0) errors.push(`uncovered_cell:${id}`);
+    if (owners.length > 2 || new Set(owners.map((entry) => entry.dir)).size !== owners.length) errors.push(`invalid_overlap:${id}`);
+    for (const [dr, dc] of [[1, 0], [0, 1]]) {
+      const neighbor = `${cell.row + dr},${cell.col + dc}`;
+      if (byCell.has(neighbor) && !owners.some((owner) => (memberships.get(neighbor) || []).some((other) => other.index === owner.index))) errors.push(`side_touch:${id}:${neighbor}`);
+    }
+  }
+  const seen = new Set();
+  const queue = byCell.size ? [byCell.keys().next().value] : [];
+  while (queue.length) {
+    const id = queue.pop();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const cell = byCell.get(id);
+    for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const next = `${cell.row + dr},${cell.col + dc}`;
+      if (byCell.has(next) && !seen.has(next)) queue.push(next);
+    }
+  }
+  if (seen.size !== byCell.size) errors.push('disconnected_board');
+  return [...new Set(errors)];
+}
+
 function auditLevel({ level, dicts, approvals, commonWords, validWords, blockedWords, surfaceOccurrence, mandatoryOccurrence, signatures, errors, difficulty }) {
   const answers = Array.isArray(level.answers) ? level.answers.map((answer) => answer.word) : [];
   const accepted = Array.isArray(level.acceptedBonus) ? level.acceptedBonus : [];
@@ -83,12 +149,24 @@ function auditLevel({ level, dicts, approvals, commonWords, validWords, blockedW
   const rewardedSet = new Set(rewarded);
   const blockedSet = new Set(blocked.map((entry) => entry.word));
   const label = `${level.world || '?'}:${level.id || '?'}:${level.globalId || '?'}`;
+  const rootMatcher = level.globalId > PRESERVED_LEVELS ? sameThirdRouteRoot : sameRoot;
+  const geometryErrors = gridErrors(level);
+  if (geometryErrors.length) addError(errors, 'GRID-02', 'Crossword board violates topology or cell invariants', { level: label, geometryErrors });
+  if (!sameWords(level.bonusPool || [], accepted)) addError(errors, 'BONUS-06', 'Legacy bonusPool alias differs from acceptedBonus', { level: label });
 
-  if (level.globalId > PRESERVED_LEVELS && (
+  if (level.globalId > PRESERVED_LEVELS) {
+    const minimum = THIRD_ROUTE_ROLE_ANSWERS[difficultyRoleFor(level.globalId)];
+    const maximum = minimum;
+    if (answers.length < minimum || answers.length > maximum) addError(errors, 'DIFF-03', 'Mandatory answer count differs from the existing role band', { level: label, minimum, maximum, actual: answers.length });
+    const expectedScore = scoreLevel(level.letters, { answers: level.answers, grid: level.grid }, level.difficultyRole);
+    if (level.difficultyScore !== expectedScore) addError(errors, 'DIFF-04', 'Difficulty score differs from the actual puzzle', { level: label, expectedScore });
+  }
+
+  if (level.globalId > EXTENSION_START_LEVEL && (
     level.grid?.rows > EXTENSION_GRID_LIMITS.rows || level.grid?.cols > EXTENSION_GRID_LIMITS.cols
   )) addError(errors, 'GRID-01', 'Extension grid exceeds the mobile layout budget', { level: label, rows: level.grid?.rows, cols: level.grid?.cols });
-  if (level.globalId > PRESERVED_LEVELS) {
-    for (const entry of EXTENSION_BLOCKED) {
+  if (level.globalId > EXTENSION_START_LEVEL) {
+    for (const entry of [...EXTENSION_BLOCKED, ...(level.globalId > PRESERVED_LEVELS ? THIRD_ROUTE_BLOCKED : [])]) {
       if (answerSet.has(entry.word) || acceptedSet.has(entry.word)) {
         addError(errors, 'EXTENSION-01', 'Excluded extension word is surfaced', { level: label, ...entry });
       }
@@ -107,16 +185,16 @@ function auditLevel({ level, dicts, approvals, commonWords, validWords, blockedW
   const answerRootConflicts = [];
   for (let i = 0; i < answers.length; i += 1) {
     for (let j = i + 1; j < answers.length; j += 1) {
-      if (sameRoot(answers[i], answers[j])) answerRootConflicts.push([answers[i], answers[j]]);
+      if (rootMatcher(answers[i], answers[j])) answerRootConflicts.push([answers[i], answers[j]]);
     }
   }
   if (answerRootConflicts.length > 0) addError(errors, 'ROOT-01', 'Mandatory answers share the same root', { level: label, conflicts: answerRootConflicts });
 
   const bonusRootConflicts = [];
   for (let i = 0; i < accepted.length; i += 1) {
-    if (answers.some((answer) => sameRoot(accepted[i], answer))) bonusRootConflicts.push([accepted[i], 'answers']);
+    if (answers.some((answer) => rootMatcher(accepted[i], answer))) bonusRootConflicts.push([accepted[i], 'answers']);
     for (let j = i + 1; j < accepted.length; j += 1) {
-      if (sameRoot(accepted[i], accepted[j])) bonusRootConflicts.push([accepted[i], accepted[j]]);
+      if (rootMatcher(accepted[i], accepted[j])) bonusRootConflicts.push([accepted[i], accepted[j]]);
     }
   }
   if (bonusRootConflicts.length > 0) addError(errors, 'ROOT-02', 'Bonus words share a root with answers or each other', { level: label, conflicts: bonusRootConflicts });
@@ -199,12 +277,18 @@ function auditLevel({ level, dicts, approvals, commonWords, validWords, blockedW
 function audit({ worlds = WORLD_SPECS.map((spec) => spec.world) } = {}) {
   const errors = [];
   const warnings = [];
-  for (const entry of EXTENSION_BLOCKED) {
+  for (const entry of [...EXTENSION_BLOCKED, ...THIRD_ROUTE_BLOCKED]) {
     if (!normalizeToken(entry.word) || !BLOCK_REASONS.has(entry.reason)) {
       addError(errors, 'EXTENSION-03', 'Extension exclusion must contain a normalized word and supported reason', { ...entry });
     }
   }
   const dicts = loadDicts();
+  const familyWords = new Set();
+  for (const [index, words] of THIRD_ROUTE_ROOT_FAMILIES.entries()) {
+    if (!Array.isArray(words) || words.length < 2 || words.some((word) => !normalizeToken(word) || familyWords.has(word))) addError(errors, 'ROOT-03', 'Curated third-route root families must contain distinct normalized words', { family: index });
+    for (const word of words) familyWords.add(word);
+  }
+  const bundledDictionaryHash = sha256(fs.readFileSync(path.join(DICT_DIR, 'ru.json')));
   const rawValidWords = new Set(readJson(path.join(DICT_DIR, 'ru.json'), []).map(normalizeToken).filter(Boolean));
   const approvals = registryMap(readJson(path.join(DICT_DIR, 'curation', 'answer-allow.json'), []));
   const validWords = new Set(dicts.validEntries.map((entry) => entry.w));
@@ -221,15 +305,22 @@ function audit({ worlds = WORLD_SPECS.map((spec) => spec.world) } = {}) {
   for (const { file, pack } of packs) {
     if (pack.schemaVersion !== 2) addError(errors, 'DICT-11', 'Level pack is not schemaVersion 2', { file: path.relative(ROOT, file), schemaVersion: pack.schemaVersion || null });
     if (!pack.contentVersion || !pack.generatedAt || !pack.dictionaryHash) addError(errors, 'DICT-12', 'Pack lacks reproducibility metadata', { file: path.relative(ROOT, file) });
+    if (WORLD_SPECS.find((spec) => spec.world === pack.world)?.globalOffset >= PRESERVED_LEVELS) {
+      if (pack.dictionaryHash !== bundledDictionaryHash) addError(errors, 'DICT-19', 'New pack dictionary hash differs from its approved source', { file: path.relative(ROOT, file) });
+      for (const level of pack.levels || []) {
+        if (level.contentVersion !== pack.contentVersion) addError(errors, 'DICT-20', 'New level content version differs from its pack', { globalId: level.globalId });
+      }
+    }
   }
 
   const preserved = readJson(path.join(ROOT, 'assets', 'content', 'preserved-packs.json'), null);
+  if (preserved?.throughLevel !== PRESERVED_LEVELS) addError(errors, 'PRESERVE-03', 'Preservation manifest must cover all released levels', { expected: PRESERVED_LEVELS, actual: preserved?.throughLevel });
   for (const spec of WORLD_SPECS.filter((entry) => entry.globalOffset < PRESERVED_LEVELS)) {
     const fileName = `${spec.world}.json`;
     const expected = preserved?.sha256?.[fileName];
     const actual = sha256(fs.readFileSync(path.join(LEVEL_DIR, fileName)));
     if (!expected || expected !== actual) {
-      addError(errors, 'PRESERVE-01', 'Released first-route pack must remain byte-identical', { file: fileName, expected, actual });
+      addError(errors, 'PRESERVE-01', 'Released campaign pack must remain byte-identical', { file: fileName, expected, actual });
     }
     const revision = preserved?.intendedRevisions?.[fileName];
     if (revision) {
@@ -328,6 +419,20 @@ function audit({ worlds = WORLD_SPECS.map((spec) => spec.world) } = {}) {
   }
 
   const sortedDifficulty = difficulty.sort((left, right) => left.globalId - right.globalId);
+  const byGlobalId = new Map(levels.map((level) => [level.globalId, level]));
+  for (const level of levels.filter((entry) => entry.globalId > PRESERVED_LEVELS)) {
+    const letters = [...level.letters].sort().join('');
+    const answers = new Set(level.answers.map((answer) => answer.word));
+    for (let distance = 1; distance <= THIRD_ROUTE_VARIETY.letterWindow; distance += 1) {
+      const previous = byGlobalId.get(level.globalId - distance);
+      if (!previous) continue;
+      if ([...previous.letters].sort().join('') === letters) addError(errors, 'VARIETY-01', 'Nearby levels reuse the same wheel multiset', { globalId: level.globalId, previousGlobalId: previous.globalId, distance });
+      if (distance <= THIRD_ROUTE_VARIETY.answerWindow) {
+        const sharedAnswers = previous.answers.map((answer) => answer.word).filter((word) => answers.has(word));
+        if (sharedAnswers.length > THIRD_ROUTE_VARIETY.maxSharedAnswers) addError(errors, 'VARIETY-02', 'Nearby levels share too many mandatory answers', { globalId: level.globalId, previousGlobalId: previous.globalId, distance, sharedAnswers });
+      }
+    }
+  }
   for (let index = 0; index < sortedDifficulty.length; index += 5) {
     const wave = sortedDifficulty.slice(index, index + 5);
     if (wave.length < 5) continue;
@@ -380,6 +485,12 @@ function audit({ worlds = WORLD_SPECS.map((spec) => spec.world) } = {}) {
       dictionary: sha256(JSON.stringify([...validWords])),
       common: sha256(JSON.stringify([...commonWords])),
       blocked: sha256(JSON.stringify(dicts.blockedEntries)),
+      extensionPolicy: sha256(fs.readFileSync(path.join(ROOT, 'assets', 'content', 'extension-blocked.json'))),
+      thirdRoutePolicy: sha256(fs.readFileSync(path.join(ROOT, 'assets', 'content', 'third-route-blocked.json'))),
+      thirdRouteVariety: canonicalHash(THIRD_ROUTE_VARIETY),
+      thirdRouteRoleAnswers: canonicalHash(THIRD_ROUTE_ROLE_ANSWERS),
+      thirdRouteRootFamilies: sha256(fs.readFileSync(path.join(ROOT, 'assets', 'content', 'third-route-root-families.json'))),
+      preservedPacks: sha256(fs.readFileSync(path.join(ROOT, 'assets', 'content', 'preserved-packs.json'))),
       packs: Object.fromEntries(packs.map(({ file }) => [path.basename(file), sha256(fs.readFileSync(file))])),
     },
     counts: {
@@ -399,6 +510,31 @@ function audit({ worlds = WORLD_SPECS.map((spec) => spec.world) } = {}) {
       puzzleSignatures: signatures.size,
     },
     difficulty: sortedDifficulty,
+    levelChecks: levels.filter((level) => level.globalId > PRESERVED_LEVELS).map((level) => {
+      const label = `${level.world}:${level.id}:${level.globalId}`;
+      const mandatory = level.answers.map((answer) => answer.word);
+      const surfaced = [...mandatory, ...level.acceptedBonus];
+      const levelErrors = errors.filter((error) => error.level === label || error.globalId === level.globalId
+        || (error.word && surfaced.includes(error.word))
+        || (error.start && level.globalId >= error.start && level.globalId < error.start + 5));
+      return {
+        globalId: level.globalId,
+        world: level.world,
+        answers: mandatory,
+        acceptedBonus: level.acceptedBonus,
+        rows: level.grid.rows,
+        cols: level.grid.cols,
+        role: level.difficultyRole,
+        difficultyScore: level.difficultyScore,
+        mechanic: level.mechanic,
+        fingerprint: level.fingerprint,
+        puzzleSignature: puzzleSignature(level),
+        maximumMandatoryOccurrences: Math.max(...mandatory.map((word) => mandatoryOccurrence.get(word))),
+        maximumSurfacedOccurrences: Math.max(...surfaced.map((word) => surfaceOccurrence.get(word))),
+        passed: levelErrors.length === 0,
+        errors: levelErrors,
+      };
+    }),
     warnings,
     errors,
     passed: errors.length === 0,
@@ -413,4 +549,4 @@ if (require.main === module) {
   if (strict && !report.passed) process.exitCode = 1;
 }
 
-module.exports = { audit };
+module.exports = { audit, gridErrors };

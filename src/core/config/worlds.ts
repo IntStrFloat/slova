@@ -1,3 +1,5 @@
+import { THIRD_ROUTE_STORIES } from './thirdRouteStories';
+
 /** Миры кампании и их ключевые достопримечательности. */
 export interface Landmark {
   id: string;
@@ -488,7 +490,7 @@ const FIRST_ROUTE_WORLDS: World[] = [
   },
 ];
 
-/** A second route keeps released IDs and artwork while adding distinct collection rewards. */
+/** Continuations keep released IDs and artwork while adding distinct collection rewards. */
 export const WORLDS: World[] = [
   ...FIRST_ROUTE_WORLDS,
   ...FIRST_ROUTE_WORLDS.map((world, index) => ({
@@ -501,6 +503,19 @@ export const WORLDS: World[] = [
       ...landmark,
       id: `${landmark.id}-route2`,
       untilLevel: landmark.untilLevel + 500,
+    })),
+  })),
+  ...FIRST_ROUTE_WORLDS.map((world, index) => ({
+    ...world,
+    id: `world${index + FIRST_ROUTE_WORLDS.length * 2 + 1}`,
+    title: `${world.title} · Истории`,
+    startsAt: world.startsAt + 1000,
+    endsAt: world.endsAt + 1000,
+    landmarks: world.landmarks.map((landmark) => ({
+      ...landmark,
+      id: `${landmark.id}-route3`,
+      fact: THIRD_ROUTE_STORIES[landmark.id],
+      untilLevel: landmark.untilLevel + 1000,
     })),
   })),
 ];

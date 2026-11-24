@@ -1,0 +1,329 @@
+{
+  "version": 5,
+  "game": "slova",
+  "status": "draft_measurement_definition_not_rollout_or_experiment_activation",
+  "windows": {
+    "helpMinutesProposed": 10,
+    "earnedGrantHours": 24,
+    "firstGrantPolicy": "first_confirmed_linked_positive_coin_grant_no_reset",
+    "boundary": "success_deadline_inclusive; enrollment_end_exclusive; all_units_wait_for_maturity"
+  },
+  "exposure": {
+    "rule": "half_1s_v2",
+    "minimumVisibilityMs": 1000,
+    "minimumVisibleFraction": 0.5
+  },
+  "experiment": {
+    "id": "slova_wheel_help_clarity_20261104",
+    "protocolReference": "EXP-SLOVA-20261104-WHEEL-HELP",
+    "status": "draft_inactive",
+    "allocationVersion": null,
+    "eligibilityVersion": "help_deficit_v1",
+    "unitTypeRequired": "sdk_player",
+    "variants": [
+      "control",
+      "treatment"
+    ],
+    "openParameters": "Local phase/first-claim/SDK assignment path is implemented for review; production identity/history policy, epochs, allocation, baseline, window, MDE, sample size, margins, horizon and actual fleet proofs remain null/unverified.",
+    "eligibilityEpoch": null,
+    "identityPolicy": null,
+    "stopControlKey": "slova_help_experiment_stop_v1",
+    "consoleFleetVerified": false
+  },
+  "assignmentTiming": {
+    "logicalTransaction": "The immutable assignment occurred_at/occurredAtMs equals the frozen original first-eligible request occurrence, with the same origin/attempt/eligibility claim. The future producer must durably decide and persist assignment in this transaction before treatment UI or outcome; later SDK handoff/replay preserves this occurrence, never a retrospective assignment.",
+    "ordering": "Known treatment/exposure/outcome at or before that occurrence without independent order proof is unknown. Arbitrary later assignment is unknown: no latency tolerance or latest-row selection.",
+    "activation": "Local point7 producer/analyzer contract; production phases disabled and no rollout or experiment activation is inferred."
+  },
+  "canonicalAttempt": {
+    "level": "Mode matches canonical key prefix; campaign suffix is a positive safe integer, at most 16 digits, agreeing with supplied numeric levelId; daily date is a real calendar date agreeing with supplied dateKey. Malformed supplied metadata is never coerced.",
+    "content": "Exact matches require shared known matching contentVersion or bounded fingerprint, rejecting any known contradiction. A trusted consistent compact puzzle_started/resumed entry may explicitly bridge both identifiers; disjoint proofs alone are unknown.",
+    "difficulty": "Join consistent compact entries only in the exact SDK/install/attempt and canonical/content context; absent or conflicting difficulty stays null."
+  },
+  "strata": [
+    "origin_event_app_version",
+    "version_provenance",
+    "original_entry_source",
+    "selected_hint",
+    "first_grant_channel_diagnostic",
+    "metric_specific_entry_element",
+    "metric_specific_ad_placement",
+    "mode",
+    "bounded_canonical_level",
+    "safe_content_reference",
+    "difficulty_from_compact_exact_attempt_entry",
+    "installation_based_player_class"
+  ],
+  "primaryChannel": "not_applicable; actual free/rewarded paths are post-treatment diagnostics, never causal ITT headline strata",
+  "firstGrantChronology": "A linked grant cannot predate the original request or an explicitly linked actual earned callback. Any contradictory candidate is unknown; selecting a later favorable grant is forbidden. Tied first grants are unknown for both sufficiency and return/help, including mixed channel provenance.",
+  "semanticAdProof": {
+    "reconciliation": "All semantic earned-entitlement and accepted-intent copies reconcile bounded immutable routing/context, original clock/version, consent/epoch, environment and schema before outcome classification. Known contradictions or explicitly invalid provenance remain one unknown unit in every input order; coherent missing-to-known fields may merge.",
+    "negativeEvidence": "Excluded QA/test ad records cannot create population units, but a copy matching an otherwise production semantic fact remains private negative evidence. It cannot disappear through preclassification filtering.",
+    "replays": "Delivery IDs, SDK sender/handoff metadata and live-versus-recovery delivery markers do not select or multiply the underlying entitlement/operation.",
+    "reasons": [
+      "conflicting_semantic_ad_copies",
+      "invalid_or_conflicting_provenance_metadata",
+      "excluded_test_provenance"
+    ]
+  },
+  "wheelEntryIdentity": "Frozen origin, each qualified exposure, accepted same-modal action and linked wheel open require consistent SDK/install/exact canonical attempt/content proof. Downstream agreement alone is insufficient; mismatched or disjoint tap/context and orphan opened-action links retain unknown coverage. The valid exact navigation bridge may cross modal unmount, never explicit cancellation.",
+  "wheelEntryIdentityReason": "unknown_origin_entry_chain_or_modal_order",
+  "consentObservability": {
+    "producerContract": "A non-null consent_epoch_at is durably created specifically when analytics is re-enabled after denial; disabled actions are normally suppressed. A legal later fact can reveal an earlier unobserved interval without an exported disabled row.",
+    "scope": "Private SDK plus resolved installation scope; only trustworthy canonical/provenance facts at or before asOf. Contradictory semantic copies, QA and invalid clocks/epochs/canonical metadata cannot establish continuity.",
+    "possibleGap": "For a witnessed epoch start E, L is the latest trustworthy prior-phase occurrence strictly before E, or unbounded if unavailable. Missing collection may lie between L and E. Old/new-phase facts at E have unresolved millisecond order. A legal old-phase fact after the outcome window bounds a later gap outside it.",
+    "boundaries": "Inclusive deadlines retain possible missing actions when L equals the deadline; calendar target-day end is exclusive. Re-enable at the end may hide actions just before it. A current-epoch legal anchor at epoch start begins after re-enable; an old-phase anchor at that millisecond is uncertain.",
+    "application": "Only absence-based primary10m, earned24h, first-grant help10m and install/experiment calendar returns change to unknown. Legal success is evaluated first and stays positive before/after transition; observed duplicate-credit failure remains proven. Denominators/bounds stay retained. Same-epoch absence without gap evidence remains zero.",
+    "reasons": [
+      "observed_consent_epoch_gap",
+      "observed_consent_state_gap"
+    ],
+    "aggregateCounters": "legalConsentFacts and observedConsentEpochs count exported metadata evidence, not population consent."
+  },
+  "activeTimeScope": "time_coverage=full_attempt/since_restore/mixed_consent and activeTimeMs describe whole-attempt active-time measurement, not permission for a newly observed action. They never invalidate wall-clock hint/completion/ad/calendar facts whose own consent, original occurrence, clock trust and supplied consent epoch are valid. Known action time before its supplied epoch, disabled consent, unknown occurrence or unsupported recovery remain unknown. Legally recorded origin and completion may span different valid consent epochs; a proven completion is not erased by aggregate active coverage or unrelated disabled activity. Without a proven outcome, an observed consent gap remains unknown. P3 active-time quantiles still require full_attempt coverage.",
+  "additionalCoverageReasons": {
+    "grantFlows": [
+      "grant_origin_or_earned_chronology_conflict",
+      "conflicting_or_unproven_grant",
+      "ambiguous_first_grant_or_origin"
+    ],
+    "readiness": [
+      "ambiguous_entry_visit"
+    ],
+    "show": [
+      "shown_at_or_after_terminal"
+    ],
+    "primary": [
+      "assignment_not_at_first_request_transaction",
+      "exposure_not_proven_after_assignment",
+      "treatment_not_proven_after_assignment",
+      "outcome_not_proven_after_assignment",
+      "invalid_assignment_exposure_identity"
+    ],
+    "common": [
+      "conflicting_attempt_entry_metadata",
+      "unknown_completion_occurrence_or_context",
+      "unknown_original_deficit_or_attempt"
+    ]
+  },
+  "deficitBands": [
+    "(0,25%]",
+    "(25%,50%]",
+    "(50%,75%]",
+    "(75%,100%]",
+    "unknown"
+  ],
+  "deficitFractionUpperBounds": [
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "calendar": {
+    "timezone": "explicit_fixed_offset_from_CLI",
+    "days": [
+      1,
+      7
+    ],
+    "maturity": "end_of_exact_target_calendar_day",
+    "openEvents": [
+      "session_start",
+      "game_session_start",
+      "app_open",
+      "home_viewed",
+      "app_ready"
+    ],
+    "gameplayEvents": [
+      "gameplay_action",
+      "word_submitted",
+      "word_submit_outcome",
+      "word_found",
+      "wrong_word",
+      "hint_used",
+      "help_used",
+      "target_word_accepted"
+    ],
+    "gameplayRule": "Existing retention canonical play excludes auto/manual=false and letters_connected; help_used requires explicit voluntary provenance and target_word_accepted explicit manual. Entry/resume/completion alone is not play. Recovery or ambiguous manual provenance is unknown, never retroactive play.",
+    "experimentOrigin": "first_eligible_request_day_separate_from_install"
+  },
+  "coverage": "Unknown fields/time/eligibility/consent/identity or ambiguous ordering stay null with counts and bounds; mature known absence can be zero under the caller-declared complete export cutoff. Offline analysis never certifies completeness or production rollout.",
+  "privacy": "Public output contains only bounded aggregate dimensions; all SDK/player/install/flow/attempt/modal/request/reward/transaction/assignment IDs, words, email and raw fingerprints remain private in-memory join keys.",
+  "passports": [
+    {
+      "id": "wheelEntry",
+      "unit": "origin_flow; unique_player_diagnostic_separate",
+      "numerator": "flows with qualified available modal exposure, exact accepted wheel/free_wheel action and same-action/modal wheel_opened before explicit cancellation",
+      "denominator": "flows with qualified available modal entry exposure and observed terminal entry window",
+      "origin": "half_1s_v2 exposure, >=1000ms and >=0.5 visible",
+      "window": "same modal through explicit close or exact successful navigation bridge; unmount is not cancellation",
+      "maturity": "observed terminal window; open windows censored",
+      "strata": "common plus entry element",
+      "reasons": [
+        "missing_modal_or_action_join",
+        "insufficient_dwell",
+        "unavailable_entry",
+        "explicit_close",
+        "open_window",
+        "unknown_time_or_context"
+      ]
+    },
+    {
+      "id": "readiness",
+      "unit": "eligible_entry_visit; no_coins_and_wheel_separate",
+      "numerator": "explicit ready_at_entry=true consistent with rewarded_state=ready",
+      "denominator": "explicit rewarded_eligible=true entries, including not-ready",
+      "origin": "visible no_coins_shown/resume or wheel_opened visit",
+      "window": "instantaneous entry state; wait-to-ready and censored exit separate",
+      "maturity": "entry recorded; waits through ready or exit",
+      "strata": "common plus entry surface",
+      "reasons": [
+        "unknown_eligibility",
+        "unknown_entry_state",
+        "ambiguous_modal_visit",
+        "open_wait",
+        "unknown_time_or_context"
+      ]
+    },
+    {
+      "id": "show",
+      "unit": "accepted_rewarded_show_operation",
+      "numerator": "accepted show intents with exact linked shown callback",
+      "denominator": "all user show_intent operations with operation=show and outcome=accepted; preload excluded",
+      "origin": "accepted show_intent",
+      "window": "same opportunity/request/operation through shown or explicit terminal; pending retained",
+      "maturity": "shown or explicit terminal; no invented timeout",
+      "strata": "common plus placement",
+      "reasons": [
+        "pending_operation",
+        "missing_operation_join",
+        "conflicting_callbacks",
+        "unknown_time_or_context"
+      ]
+    },
+    {
+      "id": "earnedGrant",
+      "unit": "unique_earned_rewardId",
+      "numerator": "exactly one valid positive coin wallet transaction within 24h, with consistent identity and balances",
+      "denominator": "all earned entitlements with fully elapsed 24h windows, including no grant",
+      "origin": "actual earned reward callback occurrence",
+      "window": "24 wall-clock hours; original recovery clock",
+      "maturity": "earned+24h <= asOf even if already granted",
+      "strata": "common plus placement; rewarded only",
+      "reasons": [
+        "immature",
+        "missing_earned_time",
+        "missing_reward_identity",
+        "duplicate_grant",
+        "wallet_conflict",
+        "late_grant",
+        "unconfirmed_grant",
+        "unknown_time_or_context"
+      ]
+    },
+    {
+      "id": "sufficiency",
+      "unit": "origin_flow_after_first_confirmed_grant",
+      "numerator": "actual first confirmed wallet balance_after >= original selected hint price",
+      "denominator": "flows with known original deficit and confirmed linked positive coin reward grant",
+      "origin": "first confirmed linked grant",
+      "window": "immediately after first grant; later grants never rescue result",
+      "maturity": "known first grant order and wallet fact",
+      "strata": "common plus fixed original deficit fraction band",
+      "reasons": [
+        "unknown_original_deficit",
+        "ambiguous_first_grant",
+        "wallet_conflict",
+        "unknown_time_or_context"
+      ]
+    },
+    {
+      "id": "returnHelp",
+      "unit": "origin_flow_after_first_confirmed_grant",
+      "numerator": "actual return/in-place presence and authoritative exact origin selected help use within 10 minutes",
+      "denominator": "all granted flows with full first-grant+10m maturity, including non-returners",
+      "origin": "first confirmed linked grant",
+      "window": "10 proposed wall-clock minutes, never reset by later grants",
+      "maturity": "firstGrant+10m <= asOf even if already successful",
+      "strata": "common plus return path diagnostic",
+      "reasons": [
+        "immature",
+        "ambiguous_first_grant",
+        "unknown_arrival_provenance",
+        "wrong_hint_or_attempt",
+        "unknown_time_or_context"
+      ]
+    },
+    {
+      "id": "primary",
+      "unit": "stable_proven_first_eligible_player; assigned_eligible_ITT_separate",
+      "numerator": "durable puzzle_completed for frozen origin attempt within original request+10m",
+      "denominator": "Explicit baseline: proven first eligible SDK units of declared baseline phase/epoch. Trial ITT: all actual target assignments of declared trial phase/epoch/allocation, including no exposure/ad/grant/help; scope ambiguities retained separately, never imagined arms.",
+      "origin": "first explicit available non-free non-owned insufficient request, previously_completed=false, durable first_eligible_request claim and eligibility_version before assignment/exposure",
+      "window": "10 proposed wall-clock minutes including ad wait/background; no later reset",
+      "maturity": "original request+10m <= asOf for all units",
+      "strata": "common pre-treatment context; variant only from valid linked assignment",
+      "reasons": [
+        "unproven_first_eligibility",
+        "unknown_prior_completion",
+        "unknown_assignment",
+        "conflicting_assignment",
+        "unknown_exact_attempt",
+        "immature",
+        "unknown_time_or_context",
+        "unproven_phase_or_epoch",
+        "ambiguous_scope_membership",
+        "trial_claim_without_assignment"
+      ]
+    },
+    {
+      "id": "invalidInput",
+      "unit": "completed_explicit_manual_word_submit_outcome",
+      "numerator": "invalid completed manual inputs",
+      "denominator": "all supported completed manual outcomes",
+      "origin": "two full baseline/current product weeks",
+      "window": "seven days each, fixed timezone",
+      "maturity": "both full weeks observed through explicit cutoff",
+      "strata": "existing point 3 exact level/content/mode/version/player-class strata and frozen baseline common-support weights",
+      "reasons": [
+        "reuse_analyzeProductImprovements_without_reimplementation",
+        "missing_manual_outcomes_or_common_support"
+      ]
+    },
+    {
+      "id": "installReturn",
+      "unit": "explicit_first_install_episode",
+      "numerator": "episodes with declared open/gameplay return on exact calendar D1 or D7",
+      "denominator": "first-install episodes with completely elapsed target days",
+      "origin": "SDK install time/day; never first observed custom event",
+      "window": "exact target calendar day [start,end), explicit fixed timezone",
+      "maturity": "target day end <= asOf; reinstall boundary remains unknown",
+      "strata": "install origin version/source/player classification; experiment request-day returns separate",
+      "reasons": [
+        "unknown_install_classification",
+        "partial_target_day",
+        "unknown_return_time",
+        "install_boundary",
+        "unknown_time_or_context"
+      ]
+    }
+  ],
+  "measurementPhases": {
+    "properties": [
+      "measurement_phase",
+      "eligibility_epoch"
+    ],
+    "defaultBaselineEpoch": null,
+    "defaultTrialEpoch": null,
+    "defaultAllocationVersion": null,
+    "productionPrimaryWindowMinutes": null,
+    "firstClaimScope": "SDK+implementation+eligibilityVersion+phase+declaredEpoch",
+    "trialAssignmentScope": "same plus frozen allocationVersion",
+    "baseline": "Explicit control-only declared phase, no assignment prerequisite and no MDE/sample deadlock.",
+    "trial": "All actual SDK-player assignments of explicit trial scope; claims without assignment are loss, never baseline; missing/ambiguous scope remains unavailable with membership bounds.",
+    "conflictAlternatives": "Retain every private P6 clock/scope/identity alternative before cohort selection; never choose first/latest/favorable copy.",
+    "primaryWindow": "Explicit independent parameter, currently supported10m only; baseline collection can have no analysis window. Unchanged grant/help10m and earned24h diagnostics are not reset.",
+    "trialPlanFingerprint": "Shared canonical full-config lower32hex JS-only token on original trial request/rejection/assignment/exposure. Missing/mixed/malformed/mismatched copies retain actual ITT SDK units as unknown, blocking SRM/effect; no baseline/native requirement. Separate config/input SHA256 audit.",
+    "assignmentOriginProof": "Target assignment and every exposure require strict canonical SDK/install/attempt/level/mode/date/content proof against immutable original query; ID/time alone never suffice. Supplied optional hint/quote must be typed and agree; absent runtime-unsupported optional fields are not invented. Unproven join retains original arm ITT with unknown/bounds and health/effect block.",
+    "completeReviewedBaseline": "Trial planning requires all first-eligible SDK units accounted: with unknownOutcomes=immatureUnits=0, firstEligibleSdkUnits===matureN and successes+knownFailures===matureN. Independent collection and partial read-only baseline remain supported."
+  }
+}

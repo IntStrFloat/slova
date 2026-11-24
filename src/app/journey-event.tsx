@@ -5,14 +5,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGoBack } from '@/core/nav';
 import { RETENTION } from '@/core/config/retention';
+import { getRetentionUnlocks } from '@/core/config/runtimePolicy';
 import { track, trackOnce } from '@/features/analytics';
 import { trackObservedRetentionMilestones } from '@/features/analytics/retentionEvents';
+import { useRetentionPolicyExposure } from '@/features/remote-config';
 import { getCollectibles, getEventStatus, getFeatureGates, useRetention } from '@/features/retention';
 import { displayDate } from '@/features/retention-ui/dateModel';
 import { ruCount } from '@/features/retention-ui/text';
 import { AppButton, AppText, colors, GlassPanel, Icon, radius, WorldBackground } from '@/ui';
 
 export default function JourneyEvent() {
+  useRetentionPolicyExposure('event');
   const router = useRouter();
   const goBack = useGoBack();
   const retention = useRetention();
@@ -64,7 +67,7 @@ export default function JourneyEvent() {
             <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: colors.creamDeep, borderWidth: 1, borderColor: colors.goldBorder, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="lock" size={26} color={colors.plum} />
             </View>
-            <AppText preset="title" style={{ color: colors.brown }}>{RETENTION.featureFlags.event ? 'Откроется после 15 уровней' : 'Событие сейчас не проводится'}</AppText>
+            <AppText preset="title" style={{ color: colors.brown }}>{RETENTION.featureFlags.event ? `Откроется после ${ruCount(getRetentionUnlocks().event, 'уровня', 'уровней', 'уровней')}` : 'Событие сейчас не проводится'}</AppText>
             <AppText preset="body" style={{ color: colors.brown }}>
               {RETENTION.featureFlags.event
                 ? 'Пока собирайте слова и открытки в обычном путешествии.'

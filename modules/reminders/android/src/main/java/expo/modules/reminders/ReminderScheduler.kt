@@ -24,7 +24,7 @@ private data class PlannedReminder(val dateKey: String, val fireAtMs: Long) {
 }
 private data class SentReminder(
   val dateKey: String, val localDateKey: String, val sentAtMs: Long,
-  val reminderId: String = "", val fireAtMs: Long = 0,
+  val reminderId: String = "", val fireAtMs: Long = 0, val channel: String = "local",
 )
 
 /** Persisted native gates still apply if the JS process has been killed. */
@@ -34,6 +34,7 @@ internal object ReminderScheduler {
   private const val SENT = "sent"
   private const val ENABLED = "enabled"
   private const val TELEMETRY = "telemetry"
+  private const val REMOTE_RESERVATIONS = "remote.reservations.v1"
   private const val EXTRA_REMINDER = "slovaReminderId"
   private const val CHANNEL = "slova_daily_reminders"
   private const val EXTRA_DATE = "dateKey"
@@ -78,7 +79,7 @@ internal object ReminderScheduler {
         val localDate = item.optString("localDateKey").takeIf { datePattern.matches(it) }
           ?: deviceDay(at)
         if (datePattern.matches(date) && at > 0) SentReminder(
-          date, localDate, at, item.optString("reminderId"), item.optLong("fireAtMs"),
+          date, localDate, at, item.optString("reminderId"), item.optLong("fireAtMs"), item.optString("channel", "local"),
         ) else null
       }
     } catch (_: Exception) {
@@ -91,7 +92,7 @@ internal object ReminderScheduler {
     history.forEach {
       array.put(JSONObject().put("dateKey", it.dateKey)
         .put("localDateKey", it.localDateKey).put("sentAtMs", it.sentAtMs)
-        .put("reminderId", it.reminderId).put("fireAtMs", it.fireAtMs))
+        .put("reminderId", it.reminderId).put("fireAtMs", it.fireAtMs).put("channel", it.channel))
     }
     prefs(context).edit().putString(SENT, array.toString()).commit()
   }
@@ -102,9 +103,83 @@ internal object ReminderScheduler {
     readSent(context).forEach {
       array.put(JSONObject().put("dateKey", it.dateKey)
         .put("localDateKey", it.localDateKey).put("sentAtMs", it.sentAtMs)
-        .put("reminderId", it.reminderId).put("fireAtMs", it.fireAtMs))
+        .put("reminderId", it.reminderId).put("fireAtMs", it.fireAtMs).put("channel", it.channel))
     }
     return array.toString()
+  }
+
+  /** Receipt means the SDK handled a remote notification, not proof the user saw it. */
+  @Synchronized
+  fun recordRemoteReceipt(context: Context, id: String, atMs: Long = System.currentTimeMillis()): Boolean {
+    if (!Regex("remote_[a-zA-Z0-9_.:-]{1,96}").matches(id) || atMs < 0) return false
+    val history = readSent(context).filter { atMs - it.sentAtMs < HISTORY_MS }.takeLast(255)
+    if (history.any { it.reminderId == id }) return true
+    val item = SentReminder(productDay(atMs), deviceDay(atMs), atMs, id, 0, "remote")
+    writeSent(context, history + item)
+    // A remote receipt takes today's slot even if JS never starts to re-plan local alarms.
+    readPlan(context).filter { deviceDay(it.fireAtMs) == deviceDay(atMs) }.forEach { cancelAlarm(context, it.dateKey) }
+    writePlan(context, readPlan(context).filterNot { deviceDay(it.fireAtMs) == deviceDay(atMs) })
+    return readSent(context).any { it.reminderId == id }
+  }
+
+  private fun remoteReservations(context: Context, now: Long): List<JSONObject> = try {
+    val array = JSONArray(prefs(context).getString(REMOTE_RESERVATIONS, "[]") ?: "[]")
+    (0 until minOf(array.length(), 128)).mapNotNull { array.optJSONObject(it) }.filter {
+      it.optString("id").matches(Regex("[a-f0-9]{32}")) && it.optLong("createdAtMs", -1) >= 0 &&
+        (it.optString("status") == "accepted" && now - it.optLong("createdAtMs") < HISTORY_MS ||
+          it.optString("status") == "pending" && now - it.optLong("createdAtMs") < WEEK_MS)
+    }
+  } catch (_: Exception) { emptyList() }
+
+  private fun writeReservations(context: Context, records: List<JSONObject>): Boolean {
+    val array = JSONArray(); records.takeLast(128).forEach { array.put(it) }
+    return prefs(context).edit().putString(REMOTE_RESERVATIONS, array.toString()).commit()
+  }
+
+  /** Local admission endpoint for a future managed sender; no network or notification is triggered here. */
+  @Synchronized
+  fun reserveRemote(context: Context, json: String, now: Long = System.currentTimeMillis()): String {
+    fun result(reason: String, id: String? = null) = JSONObject().put("allowed", reason == "accepted")
+      .put("reason", reason).apply { if (id != null) put("id", id) }.toString()
+    if (json.length > 1024) return result("invalid_payload")
+    val request = try { JSONObject(json) } catch (_: Exception) { return result("invalid_payload") }
+    val requestId = request.optString("requestId")
+    if (!Regex("push_[a-f0-9]{1,8}_[a-f0-9]{1,8}").matches(requestId)) return result("invalid_payload")
+    if (!prefs(context).getBoolean(ENABLED, false)) return result("disabled")
+    if (!canNotify(context)) return result("permission")
+    if (quietHour(now)) return result("quiet_hours")
+    val records = remoteReservations(context, now)
+    val history = readSent(context)
+    // A clock rollback cannot release an uncertain send or renew its original admission.
+    if (records.any { it.optLong("createdAtMs") > now } || history.any { it.sentAtMs > now }) return result("clock_backwards")
+    records.find { it.optString("requestId") == requestId }?.let {
+      val reason = when {
+        it.optString("status") == "accepted" || readSent(context).any { sent -> sent.reminderId == "remote_${it.optString("id")}" } -> "already_accepted"
+        it.optLong("expiresAtMs") <= now -> "unconfirmed_previous_send"
+        else -> "accepted"
+      }
+      return result(reason, it.optString("id"))
+    }
+    val recent = history.filter { now - it.sentAtMs < WEEK_MS }
+    val pending = records.filter { record -> record.optString("status") == "pending"
+      && recent.none { it.reminderId == "remote_${record.optString("id")}" } }
+    if (recent.any { it.localDateKey == deviceDay(now) } || pending.any { deviceDay(it.optLong("createdAtMs")) == deviceDay(now) }) return result("same_day")
+    if (recent.size + pending.size >= MAX_PER_WEEK) return result("weekly_limit")
+    val id = java.util.UUID.randomUUID().toString().replace("-", "")
+    val record = JSONObject().put("id", id).put("requestId", requestId).put("status", "pending")
+      .put("createdAtMs", now).put("expiresAtMs", now + 120_000L)
+    return if (writeReservations(context, records + record)) result("accepted", id) else result("storage_error")
+  }
+
+  @Synchronized
+  fun settleRemote(context: Context, id: String, acceptedOrUnknown: Boolean, now: Long = System.currentTimeMillis()): Boolean {
+    val records = remoteReservations(context, now)
+    val record = records.find { it.optString("id") == id } ?: return false
+    if (record.optString("status") == "accepted") return true
+    if (!acceptedOrUnknown) return writeReservations(context, records.filterNot { it.optString("id") == id })
+    if (!recordRemoteReceipt(context, "remote_$id", now)) return false
+    record.put("status", "accepted")
+    return writeReservations(context, records)
   }
 
   private fun telemetry(context: Context): JSONArray = try {
@@ -147,11 +222,17 @@ internal object ReminderScheduler {
   /** A local tap is accepted only when this module previously delivered that reminder. */
   @Synchronized
   fun captureTap(context: Context, intent: Intent?): Boolean {
-    val id = intent?.getStringExtra(EXTRA_REMINDER) ?: return false
+    val id = intent?.getStringExtra(EXTRA_REMINDER) ?: prefs(context).getString("pendingOpenedReminder", null) ?: return false
     val sent = readSent(context).find { it.reminderId == id && it.fireAtMs > 0 } ?: return false
-    recordTelemetry(context, PlannedReminder(sent.dateKey, sent.fireAtMs), "opened", System.currentTimeMillis())
+    val now = System.currentTimeMillis()
+    val openedAt = intent?.getLongExtra("slovaNotificationOpenedAtMs", prefs(context).getLong("pendingOpenedReminderAt", now))
+      ?: prefs(context).getLong("pendingOpenedReminderAt", now)
+    recordTelemetry(context, PlannedReminder(sent.dateKey, sent.fireAtMs), "opened", openedAt.takeIf { it in 0..9_007_199_254_740_991L } ?: now)
+    if ((0 until telemetry(context).length()).any { telemetry(context).optJSONObject(it)?.optString("eventId") == "$id:opened" }) {
+      prefs(context).edit().remove("pendingOpenedReminder").remove("pendingOpenedReminderAt").commit()
+    }
     // Activity retains its launch intent on resume. Consume once even after JS acknowledges.
-    intent.removeExtra(EXTRA_REMINDER)
+    intent?.removeExtra(EXTRA_REMINDER)
     return true
   }
 
@@ -330,8 +411,11 @@ internal object ReminderScheduler {
     }
     val allHistory = readSent(context).filter { now - it.sentAtMs < HISTORY_MS }
     val history = allHistory.filter { now - it.sentAtMs < WEEK_MS }
-    if (history.any { it.dateKey == day || it.localDateKey == deviceDay(now) } ||
-      history.size >= MAX_PER_WEEK) {
+    val pendingRemote = remoteReservations(context, now).filter { record -> record.optString("status") == "pending"
+      && history.none { it.reminderId == "remote_${record.optString("id")}" } }
+    if (allHistory.any { it.sentAtMs > now } || pendingRemote.any { it.optLong("createdAtMs") > now } ||
+      history.any { it.dateKey == day || it.localDateKey == deviceDay(now) } ||
+      history.size + pendingRemote.size >= MAX_PER_WEEK || pendingRemote.any { deviceDay(it.optLong("createdAtMs")) == deviceDay(now) }) {
       cancelDate(context, day)
       return
     }
@@ -352,6 +436,14 @@ class ReminderReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val day = intent.getStringExtra("dateKey") ?: return
     ReminderScheduler.onAlarm(context, day)
+  }
+}
+
+/** Explicit in-package receipt from the RuStore service; never exported to other applications. */
+class RemotePushReceiptReceiver : BroadcastReceiver() {
+  override fun onReceive(context: Context, intent: Intent) {
+    val id = intent.getStringExtra("notificationId") ?: return
+    ReminderScheduler.recordRemoteReceipt(context, id)
   }
 }
 

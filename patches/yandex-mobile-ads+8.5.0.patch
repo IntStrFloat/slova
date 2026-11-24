@@ -1,0 +1,1325 @@
+diff --git a/node_modules/yandex-mobile-ads/android/build.gradle b/node_modules/yandex-mobile-ads/android/build.gradle
+index 2a1a203..3682cb0 100644
+--- a/node_modules/yandex-mobile-ads/android/build.gradle
++++ b/node_modules/yandex-mobile-ads/android/build.gradle
+@@ -92,7 +92,8 @@ dependencies {
+     //noinspection GradleDynamicVersion
+     implementation "com.facebook.react:react-android:+"
+     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+-    implementation 'com.yandex.android:mobileads:8.5.0'
++    // The React Native wrapper has no 8.6.0 release yet; pin the Android SDK.
++    implementation 'com.yandex.android:mobileads:8.6.0'
+
+     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:${detekt.toolVersion}")
+     testImplementation "junit:junit:4.12"
+diff --git a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardJournal.kt b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardJournal.kt
+new file mode 100644
+index 0000000..2e96051
+--- /dev/null
++++ b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardJournal.kt
+@@ -0,0 +1,80 @@
++package com.yandexmobileads.rewarded
++
++/**
++ * The SDK callback commits earned evidence before crossing the asynchronous JS bridge.
++ * Storage is injected so crash/retry behavior can be tested without an Android runtime.
++ * A failed commit retains evidence in memory for another attempt; a process death while
++ * native storage itself cannot write is outside the durable-recovery guarantee.
++ */
++internal class RewardJournal(
++    persisted: Map<String, String>,
++    private val stampEarned: (String) -> String = { it },
++    private val write: (Map<String, String>) -> Boolean,
++) {
++    // Prepared ads from a previous process cannot deliver another SDK callback.
++    // They are unknown, never earned. Existing earned evidence and acknowledgments stay.
++    private val entries = persisted.filterKeys { !it.startsWith("p:") && !it.startsWith("i:") }.toMutableMap()
++    private val pendingEarned = mutableMapOf<String, String>()
++
++    @Synchronized
++    fun prepare(adId: String, rewardId: String, snapshot: String): Boolean {
++        val prepared = entries["p:$adId"]
++        if (prepared != null) return prepared == snapshot && entries["i:$adId"] == rewardId
++        val next = currentEntries()
++        if (next.containsKey("a:$rewardId") || next.containsKey("e:$rewardId")) return false
++        if (next.any { it.key.startsWith("i:") && it.value == rewardId }) return false
++        if (next.keys.count { it.startsWith("p:") } >= 32 || next.keys.count { it.startsWith("e:") } >= 128) return false
++        next["p:$adId"] = snapshot
++        next["i:$adId"] = rewardId
++        return commit(next)
++    }
++
++    @Synchronized
++    fun earned(adId: String, capturedRewardId: String? = null, capturedSnapshot: String? = null): Boolean {
++        val rewardId = entries["i:$adId"] ?: capturedRewardId ?: return false
++        if (entries.containsKey("a:$rewardId") || entries.containsKey("e:$rewardId")) return true
++        val snapshot = entries["p:$adId"] ?: capturedSnapshot ?: return false
++        if (!pendingEarned.containsKey("e:$rewardId")) pendingEarned["e:$rewardId"] = stampEarned(snapshot)
++        return commit(currentEntries())
++    }
++
++    @Synchronized
++    fun earnedSnapshots(): List<String> {
++        if (pendingEarned.isNotEmpty()) commit(currentEntries())
++        return currentEntries().toSortedMap().filterKeys { it.startsWith("e:") }.values.toList()
++    }
++
++    @Synchronized
++    fun acknowledge(rewardId: String): Boolean {
++        if (entries.containsKey("a:$rewardId")) return true
++        val next = currentEntries()
++        if (next.remove("e:$rewardId") == null) return false
++        next["a:$rewardId"] = "1"
++        val ads = next.filter { it.key.startsWith("i:") && it.value == rewardId }.keys
++        for (key in ads) {
++            next.remove("p:${key.substring(2)}")
++            next.remove(key)
++        }
++        return commit(next)
++    }
++
++    @Synchronized
++    fun discardPrepared(adId: String): Boolean {
++        val next = currentEntries()
++        if (!next.containsKey("p:$adId") && !next.containsKey("i:$adId")) return true
++        next.remove("p:$adId")
++        next.remove("i:$adId")
++        return commit(next)
++    }
++
++    private fun currentEntries(): MutableMap<String, String> = (entries + pendingEarned).toMutableMap()
++
++    private fun commit(next: Map<String, String>): Boolean {
++        val saved = try { write(next) } catch (_: Exception) { false }
++        if (!saved) return false
++        entries.clear()
++        entries.putAll(next)
++        pendingEarned.clear()
++        return true
++    }
++}
+diff --git a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardShowOwnership.kt b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardShowOwnership.kt
+new file mode 100644
+index 0000000..e5782c5
+--- /dev/null
++++ b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardShowOwnership.kt
+@@ -0,0 +1,44 @@
++package com.yandexmobileads.rewarded
++
++/** SDK callbacks and actual Activity evidence are independent. No state here implies earned. */
++internal class RewardShowOwnership(private val abandonedRequestGraceMs: Long = 180_000) {
++    private var requestedAtMs: Long? = null
++    private var shown = false
++    private var terminal = false
++    private var observedFullscreen = false
++    private var fullscreenEnded = false
++    private var reconciled = false
++
++    fun request(nowMs: Long) { requestedAtMs = nowMs }
++    fun shown() { shown = true }
++    fun terminal() { terminal = true }
++    fun hasRequest(): Boolean = requestedAtMs != null
++    fun isTerminal(): Boolean = terminal
++
++    fun fullscreenStarted() {
++        if (!hasRequest() || terminal || reconciled) return
++        observedFullscreen = true
++        fullscreenEnded = false
++    }
++
++    fun fullscreenEnded() {
++        if (observedFullscreen) fullscreenEnded = true
++    }
++
++    fun isActive(nowMs: Long, hostResumedAndFocused: Boolean, fullscreenAlive: Boolean): Boolean {
++        val requested = requestedAtMs ?: return false
++        if (terminal) return false
++        if (fullscreenAlive) return true
++        if (reconciled) return false
++        if (!hostResumedAndFocused || nowMs - requested < abandonedRequestGraceMs) return true
++        // A requested call with no SDK shown and no Activity after the watchdog
++        // can be abandoned while the host is demonstrably resumed and focused.
++        // For a shown ad, require that its observed fullscreen Activity ended.
++        if ((!shown && !observedFullscreen) || (observedFullscreen && fullscreenEnded)) {
++            reconciled = true
++            return false
++        }
++        // Unknown same-host overlays have no reliable Activity close evidence.
++        return true
++    }
++}
+diff --git a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardReceiptContract.kt b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardReceiptContract.kt
+new file mode 100644
+index 0000000..791ae9c
+--- /dev/null
++++ b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/RewardReceiptContract.kt
+@@ -0,0 +1,9 @@
++package com.yandexmobileads.rewarded
++
++/** Frozen receipt v1 physical positions. Economy/order changes require a versioned migration. */
++internal object RewardReceiptContract {
++    private val wheelAmountsV1 = intArrayOf(10, 25, 50, 5, 100, 20, 200, 15)
++
++    fun acceptsWheel(sector: Int, amount: Double): Boolean =
++        sector in wheelAmountsV1.indices && amount == wheelAmountsV1[sector].toDouble()
++}
+diff --git a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/YandexRewardedAdModule.kt b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/YandexRewardedAdModule.kt
+index 91faadb..cf90b2a 100644
+--- a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/YandexRewardedAdModule.kt
++++ b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/rewarded/YandexRewardedAdModule.kt
+@@ -1,11 +1,19 @@
+ package com.yandexmobileads.rewarded
+
++import android.app.Activity
++import android.app.Application
++import android.content.Context
++import android.os.Bundle
++import android.os.SystemClock
+ import com.facebook.react.bridge.Arguments
+ import com.facebook.react.bridge.Promise
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.bridge.ReactContextBaseJavaModule
+ import com.facebook.react.bridge.ReactMethod
+ import com.facebook.react.bridge.ReadableMap
++import com.facebook.react.bridge.UiThreadUtil
++import com.facebook.react.common.LifecycleState
++import com.facebook.react.ReactActivity
+ import com.yandex.mobile.ads.common.AdError
+ import com.yandex.mobile.ads.common.AdRequestError
+ import com.yandex.mobile.ads.common.ImpressionData
+@@ -30,6 +38,9 @@ import com.yandexmobileads.util.mapper.RewardMapper
+ import org.json.JSONObject
+ import java.util.LinkedList
+ import java.util.Queue
++import java.lang.ref.WeakReference
++import java.util.Collections
++import java.util.WeakHashMap
+
+ internal class YandexRewardedAdModule(
+     private val context: ReactApplicationContext,
+@@ -40,9 +51,169 @@ internal class YandexRewardedAdModule(
+     private val adRequestFactory: AdRequestFactory = AdRequestFactory()
+ ) : ReactContextBaseJavaModule(context) {
+     private val loadPromises: MutableMap<String, Queue<Promise>> = mutableMapOf()
++    private val rewardListeners = mutableMapOf<String, RNRewardedAdEventListener>()
++    private var hostActivity = WeakReference<Activity>(null)
++    private val resumedActivities = Collections.newSetFromMap(WeakHashMap<Activity, Boolean>())
++    private val fullscreenActivities = Collections.newSetFromMap(WeakHashMap<Activity, Boolean>())
++    private val application = context.applicationContext as? Application
++    private val activityLifecycle = object : Application.ActivityLifecycleCallbacks {
++        override fun onActivityCreated(activity: Activity, state: Bundle?) { observeFullscreen(activity) }
++        override fun onActivityStarted(activity: Activity) { observeFullscreen(activity) }
++        override fun onActivityResumed(activity: Activity) {
++            resumedActivities.add(activity)
++            if (activity is ReactActivity) hostActivity = WeakReference(activity)
++            observeFullscreen(activity)
++        }
++        override fun onActivityPaused(activity: Activity) { resumedActivities.remove(activity) }
++        override fun onActivityStopped(activity: Activity) {
++            resumedActivities.remove(activity)
++            if (activity.isFinishing) endedFullscreen(activity)
++        }
++        override fun onActivityDestroyed(activity: Activity) {
++            resumedActivities.remove(activity)
++            endedFullscreen(activity)
++        }
++        override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) { }
++    }
++
++    init { application?.registerActivityLifecycleCallbacks(activityLifecycle) }
++
++    override fun invalidate() {
++        application?.unregisterActivityLifecycleCallbacks(activityLifecycle)
++        super.invalidate()
++    }
++
++    private fun observeFullscreen(activity: Activity) {
++        if (activity is ReactActivity || activity === hostActivity.get() || !rewardListeners.values.any { it.hasRequestedShow() }) return
++        fullscreenActivities.add(activity)
++        rewardListeners.values.forEach { it.fullscreenStarted() }
++    }
++
++    private fun endedFullscreen(activity: Activity) {
++        if (fullscreenActivities.remove(activity)) rewardListeners.values.forEach { it.fullscreenEnded() }
++    }
++
++    private fun fullscreenAlive(): Boolean = fullscreenActivities.any { !it.isFinishing && !it.isDestroyed }
++
++    private fun focusedHost(): Boolean {
++        val host = hostActivity.get() ?: return false
++        return !host.isFinishing && !host.isDestroyed && resumedActivities.contains(host) && host.hasWindowFocus()
++    }
++
++    private fun activeRewardedShow(): Boolean {
++        val fullscreenAlive = fullscreenAlive()
++        val focusedHost = focusedHost()
++        var active = fullscreenAlive
++        for ((id, listener) in rewardListeners) {
++            if (listener.hasActiveShow(focusedHost, fullscreenAlive)) active = true
++            else if (listener.hasRequestedShow() && !listener.isTerminal()) quarantineAd(id, listener)
++        }
++        return active
++    }
++
++    private fun emitAdDeleted(id: String, retainRewardListener: Boolean = false) {
++        val eventName = eventNameProvider.eventName(Constants.AdType.REWARDED, Constants.EventName.ON_AD_DELETED)
++        try { eventEmitter.emit(eventName, mapOf(Constants.Key.AD_ID to id, "retainRewardListener" to retainRewardListener)) } catch (_: Exception) { }
++    }
++
++    private fun quarantineAd(id: String, listener: RNRewardedAdEventListener) {
++        try { rewardJournal.discardPrepared(id) } catch (_: Exception) { }
++        if (!listener.markQuarantined()) return
++        // Positive Activity evidence released logical ownership. Release the heavy
++        // ad and non-reward JS subscriptions too; retain the exact-ad earned route
++        // until a real terminal callback. No completion or reward is inferred here.
++        adsStorage.remove(id)
++        emitAdDeleted(id, retainRewardListener = true)
++    }
++    private val rewardJournal: RewardJournal by lazy {
++        val preferences = context.getSharedPreferences("slova.rewarded.native.v1", Context.MODE_PRIVATE)
++        val saved = preferences.all.mapValues { (_, value) ->
++            value as? String ?: throw IllegalStateException("Invalid reward journal")
++        }
++        RewardJournal(saved, stampEarned = { snapshot ->
++            JSONObject(snapshot).put("earnedAtMs", System.currentTimeMillis()).toString()
++        }) { values ->
++            val editor = preferences.edit().clear()
++            for ((key, value) in values) editor.putString(key, value)
++            editor.commit()
++        }
++    }
+
+     override fun getName(): String = NAME
+
++    @ReactMethod
++    fun prepareReward(adObjectId: String, snapshotJson: String, promise: Promise) {
++        try {
++            val snapshot = validateRewardSnapshot(snapshotJson)
++            reactApplicationContext.currentActivity?.runOnUiThread {
++                try {
++                    val listener = rewardListeners[adObjectId]
++                    if (adsStorage.get(adObjectId) == null || listener == null) {
++                        promise.reject(PluginError.ObjectNotFound)
++                    } else if (rewardJournal.prepare(adObjectId, snapshot.getString("rewardId"), snapshot.toString())) {
++                        listener.bindReward(snapshot.getString("rewardId"), snapshot.toString())
++                        promise.resolve(null)
++                    } else {
++                        promise.reject("E_REWARD_JOURNAL_WRITE", "Reward session could not be saved")
++                    }
++                } catch (_: Exception) {
++                    promise.reject("E_REWARD_JOURNAL_WRITE", "Reward session could not be saved")
++                }
++            } ?: promise.reject(PluginError.CurrentActivityIsNull)
++        } catch (_: Exception) {
++            promise.reject("E_REWARD_SNAPSHOT", "Invalid reward session")
++        }
++    }
++
++    @ReactMethod
++    fun listEarnedRewards(promise: Promise) {
++        try {
++            val result = Arguments.createArray()
++            for (snapshot in rewardJournal.earnedSnapshots()) result.pushString(snapshot)
++            promise.resolve(result)
++        } catch (_: Exception) {
++            promise.reject("E_REWARD_JOURNAL_READ", "Earned rewards could not be read")
++        }
++    }
++
++    @ReactMethod
++    fun ackReward(rewardId: String, promise: Promise) {
++        if (!SAFE_ID.matches(rewardId)) {
++            promise.reject("E_REWARD_SNAPSHOT", "Invalid reward identity")
++            return
++        }
++        try {
++            if (rewardJournal.acknowledge(rewardId)) promise.resolve(null)
++            else promise.reject("E_REWARD_JOURNAL_WRITE", "Reward acknowledgment could not be saved")
++        } catch (_: Exception) {
++            promise.reject("E_REWARD_JOURNAL_WRITE", "Reward acknowledgment could not be saved")
++        }
++    }
++
++    @ReactMethod
++    fun hasActiveRewardedShow(promise: Promise) {
++        UiThreadUtil.runOnUiThread {
++            promise.resolve(activeRewardedShow())
++        }
++    }
++
++    @ReactMethod
++    fun disposeAd(adObjectId: String, promise: Promise) {
++        UiThreadUtil.runOnUiThread {
++            // A JS timeout/background transition is not an SDK terminal callback.
++            // Retain an in-flight listener and its ad until dismissed/failed, so an
++            // earned callback can still journal its original frozen offer.
++            val listener = rewardListeners[adObjectId]
++            if (listener == null || !listener.hasRequestedShow() || listener.isTerminal()) deleteAd(adObjectId)
++            else if (!listener.hasActiveShow(focusedHost(), fullscreenAlive())) {
++                // Quarantine the SDK listener and frozen snapshot for a late earned
++                // callback. Logical ownership is released, not converted to reward.
++                quarantineAd(adObjectId, listener)
++            }
++            promise.resolve(null)
++        }
++    }
++
+     @ReactMethod
+     fun newLoader(promise: Promise) {
+         reactApplicationContext.currentActivity?.runOnUiThread {
+@@ -100,18 +271,38 @@ internal class YandexRewardedAdModule(
+                 promise.reject(PluginError.CurrentActivityIsNull)
+                 return@runOnUiThread
+             }
+-            adsStorage.get(adObjectId)?.show(activity)
++            val ad = adsStorage.get(adObjectId)
++            if (ad == null) {
++                promise.reject(PluginError.ObjectNotFound)
++                return@runOnUiThread
++            }
++            if (activeRewardedShow()) {
++                promise.reject("E_FULLSCREEN_BUSY", "Another native fullscreen is active")
++                return@runOnUiThread
++            }
++            hostActivity = WeakReference(activity)
++            if (context.lifecycleState == LifecycleState.RESUMED) resumedActivities.add(activity)
++            rewardListeners[adObjectId]?.markShowing()
++            try {
++                ad.show(activity)
++                promise.resolve(null)
++            } catch (_: Exception) {
++                rewardListeners[adObjectId]?.markTerminal()
++                deleteAd(adObjectId)
++                promise.reject("E_REWARDED_SHOW", "Rewarded ad could not be shown")
++            }
+         }
+     }
+
+     fun deleteAd(id: String) {
+-        val eventName = eventNameProvider.eventName(
+-            Constants.AdType.REWARDED,
+-            Constants.EventName.ON_AD_DELETED
+-        )
+-        val eventData = mapOf(Constants.Key.AD_ID to id)
+-        eventEmitter.emit(eventName, eventData)
+-        adsStorage.remove(id)
++        UiThreadUtil.runOnUiThread {
++            // Disposing a visual ad never removes earned evidence awaiting its wallet grant.
++            try { rewardJournal.discardPrepared(id) } catch (_: Exception) { /* retry on next journal operation */ }
++            try { adsStorage.get(id)?.setAdEventListener(null) } catch (_: Exception) { }
++            emitAdDeleted(id)
++            adsStorage.remove(id)
++            rewardListeners.remove(id)
++        }
+     }
+
+     private fun cleanUp(loaderId: String) {
+@@ -130,7 +321,9 @@ internal class YandexRewardedAdModule(
+
+         override fun onAdLoaded(rewarded: RewardedAd) {
+             val id = adsStorage.put(rewarded)
+-            rewarded.setAdEventListener(RNRewardedAdEventListener(id))
++            val listener = RNRewardedAdEventListener(id)
++            rewardListeners[id] = listener
++            rewarded.setAdEventListener(listener)
+             val result = mapOf(
+                 Constants.Key.AD_ID to id,
+                 Constants.Key.AD_INFO to adInfoMapper.map(rewarded.adInfo),
+@@ -145,7 +338,32 @@ internal class YandexRewardedAdModule(
+         private val impressionDataMapper: ImpressionDataMapper = ImpressionDataMapper(),
+         private val rewardMapper: RewardMapper = RewardMapper()
+     ) : RewardedAdEventListener {
++        private var capturedRewardId: String? = null
++        private var capturedSnapshot: String? = null
++        private val ownership = RewardShowOwnership()
++        private var quarantined = false
++
++        fun markShowing() { ownership.request(SystemClock.elapsedRealtime()) }
++        fun markTerminal() { ownership.terminal() }
++        fun hasRequestedShow(): Boolean = ownership.hasRequest()
++        fun isTerminal(): Boolean = ownership.isTerminal()
++        fun markQuarantined(): Boolean {
++            if (quarantined) return false
++            quarantined = true
++            return true
++        }
++        fun fullscreenStarted() { ownership.fullscreenStarted() }
++        fun fullscreenEnded() { ownership.fullscreenEnded() }
++        fun hasActiveShow(hostFocused: Boolean, fullscreenAlive: Boolean): Boolean =
++            ownership.isActive(SystemClock.elapsedRealtime(), hostFocused, fullscreenAlive)
++
++        fun bindReward(rewardId: String, snapshot: String) {
++            capturedRewardId = rewardId
++            capturedSnapshot = snapshot
++        }
++
+         override fun onAdShown() {
++            ownership.shown()
+             val eventName = eventNameProvider.eventName(
+                 Constants.AdType.REWARDED,
+                 Constants.EventName.ON_AD_SHOWN
+@@ -155,6 +373,7 @@ internal class YandexRewardedAdModule(
+         }
+
+         override fun onAdFailedToShow(adError: AdError) {
++            markTerminal()
+             val eventName = eventNameProvider.eventName(
+                 Constants.AdType.REWARDED,
+                 Constants.EventName.ON_AD_FAILED_TO_SHOW
+@@ -162,9 +381,11 @@ internal class YandexRewardedAdModule(
+             val eventData: MutableMap<String, Any> = mutableMapOf(Constants.Key.AD_ID to adId)
+             eventData[Constants.Key.ERROR] = adErrorMapper.map(adError)
+             eventEmitter.emit(eventName, eventData)
++            deleteAd(adId)
+         }
+
+         override fun onAdDismissed() {
++            markTerminal()
+             val eventName = eventNameProvider.eventName(
+                 Constants.AdType.REWARDED,
+                 Constants.EventName.ON_AD_DISMISSED
+@@ -196,6 +417,10 @@ internal class YandexRewardedAdModule(
+         }
+
+         override fun onRewarded(reward: Reward) {
++            // Keep this synchronous and before emit: JS may never run before process death.
++            // If native storage fails, JS still receives the real earned callback and can
++            // attempt the wallet write; uncommitted evidence is retried while alive.
++            try { rewardJournal.earned(adId, capturedRewardId, capturedSnapshot) } catch (_: Exception) { /* never suppress an SDK earned callback */ }
+             val evenName = eventNameProvider.eventName(
+                 Constants.AdType.REWARDED,
+                 Constants.EventName.ON_AD_DID_REWARD
+@@ -211,5 +436,53 @@ internal class YandexRewardedAdModule(
+
+     companion object {
+         const val NAME = "YandexRewardedAdModule"
++        private val SAFE_ID = Regex("^[a-z0-9][a-z0-9_.:-]{0,191}$", RegexOption.IGNORE_CASE)
++        private val SAFE_KEY = Regex("^[a-zA-Z][a-zA-Z0-9_]{0,63}$")
++        private val SNAPSHOT_KEYS = setOf("version", "rewardId", "kind", "createdAtMs", "offerDay", "amount", "sector", "flowContext")
++
++        private fun naturalNumber(value: Any?, maximum: Double): Double {
++            require(value is Number)
++            val number = value.toDouble()
++            require(number.isFinite() && number >= 0 && number <= maximum && number % 1.0 == 0.0)
++            return number
++        }
++
++        private fun validateRewardSnapshot(raw: String): JSONObject {
++            require(raw.length <= 8192)
++            val snapshot = JSONObject(raw)
++            require(snapshot.keys().asSequence().all { it in SNAPSHOT_KEYS })
++            require(naturalNumber(snapshot.opt("version"), 1.0) == 1.0)
++            require(snapshot.opt("rewardId") is String && SAFE_ID.matches(snapshot.getString("rewardId")))
++            require(snapshot.opt("kind") is String)
++            val kind = snapshot.getString("kind")
++            require(kind == "wheel" || kind == "coins" || (kind == "hint"
++                && snapshot.optDouble("amount") == 1.0
++                && snapshot.optJSONObject("flowContext")?.optString("origin_interaction_id")?.isNotBlank() == true
++                && snapshot.optJSONObject("flowContext")?.optString("attemptId")?.isNotBlank() == true
++                && snapshot.optJSONObject("flowContext")?.optString("requested_hint") in listOf("letter", "semantic")))
++            require(naturalNumber(snapshot.opt("createdAtMs"), 9007199254740991.0) > 0)
++            require(snapshot.opt("offerDay") is String && Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(snapshot.getString("offerDay")))
++            val amount = naturalNumber(snapshot.opt("amount"), 1000000.0)
++            require(amount > 0)
++            if (kind == "wheel") {
++                val sector = naturalNumber(snapshot.opt("sector"), 7.0).toInt()
++                require(RewardReceiptContract.acceptsWheel(sector, amount))
++            } else require(!snapshot.has("sector"))
++            if (snapshot.has("flowContext")) {
++                val context = snapshot.getJSONObject("flowContext")
++                require(context.length() <= 24)
++                for (key in context.keys()) {
++                    require(SAFE_KEY.matches(key))
++                    val value = context.get(key)
++                    require(when (value) {
++                        is String -> SAFE_ID.matches(value)
++                        is Number -> value.toDouble().isFinite() && kotlin.math.abs(value.toDouble()) <= 9007199254740991.0
++                        is Boolean -> true
++                        else -> false
++                    })
++                }
++            }
++            return snapshot
++        }
+     }
+ }
+diff --git a/node_modules/yandex-mobile-ads/src/rewarded/RewardedAd.ts b/node_modules/yandex-mobile-ads/src/rewarded/RewardedAd.ts
+index d9986de..cf1f944 100644
+--- a/node_modules/yandex-mobile-ads/src/rewarded/RewardedAd.ts
++++ b/node_modules/yandex-mobile-ads/src/rewarded/RewardedAd.ts
+@@ -28,7 +28,7 @@ export class RewardedAd {
+             deletedEvent,
+             this._eventEmitter.addListener(deletedEvent, (event: AdEvent) => {
+                 if (event.adId === this._id) {
+-                    return this.delete();
++                    return this.delete((event as AdEvent & { retainRewardListener?: boolean }).retainRewardListener === true);
+                 }
+             })
+         );
+@@ -169,6 +169,24 @@ export class RewardedAd {
+         );
+     }
+
++    /** Saves an immutable reward offer, bound to this exact native ad, before show. */
++    async prepareRewardSession(snapshotJson: string): Promise<void> {
++        isSupportedPlatform();
++        if (this._id === '' || typeof YandexMobileAdsModule.YandexRewardedAdModule.prepareReward !== 'function') {
++            throw new Error('Native reward journal is unavailable');
++        }
++        await YandexMobileAdsModule.YandexRewardedAdModule.prepareReward(this._id, snapshotJson);
++    }
++
++    /** Releases an unused ad; an in-flight reward listener lives until its SDK terminal event. */
++    async dispose(): Promise<void> {
++        if (this._id === '') return;
++        if (typeof YandexMobileAdsModule.YandexRewardedAdModule.disposeAd !== 'function') {
++            throw new Error('Native rewarded disposal is unavailable');
++        }
++        await YandexMobileAdsModule.YandexRewardedAdModule.disposeAd(this._id);
++    }
++
+     /**
+      * Displays the preloaded ad.
+      *
+@@ -186,10 +204,23 @@ export class RewardedAd {
+         }
+     }
+
+-    private delete() {
+-        this._subscriptions.forEach((sub) => sub.remove());
+-        this._subscriptions.clear();
+-        this._id = '';
++    private delete(retainRewardListener = false) {
++        const retained = new Set(['RNYandexMobileAds-Rewarded-onAdDidReward', 'RNYandexMobileAds-Rewarded-onAdDeleted']);
++        for (const [name, subscription] of this._subscriptions) {
++            if (retainRewardListener && retained.has(name)) continue;
++            subscription.remove();
++            this._subscriptions.delete(name);
++        }
++        this._adInfo = undefined;
++        this._onAdShown = undefined;
++        this._onAdFailedToShow = undefined;
++        this._onAdDismissed = undefined;
++        this._onAdClicked = undefined;
++        this._onAdImpression = undefined;
++        if (!retainRewardListener) {
++            this._onRewarded = undefined;
++            this._id = '';
++        }
+     }
+
+     private createListenerFunction(action: Function) {
+diff --git a/node_modules/yandex-mobile-ads/lib/commonjs/rewarded/RewardedAd.js b/node_modules/yandex-mobile-ads/lib/commonjs/rewarded/RewardedAd.js
+index 699a2b0..84dd9b1 100644
+--- a/node_modules/yandex-mobile-ads/lib/commonjs/rewarded/RewardedAd.js
++++ b/node_modules/yandex-mobile-ads/lib/commonjs/rewarded/RewardedAd.js
+@@ -21,7 +21,7 @@ class RewardedAd {
+     const deletedEvent = 'RNYandexMobileAds-Rewarded-onAdDeleted';
+     this._subscriptions.set(deletedEvent, this._eventEmitter.addListener(deletedEvent, event => {
+       if (event.adId === this._id) {
+-        return this.delete();
++        return this.delete(event.retainRewardListener === true);
+       }
+     }));
+   }
+@@ -139,6 +139,20 @@ class RewardedAd {
+    *
+    * @returns {Promise<void>} A promise that rejects if an error occurs.
+    */
++  async prepareRewardSession(snapshotJson) {
++    (0, _util.isSupportedPlatform)();
++    if (this._id === '' || typeof _YandexMobileAdsModule.default.YandexRewardedAdModule.prepareReward !== 'function') {
++      throw new Error('Native reward journal is unavailable');
++    }
++    await _YandexMobileAdsModule.default.YandexRewardedAdModule.prepareReward(this._id, snapshotJson);
++  }
++  async dispose() {
++    if (this._id === '') return;
++    if (typeof _YandexMobileAdsModule.default.YandexRewardedAdModule.disposeAd !== 'function') {
++      throw new Error('Native rewarded disposal is unavailable');
++    }
++    await _YandexMobileAdsModule.default.YandexRewardedAdModule.disposeAd(this._id);
++  }
+   async show() {
+     try {
+       (0, _util.isSupportedPlatform)();
+@@ -150,10 +164,23 @@ class RewardedAd {
+       return Promise.reject(error);
+     }
+   }
+-  delete() {
+-    this._subscriptions.forEach(sub => sub.remove());
+-    this._subscriptions.clear();
+-    this._id = '';
++  delete(retainRewardListener = false) {
++    const retained = new Set(['RNYandexMobileAds-Rewarded-onAdDidReward', 'RNYandexMobileAds-Rewarded-onAdDeleted']);
++    for (const [name, subscription] of this._subscriptions) {
++      if (retainRewardListener && retained.has(name)) continue;
++      subscription.remove();
++      this._subscriptions.delete(name);
++    }
++    this._adInfo = undefined;
++    this._onAdShown = undefined;
++    this._onAdFailedToShow = undefined;
++    this._onAdDismissed = undefined;
++    this._onAdClicked = undefined;
++    this._onAdImpression = undefined;
++    if (!retainRewardListener) {
++      this._onRewarded = undefined;
++      this._id = '';
++    }
+   }
+   createListenerFunction(action) {
+     return event => {
+@@ -164,4 +191,4 @@ class RewardedAd {
+   }
+ }
+ exports.RewardedAd = RewardedAd;
+-//# sourceMappingURL=RewardedAd.js.map
+\ No newline at end of file
++//# sourceMappingURL=RewardedAd.js.map
+diff --git a/node_modules/yandex-mobile-ads/lib/module/rewarded/RewardedAd.js b/node_modules/yandex-mobile-ads/lib/module/rewarded/RewardedAd.js
+index ad4f69d..013e24b 100644
+--- a/node_modules/yandex-mobile-ads/lib/module/rewarded/RewardedAd.js
++++ b/node_modules/yandex-mobile-ads/lib/module/rewarded/RewardedAd.js
+@@ -15,7 +15,7 @@ export class RewardedAd {
+     const deletedEvent = 'RNYandexMobileAds-Rewarded-onAdDeleted';
+     this._subscriptions.set(deletedEvent, this._eventEmitter.addListener(deletedEvent, event => {
+       if (event.adId === this._id) {
+-        return this.delete();
++        return this.delete(event.retainRewardListener === true);
+       }
+     }));
+   }
+@@ -133,6 +133,20 @@ export class RewardedAd {
+    *
+    * @returns {Promise<void>} A promise that rejects if an error occurs.
+    */
++  async prepareRewardSession(snapshotJson) {
++    isSupportedPlatform();
++    if (this._id === '' || typeof YandexMobileAdsModule.YandexRewardedAdModule.prepareReward !== 'function') {
++      throw new Error('Native reward journal is unavailable');
++    }
++    await YandexMobileAdsModule.YandexRewardedAdModule.prepareReward(this._id, snapshotJson);
++  }
++  async dispose() {
++    if (this._id === '') return;
++    if (typeof YandexMobileAdsModule.YandexRewardedAdModule.disposeAd !== 'function') {
++      throw new Error('Native rewarded disposal is unavailable');
++    }
++    await YandexMobileAdsModule.YandexRewardedAdModule.disposeAd(this._id);
++  }
+   async show() {
+     try {
+       isSupportedPlatform();
+@@ -144,10 +158,23 @@ export class RewardedAd {
+       return Promise.reject(error);
+     }
+   }
+-  delete() {
+-    this._subscriptions.forEach(sub => sub.remove());
+-    this._subscriptions.clear();
+-    this._id = '';
++  delete(retainRewardListener = false) {
++    const retained = new Set(['RNYandexMobileAds-Rewarded-onAdDidReward', 'RNYandexMobileAds-Rewarded-onAdDeleted']);
++    for (const [name, subscription] of this._subscriptions) {
++      if (retainRewardListener && retained.has(name)) continue;
++      subscription.remove();
++      this._subscriptions.delete(name);
++    }
++    this._adInfo = undefined;
++    this._onAdShown = undefined;
++    this._onAdFailedToShow = undefined;
++    this._onAdDismissed = undefined;
++    this._onAdClicked = undefined;
++    this._onAdImpression = undefined;
++    if (!retainRewardListener) {
++      this._onRewarded = undefined;
++      this._id = '';
++    }
+   }
+   createListenerFunction(action) {
+     return event => {
+@@ -157,4 +184,4 @@ export class RewardedAd {
+     };
+   }
+ }
+-//# sourceMappingURL=RewardedAd.js.map
+\ No newline at end of file
++//# sourceMappingURL=RewardedAd.js.map
+diff --git a/node_modules/yandex-mobile-ads/lib/typescript/src/rewarded/RewardedAd.d.ts b/node_modules/yandex-mobile-ads/lib/typescript/src/rewarded/RewardedAd.d.ts
+index df7f272..b88827e 100644
+--- a/node_modules/yandex-mobile-ads/lib/typescript/src/rewarded/RewardedAd.d.ts
++++ b/node_modules/yandex-mobile-ads/lib/typescript/src/rewarded/RewardedAd.d.ts
+@@ -65,8 +65,10 @@ export declare class RewardedAd {
+      *
+      * @returns {Promise<void>} A promise that rejects if an error occurs.
+      */
++    prepareRewardSession(snapshotJson: string): Promise<void>;
++    dispose(): Promise<void>;
+     show(): Promise<void>;
+     private delete;
+     private createListenerFunction;
+ }
+-//# sourceMappingURL=RewardedAd.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=RewardedAd.d.ts.map
+diff --git a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/banner/YandexBannerView.kt b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/banner/YandexBannerView.kt
+index b545a46..c74ae6e 100644
+--- a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/banner/YandexBannerView.kt
++++ b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/banner/YandexBannerView.kt
+@@ -6,6 +6,7 @@ import android.widget.FrameLayout
+ import androidx.annotation.VisibleForTesting
+ import com.facebook.react.bridge.LifecycleEventListener
+ import com.facebook.react.bridge.ReactContext
++import com.facebook.react.common.LifecycleState
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.facebook.react.uimanager.events.NativeGestureUtil
+ import com.yandex.mobile.ads.banner.BannerAdSize
+@@ -28,20 +29,41 @@ class YandexBannerView(
+ ) : FrameLayout(context) {
+     private val nativeMapFactory: NativeMapFactory = NativeMapFactory()
+     private val eventEmitter: EventEmitter = EventEmitter(context, nativeMapFactory)
+-    private val reactContext: ReactContext = context
++    // ThemedReactContext delegates listener registration, but not lifecycleState.
++    private val reactContext: ReactContext = context.reactApplicationContext
+ 
+-    private val bannerEventListener = AdEventListener()
+     private val reactLifecycleEventListener = ReactLifecycleEventListener()
+ 
+     private var adView: BannerAdView? = null
+     private var adUnitId: String? = null
+     private var adRequest: AdRequest? = null
+     private var bannerAdSize: BannerAdSize? = null
++    private var destroyed = false
+ 
+     init {
+         context.addLifecycleEventListener(reactLifecycleEventListener)
+     }
+ 
++    override fun onAttachedToWindow() {
++        super.onAttachedToWindow()
++        createAdViewIfCan()
++    }
++
++    override fun onDetachedFromWindow() {
++        releaseAdView()
++        super.onDetachedFromWindow()
++    }
++
++    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
++        super.onSizeChanged(w, h, oldw, oldh)
++        createAdViewIfCan()
++    }
++
++    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
++        super.onWindowFocusChanged(hasWindowFocus)
++        if (hasWindowFocus) createAdViewIfCan()
++    }
++
+     override fun requestLayout() {
+         super.requestLayout()
+         post {
+@@ -67,9 +89,19 @@ class YandexBannerView(
+     }
+ 
+     fun destroy() {
++        if (destroyed) return
++        destroyed = true
+         reactContext.removeLifecycleEventListener(reactLifecycleEventListener)
+-        adView?.destroy()
++        releaseAdView()
++    }
++
++    private fun releaseAdView() {
++        val view = adView
++        // Clear identity before destroy: queued callbacks belong to this old view.
+         adView = null
++        view?.setBannerAdEventListener(null)
++        view?.destroy()
++        removeAllViews()
+     }
+ 
+     fun setSize(bannerSize: BannerAdSize) {
+@@ -78,30 +110,38 @@ class YandexBannerView(
+     }
+ 
+     private fun createAdViewIfCan() {
+-        if (adView != null) {
+-            return
+-        }
+-        val adUnitId = adUnitId ?: return
++        if (adView != null || !canDisplayBanner()) return
++        val adUnitId = adUnitId?.takeIf { it.isNotBlank() } ?: return
+         val adRequest = adRequest ?: AdRequest.Builder(adUnitId).build()
+         val bannerAdSize = bannerAdSize ?: return
+-        val bannerAdView = BannerAdView(reactContext).apply {
+-            setAdSize(bannerAdSize)
+-            setBannerAdEventListener(bannerEventListener)
+-        }
++        if (bannerAdSize.getWidthInPixels(context) <= 0 || bannerAdSize.getHeightInPixels(context) <= 0) return
++        val bannerAdView = BannerAdView(context)
++        bannerAdView.setAdSize(bannerAdSize)
+         adView = bannerAdView
++        bannerAdView.setBannerAdEventListener(AdEventListener(bannerAdView))
+         loadBannerAd(adRequest)
+     }
+ 
++    private fun canDisplayBanner(): Boolean {
++        if (destroyed || !isAttachedToWindow || !isShown || width <= 0 || height <= 0) return false
++        val activity = reactContext.currentActivity ?: return false
++        return reactContext.lifecycleState == LifecycleState.RESUMED && !activity.isFinishing && !activity.isDestroyed
++    }
++
+     private fun loadBannerAd(adRequest: AdRequest) {
+         adView?.loadAd(adRequest)
+     }
+ 
+     internal inner class AdEventListener(
++        private val view: BannerAdView,
+         private val impressionDataMapper: ImpressionDataMapper = ImpressionDataMapper(),
+         private val adRequestErrorMapper: AdRequestErrorMapper = AdRequestErrorMapper(),
+         private val adInfoMapper: AdInfoMapper = AdInfoMapper(),
+     ) : BannerAdEventListener {
++        private fun isCurrent(): Boolean = adView === view && canDisplayBanner()
++
+         override fun onImpression(impressionData: ImpressionData?) {
++            if (!isCurrent()) return
+             val payload = if (impressionData != null) {
+                 val mappedImpression = impressionDataMapper.map(impressionData)
+                 mapOf(Constants.Key.IMPRESSION_DATA to mappedImpression)
+@@ -112,13 +152,14 @@ class YandexBannerView(
+         }
+ 
+         override fun onAdClicked() {
++            if (!isCurrent()) return
+             eventEmitter.receiveEvent(id, Constants.EventName.ON_AD_CLICKED)
+         }
+ 
+         override fun onAdLoaded() {
++            if (!isCurrent()) return
+             removeAllViews()
+             val size = bannerAdSize ?: return
+-            val view = adView ?: return
+             val widthMeasureSpec = MeasureSpec.makeMeasureSpec(
+                 size.getWidthInPixels(context),
+                 MeasureSpec.AT_MOST
+@@ -133,27 +174,34 @@ class YandexBannerView(
+             runCatching {
+                 viewTreeObserver.dispatchOnGlobalLayout()
+             }
+-            val adInfo = adView?.adInfo
+-            val payload = adInfo?.let { mapOf(Constants.Key.AD_INFO to adInfoMapper.map(it)) }
++            val payload = mapOf(Constants.Key.AD_INFO to adInfoMapper.map(view.adInfo))
+             eventEmitter.receiveEvent(id, Constants.EventName.ON_AD_LOADED, payload)
+         }
+ 
+         override fun onAdFailedToLoad(error: AdRequestError) {
++            if (!isCurrent()) return
+             eventEmitter.receiveEvent(
+                 id,
+                 Constants.EventName.ON_AD_FAILED_TO_LOAD,
+                 mapOf(Constants.Key.ERROR to adRequestErrorMapper.map(error))
+             )
+-            adView = null
++            // Keep ownership through refresh failures. The SDK owns auto-refresh;
++            // dropping this reference leaks the view and prevents destroy() cleanup.
+         }
+     }
+ 
+     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+     inner class ReactLifecycleEventListener : LifecycleEventListener {
+ 
+-        override fun onHostResume() = Unit
++        override fun onHostResume() {
++            createAdViewIfCan()
++        }
+ 
+-        override fun onHostPause() = Unit
++        override fun onHostPause() {
++            // Stop SDK auto-refresh synchronously, before JS/Fabric can unmount.
++            // No supported pause API exists on BannerAdView in SDK 8.6.0.
++            releaseAdView()
++        }
+ 
+         override fun onHostDestroy() {
+             destroy()
+diff --git a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/interstitial/YandexInterstitialAdModule.kt b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/interstitial/YandexInterstitialAdModule.kt
+index 27cb1e4..fb10ca1 100644
+--- a/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/interstitial/YandexInterstitialAdModule.kt
++++ b/node_modules/yandex-mobile-ads/android/src/main/java/com/yandexmobileads/interstitial/YandexInterstitialAdModule.kt
+@@ -1,11 +1,18 @@
+ package com.yandexmobileads.interstitial
+ 
++import android.app.Activity
++import android.app.Application
++import android.os.Bundle
++import android.os.SystemClock
++import com.facebook.react.ReactActivity
+ import com.facebook.react.bridge.Arguments
+ import com.facebook.react.bridge.Promise
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.bridge.ReactContextBaseJavaModule
+ import com.facebook.react.bridge.ReactMethod
+ import com.facebook.react.bridge.ReadableMap
++import com.facebook.react.bridge.UiThreadUtil
++import com.facebook.react.common.LifecycleState
+ import com.yandex.mobile.ads.common.AdError
+ import com.yandex.mobile.ads.common.AdRequestError
+ import com.yandex.mobile.ads.common.ImpressionData
+@@ -19,6 +26,7 @@ import com.yandexmobileads.common.NativeMapFactory
+ import com.yandexmobileads.common.ObjectStorage
+ import com.yandexmobileads.common.PluginError
+ import com.yandexmobileads.common.reject
++import com.yandexmobileads.rewarded.RewardShowOwnership
+ import com.yandexmobileads.util.mapper.AdErrorMapper
+ import com.yandexmobileads.util.factory.AdRequestFactory
+ import com.yandexmobileads.util.mapper.AdInfoMapper
+@@ -28,6 +36,9 @@ import com.yandexmobileads.util.mapper.ImpressionDataMapper
+ import org.json.JSONObject
+ import java.util.LinkedList
+ import java.util.Queue
++import java.lang.ref.WeakReference
++import java.util.Collections
++import java.util.WeakHashMap
+ 
+ internal class YandexInterstitialAdModule(
+     private val context: ReactApplicationContext,
+@@ -38,6 +49,65 @@ internal class YandexInterstitialAdModule(
+     private val adRequestFactory: AdRequestFactory = AdRequestFactory()
+ ) : ReactContextBaseJavaModule(context) {
+     private val loadPromises: MutableMap<String, Queue<Promise>> = mutableMapOf()
++    private val adListeners = mutableMapOf<String, RNInterstitialAdEventListener>()
++    private var hostActivity = WeakReference<Activity>(null)
++    private val resumedActivities = Collections.newSetFromMap(WeakHashMap<Activity, Boolean>())
++    private val fullscreenActivities = Collections.newSetFromMap(WeakHashMap<Activity, Boolean>())
++    private val application = context.applicationContext as? Application
++    private val activityLifecycle = object : Application.ActivityLifecycleCallbacks {
++        override fun onActivityCreated(activity: Activity, state: Bundle?) { observeFullscreen(activity) }
++        override fun onActivityStarted(activity: Activity) { observeFullscreen(activity) }
++        override fun onActivityResumed(activity: Activity) {
++            resumedActivities.add(activity)
++            if (activity is ReactActivity) hostActivity = WeakReference(activity)
++            observeFullscreen(activity)
++        }
++        override fun onActivityPaused(activity: Activity) { resumedActivities.remove(activity) }
++        override fun onActivityStopped(activity: Activity) {
++            resumedActivities.remove(activity)
++            if (activity.isFinishing) endedFullscreen(activity)
++        }
++        override fun onActivityDestroyed(activity: Activity) {
++            resumedActivities.remove(activity)
++            endedFullscreen(activity)
++        }
++        override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) { }
++    }
++
++    init { application?.registerActivityLifecycleCallbacks(activityLifecycle) }
++
++    override fun invalidate() {
++        application?.unregisterActivityLifecycleCallbacks(activityLifecycle)
++        super.invalidate()
++    }
++
++    private fun observeFullscreen(activity: Activity) {
++        if (activity is ReactActivity || activity === hostActivity.get() || !adListeners.values.any { it.hasRequestedShow() }) return
++        fullscreenActivities.add(activity)
++        adListeners.values.forEach { it.fullscreenStarted() }
++    }
++
++    private fun endedFullscreen(activity: Activity) {
++        if (fullscreenActivities.remove(activity)) adListeners.values.forEach { it.fullscreenEnded() }
++    }
++
++    private fun fullscreenAlive(): Boolean = fullscreenActivities.any { !it.isFinishing && !it.isDestroyed }
++
++    private fun focusedHost(): Boolean {
++        val host = hostActivity.get() ?: return false
++        return !host.isFinishing && !host.isDestroyed && resumedActivities.contains(host) && host.hasWindowFocus()
++    }
++
++    private fun activeInterstitialShow(): Boolean {
++        val fullscreenAlive = fullscreenAlive()
++        val focusedHost = focusedHost()
++        var active = fullscreenAlive
++        for ((id, listener) in adListeners.toMap()) {
++            if (listener.hasActiveShow(focusedHost, fullscreenAlive)) active = true
++            else if (listener.hasRequestedShow()) deleteAd(id)
++        }
++        return active
++    }
+ 
+     override fun getName(): String = NAME
+ 
+@@ -85,31 +155,65 @@ internal class YandexInterstitialAdModule(
+         adObjectId: String,
+         promise: Promise,
+     ) {
+-        val activity = reactApplicationContext.currentActivity
+-        if (activity == null) {
+-            deleteAd(adObjectId)
+-            promise.reject(PluginError.CurrentActivityIsNull)
+-            return
+-        }
+-        activity.runOnUiThread {
+-            val cur = reactApplicationContext.currentActivity
+-            if (cur == null || cur.isFinishing) {
++        UiThreadUtil.runOnUiThread {
++            val activity = reactApplicationContext.currentActivity
++            if (activity == null || activity.isFinishing || activity.isDestroyed) {
+                 deleteAd(adObjectId)
+                 promise.reject(PluginError.CurrentActivityIsNull)
+                 return@runOnUiThread
+             }
+-            adsStorage.get(adObjectId)?.show(activity)
++            if (context.lifecycleState != LifecycleState.RESUMED || !activity.hasWindowFocus()) {
++                promise.reject("E_HOST_NOT_READY", "Application is not resumed and focused")
++                return@runOnUiThread
++            }
++            val ad = adsStorage.get(adObjectId)
++            val listener = adListeners[adObjectId]
++            if (ad == null || listener == null) {
++                promise.reject(PluginError.ObjectNotFound)
++                return@runOnUiThread
++            }
++            if (activeInterstitialShow()) {
++                promise.reject("E_FULLSCREEN_BUSY", "Another native fullscreen is active")
++                return@runOnUiThread
++            }
++            hostActivity = WeakReference(activity)
++            resumedActivities.add(activity)
++            listener.markShowing()
++            try {
++                ad.show(activity)
++                promise.resolve(null)
++            } catch (_: Exception) {
++                listener.markTerminal()
++                deleteAd(adObjectId)
++                promise.reject("E_INTERSTITIAL_SHOW", "Interstitial ad could not be shown")
++            }
++        }
++    }
++
++    @ReactMethod
++    fun hasActiveInterstitialShow(promise: Promise) {
++        UiThreadUtil.runOnUiThread { promise.resolve(activeInterstitialShow()) }
++    }
++
++    @ReactMethod
++    fun disposeAd(adObjectId: String, promise: Promise) {
++        UiThreadUtil.runOnUiThread {
++            val listener = adListeners[adObjectId]
++            // A JS timeout cannot dismiss a native fullscreen. Keep its terminal
++            // listener until SDK completion or positive Activity-close evidence.
++            if (listener == null || !listener.hasActiveShow(focusedHost(), fullscreenAlive())) deleteAd(adObjectId)
++            promise.resolve(null)
+         }
+     }
+ 
+     fun deleteAd(id: String) {
+-        val eventName = eventNameProvider.eventName(
+-            Constants.AdType.INTERSTITIAL,
+-            Constants.EventName.ON_AD_DELETED
+-        )
+-        val eventData = mapOf(Constants.Key.AD_ID to id)
+-        eventEmitter.emit(eventName, eventData)
+-        adsStorage.remove(id)
++        UiThreadUtil.runOnUiThread {
++            try { adsStorage.get(id)?.setAdEventListener(null) } catch (_: Exception) { }
++            adsStorage.remove(id)
++            adListeners.remove(id)
++            val eventName = eventNameProvider.eventName(Constants.AdType.INTERSTITIAL, Constants.EventName.ON_AD_DELETED)
++            eventEmitter.emit(eventName, mapOf(Constants.Key.AD_ID to id))
++        }
+     }
+ 
+     private fun cleanUp(loaderId: String) {
+@@ -128,7 +232,9 @@ internal class YandexInterstitialAdModule(
+ 
+         override fun onAdLoaded(interstitialAd: InterstitialAd) {
+             val id = adsStorage.put(interstitialAd)
+-            interstitialAd.setAdEventListener(RNInterstitialAdEventListener(id))
++            val listener = RNInterstitialAdEventListener(id)
++            adListeners[id] = listener
++            interstitialAd.setAdEventListener(listener)
+             val result = mapOf(
+                 Constants.Key.AD_ID to id,
+                 Constants.Key.AD_INFO to adInfoMapper.map(interstitialAd.adInfo),
+@@ -142,7 +248,18 @@ internal class YandexInterstitialAdModule(
+         private val adErrorMapper: AdErrorMapper = AdErrorMapper(),
+         private val impressionDataMapper: ImpressionDataMapper = ImpressionDataMapper(),
+     ) : InterstitialAdEventListener {
++        // Shared evidence rules also protect rewarded shows; no reward is inferred.
++        private val ownership = RewardShowOwnership()
++        fun markShowing() { ownership.request(SystemClock.elapsedRealtime()) }
++        fun markTerminal() { ownership.terminal() }
++        fun hasRequestedShow(): Boolean = ownership.hasRequest()
++        fun fullscreenStarted() { ownership.fullscreenStarted() }
++        fun fullscreenEnded() { ownership.fullscreenEnded() }
++        fun hasActiveShow(hostFocused: Boolean, fullscreenAlive: Boolean): Boolean =
++            ownership.isActive(SystemClock.elapsedRealtime(), hostFocused, fullscreenAlive)
++
+         override fun onAdShown() {
++            ownership.shown()
+             val eventName = eventNameProvider.eventName(
+                 Constants.AdType.INTERSTITIAL,
+                 Constants.EventName.ON_AD_SHOWN
+@@ -152,23 +269,24 @@ internal class YandexInterstitialAdModule(
+         }
+ 
+         override fun onAdFailedToShow(adError: AdError) {
++            markTerminal()
+             val eventName = eventNameProvider.eventName(
+                 Constants.AdType.INTERSTITIAL,
+                 Constants.EventName.ON_AD_FAILED_TO_SHOW
+             )
+             val eventData: MutableMap<String, Any> = mutableMapOf(Constants.Key.AD_ID to adId)
+             eventData[Constants.Key.ERROR] = adErrorMapper.map(adError)
+-            eventEmitter.emit(eventName, eventData)
++            try { eventEmitter.emit(eventName, eventData) } finally { deleteAd(adId) }
+         }
+ 
+         override fun onAdDismissed() {
++            markTerminal()
+             val eventName = eventNameProvider.eventName(
+                 Constants.AdType.INTERSTITIAL,
+                 Constants.EventName.ON_AD_DISMISSED
+             )
+             val eventData = mapOf(Constants.Key.AD_ID to adId)
+-            eventEmitter.emit(eventName, eventData)
+-            deleteAd(adId)
++            try { eventEmitter.emit(eventName, eventData) } finally { deleteAd(adId) }
+         }
+ 
+         override fun onAdImpression(impressionData: ImpressionData?) {
+diff --git a/node_modules/yandex-mobile-ads/lib/commonjs/interstitial/InterstitialAd.js b/node_modules/yandex-mobile-ads/lib/commonjs/interstitial/InterstitialAd.js
+index 6d99e78..7ac2c60 100644
+--- a/node_modules/yandex-mobile-ads/lib/commonjs/interstitial/InterstitialAd.js
++++ b/node_modules/yandex-mobile-ads/lib/commonjs/interstitial/InterstitialAd.js
+@@ -126,6 +126,20 @@ class InterstitialAd {
+    *
+    * @returns {Promise<void>} A promise that rejects if an error occurs.
+    */
++  static async hasActiveShow() {
++    (0, _util.isSupportedPlatform)();
++    if (typeof _YandexMobileAdsModule.default.YandexInterstitialAdModule.hasActiveInterstitialShow !== 'function') {
++      throw new Error('Native interstitial ownership is unavailable');
++    }
++    return await _YandexMobileAdsModule.default.YandexInterstitialAdModule.hasActiveInterstitialShow();
++  }
++  async dispose() {
++    if (this._id === '') return;
++    if (typeof _YandexMobileAdsModule.default.YandexInterstitialAdModule.disposeAd !== 'function') {
++      throw new Error('Native interstitial disposal is unavailable');
++    }
++    await _YandexMobileAdsModule.default.YandexInterstitialAdModule.disposeAd(this._id);
++  }
+   async show() {
+     try {
+       (0, _util.isSupportedPlatform)();
+@@ -141,6 +155,12 @@ class InterstitialAd {
+     this._subscriptions.forEach(sub => sub.remove());
+     this._subscriptions.clear();
+     this._id = '';
++    this._adInfo = undefined;
++    this._onAdShown = undefined;
++    this._onAdFailedToShow = undefined;
++    this._onAdDismissed = undefined;
++    this._onAdClicked = undefined;
++    this._onAdImpression = undefined;
+   }
+   createListenerFunction(action) {
+     return event => {
+diff --git a/node_modules/yandex-mobile-ads/lib/module/interstitial/InterstitialAd.js b/node_modules/yandex-mobile-ads/lib/module/interstitial/InterstitialAd.js
+index feb08e9..2c88067 100644
+--- a/node_modules/yandex-mobile-ads/lib/module/interstitial/InterstitialAd.js
++++ b/node_modules/yandex-mobile-ads/lib/module/interstitial/InterstitialAd.js
+@@ -120,6 +120,20 @@ export class InterstitialAd {
+    *
+    * @returns {Promise<void>} A promise that rejects if an error occurs.
+    */
++  static async hasActiveShow() {
++    isSupportedPlatform();
++    if (typeof YandexMobileAdsModule.YandexInterstitialAdModule.hasActiveInterstitialShow !== 'function') {
++      throw new Error('Native interstitial ownership is unavailable');
++    }
++    return await YandexMobileAdsModule.YandexInterstitialAdModule.hasActiveInterstitialShow();
++  }
++  async dispose() {
++    if (this._id === '') return;
++    if (typeof YandexMobileAdsModule.YandexInterstitialAdModule.disposeAd !== 'function') {
++      throw new Error('Native interstitial disposal is unavailable');
++    }
++    await YandexMobileAdsModule.YandexInterstitialAdModule.disposeAd(this._id);
++  }
+   async show() {
+     try {
+       isSupportedPlatform();
+@@ -135,6 +149,12 @@ export class InterstitialAd {
+     this._subscriptions.forEach(sub => sub.remove());
+     this._subscriptions.clear();
+     this._id = '';
++    this._adInfo = undefined;
++    this._onAdShown = undefined;
++    this._onAdFailedToShow = undefined;
++    this._onAdDismissed = undefined;
++    this._onAdClicked = undefined;
++    this._onAdImpression = undefined;
+   }
+   createListenerFunction(action) {
+     return event => {
+diff --git a/node_modules/yandex-mobile-ads/lib/typescript/src/interstitial/InterstitialAd.d.ts b/node_modules/yandex-mobile-ads/lib/typescript/src/interstitial/InterstitialAd.d.ts
+index 8f3aa5d..cb7aae6 100644
+--- a/node_modules/yandex-mobile-ads/lib/typescript/src/interstitial/InterstitialAd.d.ts
++++ b/node_modules/yandex-mobile-ads/lib/typescript/src/interstitial/InterstitialAd.d.ts
+@@ -61,6 +61,8 @@ export declare class InterstitialAd {
+      *
+      * @returns {Promise<void>} A promise that rejects if an error occurs.
+      */
++    static hasActiveShow(): Promise<boolean>;
++    dispose(): Promise<void>;
+     show(): Promise<void>;
+     private delete;
+     private createListenerFunction;
+diff --git a/node_modules/yandex-mobile-ads/src/interstitial/InterstitialAd.ts b/node_modules/yandex-mobile-ads/src/interstitial/InterstitialAd.ts
+index 7527e22..4957cef 100644
+--- a/node_modules/yandex-mobile-ads/src/interstitial/InterstitialAd.ts
++++ b/node_modules/yandex-mobile-ads/src/interstitial/InterstitialAd.ts
+@@ -150,6 +150,24 @@ export class InterstitialAd {
+         );
+     }
+ 
++    /** Checks native fullscreen ownership without assuming a JS timeout dismissed it. */
++    static async hasActiveShow(): Promise<boolean> {
++        isSupportedPlatform();
++        if (typeof YandexMobileAdsModule.YandexInterstitialAdModule.hasActiveInterstitialShow !== 'function') {
++            throw new Error('Native interstitial ownership is unavailable');
++        }
++        return await YandexMobileAdsModule.YandexInterstitialAdModule.hasActiveInterstitialShow();
++    }
++
++    /** Releases an unused ad; active native shows retain their terminal callbacks. */
++    async dispose(): Promise<void> {
++        if (this._id === '') return;
++        if (typeof YandexMobileAdsModule.YandexInterstitialAdModule.disposeAd !== 'function') {
++            throw new Error('Native interstitial disposal is unavailable');
++        }
++        await YandexMobileAdsModule.YandexInterstitialAdModule.disposeAd(this._id);
++    }
++
+     /**
+      * Displays the preloaded ad.
+      *
+@@ -171,6 +189,12 @@ export class InterstitialAd {
+         this._subscriptions.forEach((sub) => sub.remove());
+         this._subscriptions.clear();
+         this._id = '';
++        this._adInfo = undefined;
++        this._onAdShown = undefined;
++        this._onAdFailedToShow = undefined;
++        this._onAdDismissed = undefined;
++        this._onAdClicked = undefined;
++        this._onAdImpression = undefined;
+     }
+ 
+     private createListenerFunction(action: Function) {

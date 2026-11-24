@@ -9,8 +9,8 @@ const PROGRESSION_STORAGE_KEY = 'progression.milestones.v1';
 const BASE_MILESTONE_REWARD = 50;
 const WORLD_FINALE_REWARD = 75;
 const CAMPAIGN_FINALE_REWARD = 150;
-// Keep the reward promised at the original end of chapter one after expansion.
-const PREVIOUS_CHAPTER_FINALES = new Set([500]);
+// Keep rewards promised at the ends of both previously released routes.
+const PREVIOUS_CHAPTER_FINALES = new Set([500, 1000]);
 
 interface ProgressionSaved {
   claimAmountsByKey: Record<string, number>;

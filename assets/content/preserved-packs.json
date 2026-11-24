@@ -1,5 +1,5 @@
 {
-  "throughLevel": 500,
+  "throughLevel": 1000,
   "sha256": {
     "world1.json": "807c0b7d33116110b9e299192527baf43562500c420f5a0a1d17321f5e577094",
     "world2.json": "75cb46c3f48e5422751c0ac4ef57be6b54612c5be611c5ebf5edb9818ff211dd",
@@ -7,7 +7,14 @@
     "world4.json": "b5671718a180153dec5c97b91d1adabd2d01a8ff70aea279cac6a0e10a10b5ba",
     "world5.json": "34d4a1cf97c9e676b88e37cf9621e45ab21a8efd1e1081ed8b2fd8295d923777",
     "world6.json": "1af77c6fab99ef43f70f50764d32d8ee0df98617ac24a5a5114df444eb34a88d",
-    "world7.json": "2a39079ac20ca5e2a32eccdbe0f87ad27ea3f3029794f43279481c8281283ed6"
+    "world7.json": "2a39079ac20ca5e2a32eccdbe0f87ad27ea3f3029794f43279481c8281283ed6",
+    "world8.json": "a18af6f74788b33eda6186900d8c1f6d4a1c47fb7bb73e38ac179adca98303e7",
+    "world9.json": "52c48ceb340c31d995317278b47fc1f3eeb26e183db537255bc92fdf18fc9a39",
+    "world10.json": "f98fda1659150af4257548f33cb2ea71271b9e26f3102bb734fd36c20b181385",
+    "world11.json": "32c751391174641fb3ac2c2480072e7adc8ca972f4df0f1436a645438e550643",
+    "world12.json": "cbd031168de647c8e2e1b144eae8bcbf883d1d28445f51bfd5ed4ee72a24ad0f",
+    "world13.json": "bfc22853ef3d170625ac07e47e06fd552fcf1260e392e4eea09b25fdbcd55760",
+    "world14.json": "d06120eaaf26f41ad47b4451610f8bcc46e54c9f2e16b0450bd4bfd988d7b857"
   },
   "intendedRevisions": {
     "world1.json": {

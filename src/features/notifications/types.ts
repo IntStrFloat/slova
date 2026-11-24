@@ -1,4 +1,4 @@
-export type PushPermissionResult = 'granted' | 'denied' | 'unavailable';
+export type PushPermissionResult = 'granted' | 'denied' | 'unavailable' | 'registration_failed' | 'registration_pending';
 
 export interface PushTapPayload {
   route?: string;

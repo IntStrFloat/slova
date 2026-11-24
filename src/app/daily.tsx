@@ -15,6 +15,7 @@ import { getReminderGameplayAttribution } from '@/features/notifications';
 import { getDailyCollectionStatus, getFeatureGates, getWeeklyStatus, reconcileRewards, useRetention } from '@/features/retention';
 import { dailyDateState, dateRange, displayDate, displayWeekday, shiftDate } from '@/features/retention-ui/dateModel';
 import { trackLoginGiftGrant } from '@/features/retention-ui/giftAnalytics';
+import { trackRetentionAction } from '@/features/retention-ui/analytics';
 import { startFocusedRefresh } from '@/features/retention-ui/foregroundRefresh';
 import { ReminderAction } from '@/features/retention-ui/ReminderAction';
 import { useViewportExposure } from '@/features/retention-ui/viewportExposure';
@@ -85,6 +86,7 @@ export default function Daily() {
   const firstEntryRedirecting = useRef(false);
   const menuVisible = !firstEntryRedirectingVisible && (!dailyEnabled || daily.solvedDates.length > 0 || Object.keys(daily.instances).length > 0 || daily.carryCandidates().length > 0);
   const exposure = useViewportExposure((id) => {
+    track('feature_exposed', { feature: id === 'menu' ? 'daily' : 'gift', screen: 'daily', visibility_rule: 'half_1s_v2' });
     if (id === 'menu') {
       track('daily_entry_seen', { dateKey: nowDay, screen: 'daily', ...entryContext(source) });
       track('daily_menu_viewed', { dateKey: nowDay, screen: 'daily', ...entryContext(source) });
@@ -154,10 +156,12 @@ export default function Daily() {
   const calendarDates = dateRange(shiftDate(today, -6), 10);
 
   const openPuzzle = (date: string) => {
+    trackRetentionAction('daily', 'open_puzzle', { dateKey: date });
     if (!dailyEnabled) return;
     const wasStarted = Boolean(daily.instances[date]);
     const instance = daily.getOrStartDaily(date);
     if (!instance) {
+      track('puzzle_blocked', { operation_id: `daily:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`, mode: 'daily', dateKey: date, reason: requiresCarryChoice ? 'carry_choice_required' : 'content_unavailable', retryable: true });
       setError(requiresCarryChoice && date === today
         ? 'Сначала выберите, какой незаконченный кроссворд сохранить.'
         : 'Кроссворд пока недоступен. Обычные уровни можно играть без ожидания.');
@@ -165,13 +169,17 @@ export default function Daily() {
     }
     setError(null);
     const entrySource = date !== today && wasStarted ? 'carry' : 'daily_menu';
-    track('daily_entry_clicked', { screen: 'daily', source: entrySource, dateKey: date });
+    track('daily_entry_clicked', { screen: 'daily', source: entrySource, dateKey: date, variantId: instance.variantId,
+      templateId: `daily:${instance.variantId}:${instance.level?.globalId ?? instance.level?.id ?? 'unknown'}`,
+      content_fingerprint: /^[a-f0-9]{64}$/i.test(instance.level?.fingerprint ?? '') ? instance.level?.fingerprint : 'unknown',
+      contentVersion: instance.level?.contentVersion ?? 'unknown' });
     router.push(`/game?mode=daily&date=${date}&source=${entrySource}` as never);
   };
 
   const confirmReplacement = () => {
     if (!dailyEnabled) return;
     if (!replaceDate) return;
+    trackRetentionAction('daily', 'confirm_carry_replace', { dateKey: replaceDate });
     const result = daily.replaceCarriedDaily(replaceDate);
     if (!result) {
       setError('Не удалось заменить старый кроссворд. Если награда за него ещё оформляется, откройте его и завершите выдачу.');
@@ -183,6 +191,7 @@ export default function Daily() {
   };
 
   const claimBonus = () => {
+    trackRetentionAction('daily', 'claim_gift');
     const result = claim();
     if (result.error) {
       setBonusError('Подарок пока не сохранён полностью. Нажмите ещё раз, чтобы повторить.');
@@ -262,7 +271,7 @@ export default function Daily() {
             {carried.map((instance) => <View key={instance.dateKey} style={{ paddingTop: 9, gap: 8, borderTopWidth: 1, borderColor: colors.goldBorder }}>
               <AppText preset="label" style={{ color: colors.brown }}>За {displayDate(instance.dateKey)}</AppText>
               <WideAction label={`Играть за ${displayDate(instance.dateKey)}`} muted onPress={() => openPuzzle(instance.dateKey)} />
-              <Pressable onPress={() => setReplaceDate(instance.dateKey)} accessibilityRole="button" accessibilityLabel={`Оставить кроссворд за ${displayDate(instance.dateKey)}`} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Pressable onPress={() => { trackRetentionAction('daily', 'choose_carry', { dateKey: instance.dateKey }); setReplaceDate(instance.dateKey); }} accessibilityRole="button" accessibilityLabel={`Оставить кроссворд за ${displayDate(instance.dateKey)}`} style={{ minHeight: 44, justifyContent: 'center' }}>
                 <AppText preset="label" style={{ color: colors.plum, textAlign: 'center', fontSize: 13 }}>Оставить этот для продолжения</AppText>
               </Pressable>
             </View>)}
@@ -279,7 +288,7 @@ export default function Daily() {
             <AppText preset="body" style={{ color: colors.brown }}>Прогресс остальных незаконченных старых кроссвордов будет удалён. Решённые даты, монеты и открытки останутся.</AppText>
             {error ? <AppText preset="body" style={{ color: colors.plumDeep }}>{error}</AppText> : null}
             <WideAction label="Подтвердить замену" onPress={confirmReplacement} />
-            <WideAction label="Отмена" muted onPress={() => setReplaceDate(null)} />
+            <WideAction label="Отмена" muted onPress={() => { trackRetentionAction('daily', 'cancel_carry_replace'); setReplaceDate(null); }} />
           </GlassPanel> : null}
 
           <GlassPanel tone="cream" style={{ gap: 12 }}>

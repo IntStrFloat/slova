@@ -15,7 +15,7 @@ describe('levels loader', () => {
     for (const world of WORLDS) {
       expect(worldLevelCount(world.id)).toBe(world.endsAt - world.startsAt + 1);
     }
-    expect(totalLevelCount()).toBe(1000);
+    expect(totalLevelCount()).toBe(1500);
   });
 
   test('loads global linear levels with real world ids', () => {
@@ -35,7 +35,9 @@ describe('levels loader', () => {
     expect(loadGlobalLevel(500)?.world).toBe('world7');
     expect(loadGlobalLevel(501)?.world).toBe('world8');
     expect(loadGlobalLevel(1000)?.world).toBe('world14');
-    expect(loadGlobalLevel(1001)).toBeNull();
+    expect(loadGlobalLevel(1001)?.world).toBe('world15');
+    expect(loadGlobalLevel(1500)?.world).toBe('world21');
+    expect(loadGlobalLevel(1501)).toBeNull();
     for (const world of WORLDS) {
       expect(loadGlobalLevel(world.startsAt)).toMatchObject({ world: world.id, id: 1, globalId: world.startsAt });
       expect(loadGlobalLevel(world.endsAt)).toMatchObject({ world: world.id, globalId: world.endsAt });
@@ -60,6 +62,9 @@ describe('levels loader', () => {
     expect(worldForGlobalLevel(311)).toBe('world5');
     expect(worldForGlobalLevel(371)).toBe('world6');
     expect(worldForGlobalLevel(431)).toBe('world7');
+    expect(worldForGlobalLevel(1000)).toBe('world14');
+    expect(worldForGlobalLevel(1001)).toBe('world15');
+    expect(worldForGlobalLevel(1500)).toBe('world21');
   });
 
   test('hydrates campaign metadata for finale and special levels', () => {
@@ -68,6 +73,8 @@ describe('levels loader', () => {
     expect(loadGlobalLevel(500)?.milestone).toBe('journey_finale');
     expect(loadGlobalLevel(590)?.milestone).toBe('world_finale');
     expect(loadGlobalLevel(1000)?.milestone).toBe('journey_finale');
+    expect(loadGlobalLevel(1090)?.milestone).toBe('world_finale');
+    expect(loadGlobalLevel(1500)?.milestone).toBe('journey_finale');
 
     const chestLevel = loadGlobalLevel(100);
     expect(chestLevel?.mechanic).toBe('bonus_chest');
@@ -82,6 +89,9 @@ describe('levels loader', () => {
     expect(loadGlobalLevel(710)?.mechanic).toBe('mastery');
     expect(loadGlobalLevel(575)?.mechanic).toBe('ordered');
     expect(loadGlobalLevel(510)?.mechanic).toBe('bonus_chest');
+    expect(loadGlobalLevel(1075)?.mechanic).toBe('ordered');
+    expect(loadGlobalLevel(1210)?.mechanic).toBe('mastery');
+    expect(loadGlobalLevel(1010)?.mechanic).toBe('bonus_chest');
   });
 
   test('new puzzles stay compact and never grow past eight wheel letters', () => {

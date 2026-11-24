@@ -155,26 +155,41 @@ test('word reports accept exactly the shipped intro fingerprints and retain lega
   }
 });
 
-test('word reports accept level 1000 and reject levels beyond the campaign', async () => {
+test('word reports accept historical and third-route levels and reject levels beyond the campaign', async () => {
+  const path = require('node:path');
+  const { buildContentCatalog } = require('../scripts/build-content-catalog.cjs');
+  const catalog = buildContentCatalog(path.resolve(__dirname, '../../assets/levels'));
   const api = createApi({
     store: createMemoryStore(),
     moderationStore: createMemoryStore(),
     featureFlags: { wordReports: true },
-    validateReportContext: (report) => report.world === 'world14',
+    ...createCatalogValidators(catalog),
     now: () => new Date('2026-06-26T10:00:00Z'),
   });
   const { auth } = await boot(api, 'Путешественник');
-  const report = wordReport();
-  report.globalLevel = 1000;
-  report.world = 'world14';
-  const response = await api.handle({
-    method: 'POST',
-    url: '/api/word-reports',
-    headers: { ...auth, 'idempotency-key': report.reportId },
-    body: JSON.stringify(report),
-  });
-  assert.equal(response.status, 201);
-  const invalid = { ...wordReport(), globalLevel: 1001, world: 'world14' };
+  for (const [world, localIndex] of [['world14', 69], ['world15', 0], ['world21', 69]]) {
+    const level = require(`../../assets/levels/${world}.json`).levels[localIndex];
+    const report = {
+      ...wordReport(crypto.randomUUID(), level.answers[0].word),
+      globalLevel: level.globalId,
+      world: level.world,
+      contentVersion: level.contentVersion,
+      levelFingerprint: level.fingerprint,
+    };
+    const response = await api.handle({
+      method: 'POST', url: '/api/word-reports',
+      headers: { ...auth, 'idempotency-key': report.reportId }, body: JSON.stringify(report),
+    });
+    assert.equal(response.status, 201, `Report for level ${level.globalId}`);
+    const tampered = { ...report, reportId: crypto.randomUUID(), levelFingerprint: 'a'.repeat(64) };
+    const invalidFingerprint = await api.handle({
+      method: 'POST', url: '/api/word-reports',
+      headers: { ...auth, 'idempotency-key': tampered.reportId }, body: JSON.stringify(tampered),
+    });
+    assert.equal(invalidFingerprint.status, 400);
+    assert.equal(J(invalidFingerprint).error, 'unknown_content_level');
+  }
+  const invalid = { ...wordReport(), globalLevel: 1501, world: 'world21' };
   const rejected = await api.handle({
     method: 'POST',
     url: '/api/word-reports',

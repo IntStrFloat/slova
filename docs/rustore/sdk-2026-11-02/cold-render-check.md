@@ -1,0 +1,11 @@
+# Cold render during local SDK acceptance
+
+QA34 exposed stale initial native text: the saved2nd level/SON/160coins remained intact, but a cold frame displayed0/empty letters until Home→resume. It reproduced without UIAutomator. A bounded QA diagnostic showed selected, store and stored coins160 at the first JS commit, followed by filled-count3. The diagnostic changed timing and was removed before the repair candidate.
+
+The narrow repair removes entering/exiting animation from the common gameplay container and uses an ordinary `View`, preserving its key, pointer policy, layout and all gameplay/SDK/save/reward handlers. Other interaction and cell animations remain. A read-only exact-diff check confirmed those are the only changes relative to the frozen SDK input. Five affected suites/85tests passed.
+
+The separately signed release candidate passed three cold launches without Home/resume, UIAutomator or the diagnostic effect. Each displayed160 and SON immediately; CRC-validated live storage remained unchanged. Evidence: `local-qa/cold-static-verdict.json`, `cold-static-repeat-captures.json`, screenshots and `cold-static-34-r8-artifact-verification.json` under the task output directory.
+
+Upstream Reanimated reports describe timing-sensitive stale settled props and Android lifecycle cases ([9965](https://github.com/software-mansion/react-native-reanimated/issues/9965), [9574](https://github.com/software-mansion/react-native-reanimated/issues/9574)). They motivated isolation; they do not prove that the same internal defect caused this observation. No dependency/toolchain or native feature-flag change was made.
+
+The read-only evidence reader also needed to respect MMKV's current logical payload. Its metadata version4 stores actual size alongside CRC; scanning the entire allocated file can find obsolete tail values ([MMKV metadata definition](https://github.com/Tencent/MMKV/blob/master/Core/MMKVMetaInfo.hpp)). The corrected reader validates size/CRC and excludes that tail, with four negative/positive tests. Whole-file byte-exact migration and native preference proofs remain valid; the signed33→34 receipt retains the original projection plus an explicit correction from the same protected backup.

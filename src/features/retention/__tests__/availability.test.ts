@@ -47,8 +47,8 @@ describe('verified daily quest content', () => {
       const { storage, KEYS } = require('@/core/storage');
       storage.clearAll();
       const today = require('@/core/time').dayKey();
-      const completed = Array.from({ length: 1000 }, (_, index) => index + 1);
-      storage.set(KEYS.levelsProgress, JSON.stringify({ world: 'world14', currentLevel: 1001, completed }));
+      const completed = Array.from({ length: 1500 }, (_, index) => index + 1);
+      storage.set(KEYS.levelsProgress, JSON.stringify({ world: 'world21', currentLevel: 1501, completed }));
       const { makeInitialSnapshot, ensureDay } = require('../model');
       const { getVerifiedQuestAvailability } = require('../availability');
       const snapshot = makeInitialSnapshot({ newProfile: false, legacyCampaignIds: completed });
@@ -56,6 +56,27 @@ describe('verified daily quest content', () => {
       expect(verified.remainingNewPuzzles).toBeLessThanOrEqual(1);
       expect(verified.availableManualWords).toBeLessThan(10);
       expect(ensureDay(snapshot, verified).questInstances[today]).toBeUndefined();
+    });
+  });
+
+  test('a former 1000-level finisher can pin reachable quests from the third route', () => {
+    jest.isolateModules(() => {
+      const { storage, KEYS } = require('@/core/storage');
+      storage.clearAll();
+      const today = require('@/core/time').dayKey();
+      const completed = Array.from({ length: 1000 }, (_, index) => index + 1);
+      storage.set(KEYS.levelsProgress, JSON.stringify({ world: 'world14', currentLevel: 1001, completed }));
+      storage.set(KEYS.dailyPuzzle, JSON.stringify({ schemaVersion: 2, maxSeenDay: today, solvedDates: [today], instances: {} }));
+      const { makeInitialSnapshot, ensureDay } = require('../model');
+      const { getVerifiedQuestAvailability } = require('../availability');
+      const snapshot = makeInitialSnapshot({ newProfile: false, legacyCampaignIds: completed });
+      const verified = getVerifiedQuestAvailability(snapshot, today);
+
+      expect(verified.remainingNewPuzzles).toBe(4);
+      expect(verified.availableManualWords).toBeGreaterThanOrEqual(16);
+      expect(verified.contentProof.map((proof: { puzzleKey: string }) => proof.puzzleKey))
+        .toEqual(['campaign:1001', 'campaign:1002', 'campaign:1003', 'campaign:1004']);
+      expect(ensureDay(snapshot, verified).questInstances[today]?.contentProof).toEqual(verified.contentProof);
     });
   });
 
@@ -105,7 +126,7 @@ describe('verified daily quest content', () => {
 
       // Simulate a published-content correction that makes the pinned route
       // unreachable before the player can finish today's quest.
-      useLevels.setState({ currentLevel: 1001 });
+      useLevels.setState({ currentLevel: 1501 });
       useRetention.getState().ensureDay({ actionDay: today });
       const after = useRetention.getState();
       expect(after.questInstances[today].quests.every((quest: { completed: boolean }) => quest.completed)).toBe(true);

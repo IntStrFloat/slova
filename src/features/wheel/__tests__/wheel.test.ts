@@ -60,3 +60,21 @@ test('pending wheel result is durable until its grant is acknowledged', () => {
   expect(useWheel.getState().claimPending(result!.effectId)).toBe(false);
   useWheel.getState().reset();
 });
+
+test('free and earned spins freeze the origin help context independently of later screen state', () => {
+  storage.clearAll();
+  useWheel.getState().reset();
+  const context = { origin_interaction_id: 'help:test:origin', attemptId: 'normal:6:origin', requested_hint: 'letter', displayed_cost: 50, balance: 20 };
+  const free = useWheel.getState().spin(false, undefined, context)!;
+  context.balance = 999;
+  expect(free.flowContext).toMatchObject({ origin_interaction_id: 'help:test:origin', balance: 20 });
+  expect(getJSON<WheelState>(KEYS.wheel, fresh).pendingSpin?.flowContext).toEqual(free.flowContext);
+  useWheel.getState().claimPending(free.effectId);
+  const receipt = useWheel.getState().prepareRewarded(context)!;
+  context.balance = 0;
+  expect(receipt.flowContext?.balance).toBe(999);
+  expect(useWheel.getState().confirmRewarded(receipt)).toBe(true);
+  expect(useWheel.getState().pendingSpin?.flowContext).toEqual(receipt.flowContext);
+  useWheel.getState().claimPending(receipt.rewardId);
+  expect(useWheel.getState().lastGrantedSpin?.flowContext).toEqual(receipt.flowContext);
+});

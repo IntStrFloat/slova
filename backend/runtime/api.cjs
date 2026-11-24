@@ -5,6 +5,7 @@ const { createBillingHttp } = require('./billing-http.cjs');
 
 const POINTS_PER_LEVEL = 100;
 const MAX_LEVELS = 100_000;
+const MAX_CAMPAIGN_LEVELS = 1500;
 const MAX_DELTA_PER_SUBMIT = 100; // санити-лимит против накрутки
 const MAX_REPORTS_PER_USER_DAY = 10;
 const MAX_REPORTS_PER_IP_HOUR = 60;
@@ -93,7 +94,7 @@ function validateWordReport(report) {
   if (!UUID.test(String(report.reportId ?? '')) || !validIsoDate(report.createdAt) || report.locale !== 'ru' || !NORMALIZED_WORD.test(report.normalizedWord)) {
     return { ok: false, error: 'bad_report_identity' };
   }
-  if (!kinds.has(report.reportKind) || !classifications.has(report.currentClassification) || !Number.isSafeInteger(report.globalLevel) || report.globalLevel < 1 || report.globalLevel > 1000 || !SAFE_TEXT.test(String(report.world ?? '')) || !modes.has(report.mode)) {
+  if (!kinds.has(report.reportKind) || !classifications.has(report.currentClassification) || !Number.isSafeInteger(report.globalLevel) || report.globalLevel < 1 || report.globalLevel > MAX_CAMPAIGN_LEVELS || !SAFE_TEXT.test(String(report.world ?? '')) || !modes.has(report.mode)) {
     return { ok: false, error: 'bad_report_context' };
   }
   if (!/^[A-Za-z0-9._-]{1,128}$/.test(String(report.contentVersion ?? '')) ||
@@ -210,6 +211,7 @@ function createApi(options) {
     seller: options.billingSeller,
     now,
     trustProxy,
+    migrationResolver: options.billingMigration,
   }) : null;
   let reportWriteQueue = Promise.resolve();
 
@@ -234,7 +236,7 @@ function createApi(options) {
       headers: {
         'content-type': 'application/json',
         'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type,authorization,x-api-key,idempotency-key,if-none-match',
+        'access-control-allow-headers': 'content-type,authorization,x-api-key,idempotency-key,if-none-match,x-slova-billing-protocol',
         'access-control-allow-methods': 'GET,POST,OPTIONS',
         ...extraHeaders,
       },

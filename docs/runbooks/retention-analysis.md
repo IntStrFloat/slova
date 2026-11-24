@@ -17,6 +17,10 @@ AppMetrica и без сторонних зависимостей. Секреты
 | Поле | Назначение |
 |---|---|
 | `appmetrica_device_id` или `sdk_id` | единая SDK-идентичность между версиями; UInt64 сохранять строкой |
+| `device_key` | нормализованный SDK device ID, при наличии имеет приоритет |
+| `installation_id` или `install_key` | отдельный эпизод установки; не local player_id |
+| `install_kind` / `install_type` | `first` / `first_install`, `reinstall`, `reactivation` или `unknown`; mapping определяется семантикой исходного install-экспорта |
+| `is_reinstallation` | явный boolean из источника: false — first, true — reinstall; строка `"false"` не boolean |
 | `event_name` или `name` | имя события |
 | `event_json` или `params` | JSON-строка либо объект параметров |
 | `event_timestamp` | Unix seconds/milliseconds |
@@ -32,14 +36,28 @@ AppMetrica и без сторонних зависимостей. Секреты
 первого увиденного custom event вместо установки. Новое локальное `player_id`
 не связывает историю до появления analytics envelope v2.
 
-Старые `event_json` — плоские параметры. Новые имеют `schema_version: 2`,
+Старые `event_json` — плоские параметры. Envelope v2 имеет `schema_version: 2`,
 `event_id`, `occurred_at`, `app_version`, `onboarding_version`,
-`content_version`, `properties`. Оба формата принимаются.
+`content_version`, `properties`. Schema v3 содержит доменные поля в корне,
+контейнера `properties` нет. Все три формата принимаются. `timeKnown:false`
+для восстановленного legacy milestone сохраняет неизвестное точное время:
+envelope handoff не становится временем решения.
+
+Основная A24/Dn когорта — первые **подтверждённые install episodes**. Первую
+видимую запись в усечённом экспорте нельзя автоматически назвать первой
+установкой. Без явной классификации эпизод попадает в unknown и не входит в
+primary знаменатель. Reinstall/reactivation показываются отдельно.
+
+Событие присоединяется по installation ID либо проверенному device/time
+интервалу до следующей переустановки. Конфликтующая связь исключается и
+отражается в quality. Переустановка цензурирует наблюдение предыдущего эпизода;
+возврат после неё не засчитывается первоначальной установке. Версия события
+продолжает отличаться от версии установки.
 
 Пример:
 
 ```json
-{"sdk_id":"local-example","event_name":"level_start","event_datetime":"2026-09-20T10:00:00Z","install_datetime":"2026-09-20T09:59:00Z","event_json":{"id":1,"daily":false}}
+{"sdk_id":"local-example","installation_id":"install-example","install_kind":"first","event_name":"level_start","event_datetime":"2026-09-20T10:00:00Z","install_datetime":"2026-09-20T09:59:00Z","event_json":{"id":1,"daily":false}}
 ```
 
 ## Запуск
@@ -65,11 +83,16 @@ node scripts/analyze-retention.cjs --input C:/private/slova/events.jsonl --as-of
 - `measuredAttempts` — только новые `puzzle_started` с `attemptId`. Старый
   `level_start` включает повторные открытия. `incompleteWithinWindow` означает
   отсутствие зафиксированного завершения в окне, не окончательный уход.
+- `activation24h` — первая самостоятельная победа L2–L5 в первые 24 часа
+  подтверждённого first-install episode / все такие эпизоды с полным окном.
 - `retention.open` — сессия/открытие или реальное игровое действие в Dn.
   `retention.play` — только игровое действие; фоновая доставка напоминания и
   забранный бонус сюда не входят. Установки без полной даты наблюдения Dn и
-  без SDK install metadata исключены. Текущий неполный продуктовый день UTC+3
-  не участвует в знаменателе.
+  без SDK install metadata исключены. D1/D3/D7/D30 используют полные календарные
+  дни UTC+3; текущий неполный продуктовый день не участвует в знаменателе.
+- `installCohort` отдельно показывает reinstall/reactivation/unknown episodes.
+  `devicesWithMultipleInstallEpisodes` не является ошибкой: конфликтующая
+  identity/дата установки учитывается отдельно в `conflictingInstallEpisodes`.
 - `versions` — сегменты версии, onboarding и контента **на момент события**.
   Один обновившийся игрок может входить в несколько строк. Это не рандомизированный
   A/B-тест и не версия при установке.

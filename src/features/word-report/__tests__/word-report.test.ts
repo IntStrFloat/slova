@@ -2,6 +2,7 @@ import { getJSON, storage } from '@/core/storage';
 import { getIntroLevel } from '@/features/onboarding/introPack';
 import legacyEarlyLevels from '../../../../assets/content/legacy-early-levels.json';
 import { useProfile } from '@/features/profile';
+import { loadReleasedGlobalLevel } from '@/features/levels/loader';
 import {
   canReportWord,
   flushWordReports,
@@ -167,6 +168,47 @@ test('rejects invalid text and unsupported intro content before any network requ
   expect(canReportWord(intro)).toBe(false);
   expect((await sendWordReport({ ...input('кот'), context: intro })).status).toBe('unsupported_content');
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test.each([1001, 1250, 1500])('reports actual third-route level %i with its shipped identity', async (id) => {
+  const level = loadReleasedGlobalLevel(id)!;
+  const routeContext: WordReportContext = {
+    ...context, globalLevel: id, world: level.world,
+    contentVersion: level.contentVersion!, levelFingerprint: level.fingerprint!,
+  };
+  expect(canReportWord(routeContext)).toBe(true);
+  fetchMock.mockResolvedValue(reply(201, { duplicate: false }));
+  expect((await sendWordReport({
+    ...input(level.answers[0].word), currentClassification: 'grid', context: routeContext,
+  })).status).toBe('sent');
+  const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
+  expect(payload).toMatchObject(routeContext);
+  expect(payload.normalizedWord).toBe(level.answers[0].word);
+});
+
+test('rejects a report beyond the extended campaign before writing an outbox or calling the network', async () => {
+  const routeContext = { ...context, globalLevel: 1501, world: 'world21' };
+  expect(canReportWord(routeContext)).toBe(false);
+  expect((await sendWordReport({ ...input(), context: routeContext })).status).toBe('unsupported_content');
+  expect(storage.getString('word-report.outbox.v1')).toBeUndefined();
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test('a confirmed third-route report survives an offline retry with the same identity', async () => {
+  const level = loadReleasedGlobalLevel(1500)!;
+  const routeContext: WordReportContext = {
+    ...context, globalLevel: 1500, world: level.world,
+    contentVersion: level.contentVersion!, levelFingerprint: level.fingerprint!,
+  };
+  fetchMock.mockRejectedValueOnce(new Error('offline'));
+  const outcome = await sendWordReport({ ...input(level.answers[0].word), context: routeContext });
+  expect(outcome.status).toBe('queued');
+  fetchMock.mockResolvedValue(reply(201, { duplicate: false }));
+  await flushWordReports();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  const retried = JSON.parse(fetchMock.mock.calls[1][1].body);
+  expect(retried).toMatchObject({ ...routeContext, reportId: outcome.reportId });
+  expect(getJSON<{ pending: unknown[] }>('word-report.outbox.v1', { pending: [] }).pending).toHaveLength(0);
 });
 
 test('all five assigned intro fingerprints match the backend catalog and can be reported', async () => {

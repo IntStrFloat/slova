@@ -13,10 +13,10 @@ const ALLPROJECTS = `allprojects {
 `;
 
 describe('withRuStoreReview config plugin', () => {
-  it('adds the current review SDK repository without removing the push repository', () => {
+  it('migrates RuStore resolution while preserving a narrowly scoped legacy myTarget repository', () => {
     const once = plugin.patchProjectBuildGradle(ALLPROJECTS);
     expect(once).toContain('https://nexus-external.rustore.ru/repository/maven-rustore-exposed');
-    expect(once).toContain('https://artifactory-external.vkpartner.ru/artifactory/maven');
+    expect(once).toContain("url 'https://artifactory-external.vkpartner.ru/artifactory/maven'; content { includeGroupByRegex 'com[.]my[.]target' }");
     expect(plugin.patchProjectBuildGradle(once)).toBe(once);
   });
 

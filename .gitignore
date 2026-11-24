@@ -9,6 +9,22 @@ ios/
 !modules/rustore-review/android/**
 modules/rustore-review/android/build/
 modules/rustore-review/android/.gradle/
+# Keep the AppMetrica bridge source and its QA-device classification in releases.
+!modules/appmetrica/android/
+!modules/appmetrica/android/**
+modules/appmetrica/android/build/
+modules/appmetrica/android/.gradle/
+modules/appmetrica/android/.cxx/
+# Local optional Android Remote Config bridge source.
+!modules/rustore-remote-config/android/
+!modules/rustore-remote-config/android/**
+modules/rustore-remote-config/android/build/
+modules/rustore-remote-config/android/.gradle/
+# Local optional Android Updates bridge source.
+!modules/rustore-updates/android/
+!modules/rustore-updates/android/**
+modules/rustore-updates/android/build/
+modules/rustore-updates/android/.gradle/
 dist/
 web-dist/
 *.log
@@ -34,3 +50,6 @@ expo-env.d.ts
 .shot-*.png
 .omx/
 .dict-sources/
+
+# Keep local release deliveries and QA output outside source history.
+/output/

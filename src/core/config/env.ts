@@ -3,14 +3,20 @@
  * EXPO_PUBLIC_* инлайнятся Metro в бандл; не-public (UAuth/сервисные токены) сюда не кладём.
  * Значения задаются в .env.local (gitignored) / .env.example (шаблон).
  */
+// Development and explicit QA builds never request paid production impressions.
+const useTestAds = __DEV__ || process.env.EXPO_PUBLIC_YANDEX_TEST_ADS === '1';
+
 export const ENV = {
   apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://slova.193.160.208.95.nip.io',
   yandex: {
-    bannerAdUnitId: process.env.EXPO_PUBLIC_YANDEX_BANNER_AD_UNIT_ID || 'demo-banner-yandex',
+    bannerAdUnitId: useTestAds ? 'demo-banner-yandex'
+      : process.env.EXPO_PUBLIC_YANDEX_BANNER_AD_UNIT_ID || 'R-M-20249615-1',
     interstitialAdUnitId:
-      process.env.EXPO_PUBLIC_YANDEX_INTERSTITIAL_AD_UNIT_ID || 'demo-interstitial-yandex',
+      useTestAds ? 'demo-interstitial-yandex'
+        : process.env.EXPO_PUBLIC_YANDEX_INTERSTITIAL_AD_UNIT_ID || 'R-M-20249615-3',
     rewardedAdUnitId:
-      process.env.EXPO_PUBLIC_YANDEX_REWARDED_AD_UNIT_ID || 'demo-rewarded-yandex',
+      useTestAds ? 'demo-rewarded-yandex'
+        : process.env.EXPO_PUBLIC_YANDEX_REWARDED_AD_UNIT_ID || 'R-M-20249615-2',
   },
   rustore: {
     pushProjectId: process.env.EXPO_PUBLIC_RUSTORE_PUSH_PROJECT_ID ?? '',

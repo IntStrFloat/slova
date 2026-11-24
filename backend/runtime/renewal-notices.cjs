@@ -1,9 +1,9 @@
 const crypto = require('node:crypto');
+const { isEmail: email } = require('./email.cjs');
 
 const HOUR = 3_600_000;
 const MAX_RETRY_WINDOW = 23 * HOUR; // Never exceed a provider's declared retention.
 const RETRY_DELAY = 60_000;
-const EMAIL = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/;
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const ERROR_CODES = new Set(['renewal_notice_invalid_message', 'renewal_notice_gateway_unavailable',
@@ -18,7 +18,6 @@ function noticeError(code, { retryable = false, ambiguous = false } = {}) {
   error.ambiguous = ambiguous;
   return error;
 }
-function email(value) { return typeof value === 'string' && value.length <= 254 && EMAIL.test(value); }
 function senderAddress(value) {
   if (typeof value !== 'string' || value.length > 320 || CONTROL.test(value)) return null;
   if (email(value)) return value;
@@ -105,7 +104,8 @@ function createRenewalNotices({ store, transport, now = () => new Date(), leadMs
     const terms = { id: plan.id, title: plan.title, amount: plan.amount, currency: plan.currency,
       periodDays: plan.periodDays, consentVersion: plan.consentVersion };
     const binding = { subscriptionId: subscription.id, mode, dueAt: subscription.activeUntil,
-      cancelGeneration: subscription.cancelGeneration, email: subscription.email, plan: terms };
+      cancelGeneration: subscription.cancelGeneration, email: subscription.email, plan: terms,
+      ...(subscription.provider ? { provider: subscription.provider, merchant: subscription.merchant } : {}) };
     return { binding, key: crypto.createHash('sha256').update(JSON.stringify(binding)).digest('hex') };
   }
   function blocked(reason) { return { ready: false, notifiedAt: null, notBefore: null, reason }; }
@@ -226,7 +226,22 @@ function createRenewalNotices({ store, transport, now = () => new Date(), leadMs
     const current = snapshot(subscription);
     return current.key === captured.key ? outcome : blocked('renewal_notice_subscription_changed');
   }
-  return { ensureNotice, configured, mode };
+  function diagnostics(subscriptions) {
+    const counts = { pending: 0, failed: 0, quarantined: 0 };
+    const data = read();
+    for (const sub of subscriptions) {
+      const captured = snapshot(sub);
+      if (!captured.key || !Object.prototype.hasOwnProperty.call(data.notices, captured.key)) continue;
+      const record = data.notices[captured.key];
+      if (!record || !['sending', 'ambiguous', 'retry', 'sent', 'failed', 'quarantined'].includes(record.state)) {
+        throw noticeError('renewal_notice_store_unavailable');
+      }
+      if (record.state === 'failed' || record.state === 'quarantined') counts[record.state] += 1;
+      else if (record.state !== 'sent') counts.pending += 1;
+    }
+    return counts;
+  }
+  return { ensureNotice, diagnostics, configured, mode };
 }
 
 module.exports = { createRenewalNotices, noticeError };

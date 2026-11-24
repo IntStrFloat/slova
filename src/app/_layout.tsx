@@ -4,20 +4,21 @@ import {
   Nunito_700Bold,
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { flushAnalytics, setAnalyticsContext, trackFirstOpen, trackGameSessionStart, trackOnce } from '@/features/analytics';
+import { flushAnalytics, setAnalyticsContext, trackAnalyticsHealthSummary, trackFirstOpen, trackGameSessionStart, trackOnce, useAnalyticsPrefs } from '@/features/analytics';
 import { AudioRoot } from '@/features/audio';
 import { getAds } from '@/features/monetization';
 import { useEntitlements } from '@/features/monetization/entitlements';
-import { useSubscription } from '@/features/monetization/subscription';
-import { getPush, startDailyReminderTelemetry, startLevelExpansionAudienceSync, syncDailyReminders } from '@/features/notifications';
-import { useCurrency } from '@/features/currency';
+import { startSubscriptionAutoSync } from '@/features/monetization/subscriptionAutoSync';
+import { recoverRewardedGrants } from '@/features/monetization/rewardRecovery';
+import { PushNavigationRoot, startDailyReminderTelemetry, startLevelExpansionAudienceSync, syncDailyReminders } from '@/features/notifications';
+import { flushWalletAnalytics, useCurrency } from '@/features/currency';
 import { backfillUnlockedLandmarks } from '@/features/collection/store';
 import { useLevels } from '@/features/levels';
 import { backfillCompletedChestCoins } from '@/features/progression/store';
@@ -29,7 +30,15 @@ import { useProfile } from '@/features/profile';
 import { flushWordReports } from '@/features/word-report';
 import { isYandexGamesBuild, markYandexGameReady } from '@/core/platform/yandexGames';
 import { colors } from '@/ui';
+import { AnalyticsNavigationRoot } from '@/features/analytics/AnalyticsNavigationRoot';
+import { startRemoteConfig } from '@/features/remote-config';
+import { startUpdates } from '@/features/updates';
+import { installCrashReporting } from '@/features/crash-reporting';
+import { startHelpExperimentRuntime, flushHelpEnrollmentFacts } from '@/features/hints/help-experiment';
+import { primeSdkIdentity } from '@/features/analytics/sdkIdentity';
+import analyticsManifest from '../../assets/content/analytics-manifest.json';
 
+installCrashReporting();
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function backfillRouteRewards() {
@@ -44,7 +53,6 @@ function recoverMarathonRewards() {
 }
 
 export default function RootLayout() {
-  const router = useRouter();
   const [platformReady, setPlatformReady] = useState(() => !isYandexGamesBuild());
   const [loaded] = useFonts({
     Nunito_600SemiBold,
@@ -75,14 +83,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     // Bootstrap runs before fonts/Home mount: fix the cohort before the first event.
+    const stopHelpExperiment = startHelpExperimentRuntime();
     assignIntroPackForCurrentProfile();
     void getAds().init();
+    void recoverRewardedGrants({ releaseUnconfirmed: true }).catch(() => {
+      console.warn('[rewards] native earned grants remain pending');
+    });
     // Профиль создаём автоматически для каждого игрока сразу (без отдельной кнопки).
     void useProfile.getState().ensure().then(() => {
       void flushWordReports();
-      void useSubscription.getState().sync();
     });
     setAnalyticsContext({
+      configVersion: analyticsManifest.policyVersion,
+      contentVersion: analyticsManifest.catalogVersion,
       onboardingVersion: getAssignedIntroVersion() ?? 'legacy',
       variantId: getAssignedIntroVersion() ?? 'released',
     });
@@ -93,6 +106,9 @@ export default function RootLayout() {
     }
     trackGameSessionStart();
     flushAnalytics();
+    flushWalletAnalytics();
+    trackAnalyticsHealthSummary();
+    const stopAnalyticsPrefs = useAnalyticsPrefs.subscribe(() => flushWalletAnalytics());
     try {
       backfillRouteRewards();
     } catch (error) {
@@ -107,10 +123,13 @@ export default function RootLayout() {
     void syncDailyReminders();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
+      void primeSdkIdentity().then(flushHelpEnrollmentFacts);
+      void recoverRewardedGrants().catch(() => {});
       useEntitlements.getState().refreshExpiration();
-      void useSubscription.getState().sync();
       trackGameSessionStart('resume');
       flushAnalytics();
+      flushWalletAnalytics();
+      trackAnalyticsHealthSummary();
       void flushWordReports();
       try {
         backfillRouteRewards();
@@ -125,7 +144,7 @@ export default function RootLayout() {
       }
       void syncDailyReminders();
     });
-    return () => subscription.remove();
+    return () => { subscription.remove(); stopAnalyticsPrefs(); stopHelpExperiment(); };
   }, []);
 
   useEffect(() => {
@@ -133,13 +152,9 @@ export default function RootLayout() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const push = getPush();
-    void push.init();
-    return push.onNotificationTap((route) => {
-      router.navigate(route as never);
-    });
-  }, [router]);
+  useEffect(() => startSubscriptionAutoSync(), []);
+  useEffect(() => startRemoteConfig(), []);
+  useEffect(() => startUpdates(), []);
 
   useEffect(() => startLevelExpansionAudienceSync(), []);
   useEffect(() => startDailyReminderTelemetry(), []);
@@ -148,6 +163,8 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bgBottom }}>
+      <AnalyticsNavigationRoot ready={loaded && platformReady} />
+      <PushNavigationRoot />
       <AudioRoot />
       <StatusBar style="light" />
       <Stack

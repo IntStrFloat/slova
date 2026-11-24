@@ -1,0 +1,51 @@
+{
+  "game_id": "slova",
+  "run_id": "slova-appmetrica-audit-2026-11-01",
+  "date": "2026-11-01",
+  "status": "verified_documents",
+  "scope": "Drafts and aggregate evidence only; no production instrumentation changes",
+  "checks": {
+    "live_names": 101,
+    "runtime_names": 98,
+    "intersection": 89,
+    "union_catalog": 110,
+    "proposed_new_names": 37,
+    "event_row_sum": 5172380,
+    "preserved_difference_from_ui_total": 2,
+    "links_and_fences": "passed"
+  },
+  "existing_code_tests": {
+    "suites_passed": 7,
+    "tests_passed": 46,
+    "source": ".omx/drafts/slova-appmetrica-code-audit-2026-11-01.md",
+    "warning": "analytics-bootstrap mock warning in marathon recovery; no native delivery test"
+  },
+  "not_verified": [
+    "Native opt-out/delivery",
+    "Account timezone and raw cohort export",
+    "Financial reconciliation and actual SDK revenue integration",
+    "Live schema parameters for every event"
+  ],
+  "artifacts": [
+    {
+      "path": "docs/marketing/slova/analytics/appmetrica-audit-and-plan-2026-11-01.md",
+      "sha256": "0a7594a1623f52f6ee1c982b65a0b26530486721bdfbd202c421f80f16f03482",
+      "bytes": 55400
+    },
+    {
+      "path": "docs/marketing/slova/analytics/daily-analyst-brief-2026-11-01.md",
+      "sha256": "35892b740327acd6a2fc0b692215230871ee055dbbb4f3a367d9bea7de2356be",
+      "bytes": 32968
+    },
+    {
+      "path": "docs/marketing/slova/analytics/event-catalog-2026-11-01.md",
+      "sha256": "cdfcef0a6bbe10a832b051d7a1e0703ad658ca04ff550e41c59d012f5b68ccbd",
+      "bytes": 59235
+    },
+    {
+      "path": "docs/marketing/slova/analytics/observed-events-2026-11-01.json",
+      "sha256": "ae3adfeede6f2e85bf1623ff2e0f8eadbed1b8ddd8cab7e4268e210d3f935249",
+      "bytes": 11683
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "config_version": "interstitial_interval_example_v1",
+  "fetch_enabled": true,
+  "experiment_id": "interstitial_interval_v1",
+  "allocation_version": 1,
+  "variants": {
+    "control": { "ads_interstitial_interval_seconds": 300 },
+    "longer_interval": { "ads_interstitial_interval_seconds": 420 }
+  }
+}

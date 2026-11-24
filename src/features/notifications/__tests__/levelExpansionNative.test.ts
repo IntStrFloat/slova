@@ -15,7 +15,7 @@ jest.mock('../config', () => ({ PUSH: { projectId: 'test-project', enabled: true
 
 const subscribe = jest.fn<Promise<boolean>, [string]>();
 const unsubscribe = jest.fn<Promise<boolean>, [string]>();
-Object.assign(RustorePushClient, { subscribeToTopic: subscribe, unsubscribeFromTopic: unsubscribe });
+Object.assign(RustorePushClient, { subscribeToTopic: subscribe, unsubscribeFromTopic: unsubscribe, setNotificationContext: jest.fn() });
 const getToken = RustorePushClient.getToken as jest.Mock;
 const deleteToken = RustorePushClient.deleteToken as jest.Mock;
 const check = jest.spyOn(PermissionsAndroid, 'check');
@@ -26,6 +26,7 @@ beforeEach(async () => {
   await RuStorePushProvider.unregister();
   jest.clearAllMocks();
   getToken.mockResolvedValue('test-token');
+  (RustorePushClient.checkPushAvailability as jest.Mock).mockResolvedValue(true);
   subscribe.mockResolvedValue(true);
   unsubscribe.mockResolvedValue(true);
   check.mockResolvedValue(true);
@@ -88,7 +89,7 @@ it('finishes a pending subscription before deleting the token on opt-out', async
 
 it('retries a failed audience update on the next sync', async () => {
   subscribe.mockRejectedValueOnce(new Error('offline'));
-  await expect(RuStorePushProvider.syncLevelExpansionAudience(500, true)).rejects.toThrow('offline');
+  await expect(RuStorePushProvider.syncLevelExpansionAudience(500, true)).rejects.toThrow('push_registration_failed');
   await RuStorePushProvider.syncLevelExpansionAudience(500, true);
   expect(subscribe).toHaveBeenCalledTimes(2);
 });

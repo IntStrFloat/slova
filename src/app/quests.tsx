@@ -5,15 +5,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useGoBack } from '@/core/nav';
 import { RETENTION } from '@/core/config/retention';
+import { getRetentionUnlocks } from '@/core/config/runtimePolicy';
 import { dayKey } from '@/core/time';
 import { track, trackOnce } from '@/features/analytics';
 import { trackObservedRetentionMilestones } from '@/features/analytics/retentionEvents';
 import { useCurrency } from '@/features/currency';
 import { getFeatureGates, getQuestStatus, reconcileRewards, useRetention } from '@/features/retention';
 import { displayDate } from '@/features/retention-ui/dateModel';
+import { ruCount } from '@/features/retention-ui/text';
+import { useRetentionPolicyExposure } from '@/features/remote-config';
 import { AppButton, AppText, colors, GlassPanel, Icon, radius, WorldBackground } from '@/ui';
 
 export default function Quests() {
+  useRetentionPolicyExposure('quests');
   const router = useRouter();
   const goBack = useGoBack();
   const retention = useRetention();
@@ -54,7 +58,7 @@ export default function Quests() {
             <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: colors.creamDeep, borderWidth: 1, borderColor: colors.goldBorder, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="lock" color={colors.plum} size={26} />
             </View>
-            <AppText preset="title" style={{ color: colors.brown }}>{RETENTION.featureFlags.quests ? 'Откроются после 8 уровней' : 'Задания сейчас недоступны'}</AppText>
+            <AppText preset="title" style={{ color: colors.brown }}>{RETENTION.featureFlags.quests ? `Откроются после ${ruCount(getRetentionUnlocks().quests, 'уровня', 'уровней', 'уровней')}` : 'Задания сейчас недоступны'}</AppText>
             <AppText preset="body" style={{ color: colors.brown }}>
               {RETENTION.featureFlags.quests
                 ? 'Пока просто продолжайте путешествие. Пройденные уровни и открытки уже сохранены.'

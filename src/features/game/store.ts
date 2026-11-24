@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { GAME } from '@/core/config/game';
+import { DEFAULT_POLICY, getAttemptPolicy, getConfiguredPolicy, setAttemptPolicy } from '@/core/config/runtimePolicy';
 import { applyHint } from '@/core/engine/hints';
 import { shuffle, submitWord } from '@/core/engine/play';
 import { mulberry32 } from '@/core/engine/rng';
@@ -15,6 +16,7 @@ import {
   type SubmitResult,
 } from '@/core/engine/types';
 import { dayKey } from '@/core/time';
+import { addGameplayTime } from '@/features/analytics/sessionTelemetry';
 
 import {
   clearGameSnapshot,
@@ -48,6 +50,7 @@ interface GameState {
   markRewardClaimed: () => void;
   finish: () => void;
   recordVisibleTime: (attemptId: string, elapsedMs: number) => void;
+  recordSemanticHelp: (attemptId: string) => void;
 }
 
 function persist(state: Pick<GameState, 'level' | 'play' | 'mode' | 'dailyDate' | 'coins' | 'disk' | 'completion' | 'snapshot' | 'hintsUsed' | 'wordDates' | 'mistakes'>): GameSnapshot | null {
@@ -93,7 +96,19 @@ export const useGame = create<GameState>((set, get) => ({
     const snapshot = get().snapshot;
     if (!snapshot || snapshot.attemptId !== attemptId || snapshot.completion.status !== 'playing'
       || !Number.isFinite(elapsedMs) || elapsedMs <= 0) return;
-    const next = { ...snapshot, activeTimeMs: (snapshot.activeTimeMs ?? 0) + Math.round(elapsedMs) };
+    const delta = Math.round(elapsedMs);
+    const next = { ...snapshot, revision: snapshot.revision + 1, updatedAt: new Date().toISOString(),
+      activeTimeMs: (snapshot.activeTimeMs ?? 0) + delta };
+    saveGameSnapshot(next.mode, next);
+    set({ snapshot: next });
+    addGameplayTime(delta);
+  },
+  recordSemanticHelp: (attemptId) => {
+    const snapshot = get().snapshot;
+    if (!snapshot || snapshot.attemptId !== attemptId || snapshot.completion.status !== 'playing'
+      || snapshot.semanticHelpUsed) return;
+    const next = { ...snapshot, semanticHelpUsed: true, revision: snapshot.revision + 1,
+      updatedAt: new Date().toISOString() };
     saveGameSnapshot(next.mode, next);
     set({ snapshot: next });
   },
@@ -111,8 +126,15 @@ export const useGame = create<GameState>((set, get) => ({
       wordDates: restored?.snapshot.wordDates ?? {},
       mistakes: restored?.snapshot.mistakes ?? 0,
     };
-    const snapshot = persist(next);
-    set({ ...next, completion: snapshot?.completion ?? completion, snapshot });
+    const previousPolicy = getAttemptPolicy();
+    setAttemptPolicy(restored ? restored.snapshot.runtimePolicy ?? DEFAULT_POLICY : getConfiguredPolicy());
+    try {
+      const snapshot = persist(next);
+      set({ ...next, completion: snapshot?.completion ?? completion, snapshot });
+    } catch (error) {
+      setAttemptPolicy(previousPolicy);
+      throw error;
+    }
   },
   submit: (word) => {
     const cur = get().play;
@@ -128,7 +150,10 @@ export const useGame = create<GameState>((set, get) => ({
     const mistakes = result.kind === 'invalid' || result.kind === 'blocked'
       || result.kind === 'constraint' || result.kind === 'duplicate'
       ? get().mistakes + 1 : get().mistakes;
-    const next = { ...get(), play: state, coins, lastResult: result, completion, wordDates, mistakes };
+    const previous = get().snapshot;
+    const next = { ...get(), play: state, coins, lastResult: result, completion, wordDates, mistakes,
+      snapshot: previous && result.kind === 'grid'
+        ? { ...previous, lastSuccessAt: new Date().toISOString() } : previous };
     const snapshot = persist(next);
     set({ play: state, coins, lastResult: result, completion: snapshot?.completion ?? completion, snapshot, wordDates, mistakes });
     return result;
@@ -182,5 +207,6 @@ export const useGame = create<GameState>((set, get) => ({
     const snapshot = persist(next);
     set({ completion: snapshot?.completion ?? completion, snapshot });
     clearGameSnapshot(get().mode, get().dailyDate ?? undefined);
+    setAttemptPolicy(null);
   },
 }));

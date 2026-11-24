@@ -1,0 +1,694 @@
+{
+  "game_id": "slova",
+  "run_id": "slova-weekly-global-word-2026-11-04",
+  "date": "2026-11-04",
+  "status": "measured",
+  "app_id": 6321823,
+  "product_version": "mixed; inspected nested word event stream schema_version=2; observed app versions through 0.1.28",
+  "geography": "AppMetrica without geography filter; external comparison worldwide",
+  "store": "Slova Android/RuStore project; competitors Google Play; GameAnalytics benchmarks iOS+Android",
+  "period_policy": "Product events: four completed Wednesday–Tuesday windows, 7 Oct–3 Nov. Retention: exact calendar day, only target days completed by 3 Nov. Exclude partial 4 Nov.",
+  "captured_via": "User-authorized Chrome, rendered AppMetrica report; no private API or credentials",
+  "events": {
+    "periods": [
+      [
+        "2026-10-07",
+        "2026-10-13"
+      ],
+      [
+        "2026-10-14",
+        "2026-10-20"
+      ],
+      [
+        "2026-10-21",
+        "2026-10-27"
+      ],
+      [
+        "2026-10-28",
+        "2026-11-03"
+      ]
+    ],
+    "events": {
+      "interstitial_shown": [
+        1876,
+        2336,
+        2320,
+        2860
+      ],
+      "rewarded_requested": [
+        1071,
+        1817,
+        1975,
+        2674
+      ],
+      "rewarded_completed": [
+        544,
+        1212,
+        1172,
+        1170
+      ],
+      "interstitial_eligible": [
+        1861,
+        2514,
+        2761,
+        3314
+      ],
+      "daily_entry_seen": [
+        2768,
+        4784,
+        4951,
+        5385
+      ],
+      "daily_entry_clicked": [
+        260,
+        430,
+        415,
+        487
+      ],
+      "word_submit_outcome": [
+        215640,
+        267233,
+        245221,
+        273835
+      ],
+      "puzzle_completed": [
+        20880,
+        24365,
+        21011,
+        23539
+      ],
+      "subscription_shop_viewed": [
+        null,
+        null,
+        null,
+        24
+      ],
+      "subscription_form_opened": [
+        null,
+        null,
+        null,
+        2
+      ],
+      "onboarding_field_ready": [
+        434,
+        450,
+        418,
+        433
+      ]
+    },
+    "userDays": {
+      "word_submit_outcome": [
+        1422,
+        1819,
+        1802,
+        1951
+      ],
+      "puzzle_completed": [
+        1073,
+        1472,
+        1468,
+        1637
+      ],
+      "daily_entry_seen": [
+        791,
+        1270,
+        1322,
+        1521
+      ],
+      "daily_entry_clicked": [
+        152,
+        234,
+        210,
+        240
+      ],
+      "onboarding_field_ready": [
+        431,
+        449,
+        417,
+        432
+      ]
+    }
+  },
+  "word_schema2": {
+    "kinds": {
+      "invalid": [
+        104319,
+        141562,
+        133439,
+        154394
+      ],
+      "grid": [
+        71114,
+        83800,
+        73404,
+        82132
+      ],
+      "bonus": [
+        7440,
+        9611,
+        8994,
+        10139
+      ],
+      "duplicate": [
+        6044,
+        7620,
+        7575,
+        8207
+      ],
+      "blocked": [
+        5242,
+        6916,
+        6409,
+        7445
+      ],
+      "constraint": [
+        963,
+        1145,
+        1126,
+        1149
+      ]
+    },
+    "totals": [
+      195122,
+      250654,
+      230947,
+      263466
+    ]
+  },
+  "ratios": {
+    "rewarded": {
+      "values": [
+        50.79365079365079,
+        66.7033571821684,
+        59.34177215189873,
+        43.754674644727
+      ],
+      "lastDeltaPP": -15.587097507171734,
+      "lastRelativePct": -26.26665322240971,
+      "firstToLastPP": -7.038976148923794,
+      "firstToLastRelativePct": -13.857984293193725
+    },
+    "invalid": {
+      "values": [
+        53.46347413413146,
+        56.47705602144789,
+        57.77905753268065,
+        58.601109820622014
+      ],
+      "lastDeltaPP": 0.8220522879413608,
+      "lastRelativePct": 1.4227512926745067,
+      "firstToLastPP": 5.137635686490555,
+      "firstToLastRelativePct": 9.609618098519057
+    },
+    "accepted": {
+      "values": [
+        40.258914935271264,
+        37.266909764057225,
+        35.67831580405894,
+        35.02197627018287
+      ],
+      "lastDeltaPP": -0.6563395338760714,
+      "lastRelativePct": -1.8396034652549464,
+      "firstToLastPP": -5.236938665088395,
+      "firstToLastRelativePct": -13.008146576996438
+    },
+    "daily": {
+      "values": [
+        9.393063583815028,
+        8.988294314381271,
+        8.382145021207837,
+        9.04363974001857
+      ],
+      "lastDeltaPP": 0.661494718810733,
+      "lastRelativePct": 7.891711693570946,
+      "firstToLastPP": -0.3494238437964583,
+      "firstToLastRelativePct": -3.720019998571522
+    }
+  },
+  "retention": {
+    "raw": [
+      {
+        "date": "2026-10-05",
+        "n": 53,
+        "d1": 22,
+        "d7": 11,
+        "d14": 5
+      },
+      {
+        "date": "2026-10-06",
+        "n": 53,
+        "d1": 22,
+        "d7": 7,
+        "d14": 6
+      },
+      {
+        "date": "2026-10-07",
+        "n": 46,
+        "d1": 19,
+        "d7": 5,
+        "d14": 6
+      },
+      {
+        "date": "2026-10-08",
+        "n": 63,
+        "d1": 24,
+        "d7": 12,
+        "d14": 4
+      },
+      {
+        "date": "2026-10-09",
+        "n": 48,
+        "d1": 16,
+        "d7": 10,
+        "d14": 4
+      },
+      {
+        "date": "2026-10-10",
+        "n": 26,
+        "d1": 6,
+        "d7": 4,
+        "d14": 3
+      },
+      {
+        "date": "2026-10-11",
+        "n": 54,
+        "d1": 21,
+        "d7": 3,
+        "d14": 2
+      },
+      {
+        "date": "2026-10-12",
+        "n": 85,
+        "d1": 33,
+        "d7": 14,
+        "d14": 11
+      },
+      {
+        "date": "2026-10-13",
+        "n": 110,
+        "d1": 50,
+        "d7": 18,
+        "d14": 10
+      },
+      {
+        "date": "2026-10-14",
+        "n": 77,
+        "d1": 29,
+        "d7": 12,
+        "d14": 11
+      },
+      {
+        "date": "2026-10-15",
+        "n": 74,
+        "d1": 30,
+        "d7": 6,
+        "d14": 4
+      },
+      {
+        "date": "2026-10-16",
+        "n": 59,
+        "d1": 27,
+        "d7": 6,
+        "d14": 3
+      },
+      {
+        "date": "2026-10-17",
+        "n": 53,
+        "d1": 23,
+        "d7": 8,
+        "d14": 3
+      },
+      {
+        "date": "2026-10-18",
+        "n": 60,
+        "d1": 19,
+        "d7": 6,
+        "d14": 8
+      },
+      {
+        "date": "2026-10-19",
+        "n": 74,
+        "d1": 32,
+        "d7": 12,
+        "d14": 9
+      },
+      {
+        "date": "2026-10-20",
+        "n": 68,
+        "d1": 29,
+        "d7": 12,
+        "d14": 8
+      },
+      {
+        "date": "2026-10-21",
+        "n": 70,
+        "d1": 20,
+        "d7": 7,
+        "d14": null
+      },
+      {
+        "date": "2026-10-22",
+        "n": 46,
+        "d1": 14,
+        "d7": 6,
+        "d14": null
+      },
+      {
+        "date": "2026-10-23",
+        "n": 41,
+        "d1": 10,
+        "d7": 5,
+        "d14": null
+      },
+      {
+        "date": "2026-10-24",
+        "n": 49,
+        "d1": 14,
+        "d7": 7,
+        "d14": null
+      },
+      {
+        "date": "2026-10-25",
+        "n": 51,
+        "d1": 17,
+        "d7": 8,
+        "d14": null
+      },
+      {
+        "date": "2026-10-26",
+        "n": 91,
+        "d1": 30,
+        "d7": 7,
+        "d14": null
+      },
+      {
+        "date": "2026-10-27",
+        "n": 68,
+        "d1": 22,
+        "d7": 10,
+        "d14": null
+      },
+      {
+        "date": "2026-10-28",
+        "n": 65,
+        "d1": 27,
+        "d7": null,
+        "d14": null
+      },
+      {
+        "date": "2026-10-29",
+        "n": 57,
+        "d1": 27,
+        "d7": null,
+        "d14": null
+      },
+      {
+        "date": "2026-10-30",
+        "n": 56,
+        "d1": 21,
+        "d7": null,
+        "d14": null
+      },
+      {
+        "date": "2026-10-31",
+        "n": 59,
+        "d1": 27,
+        "d7": null,
+        "d14": null
+      },
+      {
+        "date": "2026-11-01",
+        "n": 55,
+        "d1": 18,
+        "d7": null,
+        "d14": null
+      },
+      {
+        "date": "2026-11-02",
+        "n": 76,
+        "d1": 29,
+        "d7": null,
+        "d14": null
+      }
+    ],
+    "d1": [
+      {
+        "from": "2026-10-06",
+        "to": "2026-10-12",
+        "days": 7,
+        "n": 375,
+        "k": 141,
+        "pct": 37.6
+      },
+      {
+        "from": "2026-10-13",
+        "to": "2026-10-19",
+        "days": 7,
+        "n": 507,
+        "k": 210,
+        "pct": 41.42011834319526
+      },
+      {
+        "from": "2026-10-20",
+        "to": "2026-10-26",
+        "days": 7,
+        "n": 416,
+        "k": 134,
+        "pct": 32.21153846153846
+      },
+      {
+        "from": "2026-10-27",
+        "to": "2026-11-02",
+        "days": 7,
+        "n": 436,
+        "k": 171,
+        "pct": 39.22018348623853
+      }
+    ],
+    "d7": [
+      {
+        "from": "2026-10-07",
+        "to": "2026-10-13",
+        "days": 7,
+        "n": 432,
+        "k": 66,
+        "pct": 15.277777777777779
+      },
+      {
+        "from": "2026-10-14",
+        "to": "2026-10-20",
+        "days": 7,
+        "n": 465,
+        "k": 62,
+        "pct": 13.333333333333334
+      },
+      {
+        "from": "2026-10-21",
+        "to": "2026-10-27",
+        "days": 7,
+        "n": 416,
+        "k": 50,
+        "pct": 12.01923076923077
+      }
+    ],
+    "d14": [
+      {
+        "from": "2026-10-07",
+        "to": "2026-10-13",
+        "days": 7,
+        "n": 432,
+        "k": 40,
+        "pct": 9.25925925925926
+      },
+      {
+        "from": "2026-10-14",
+        "to": "2026-10-20",
+        "days": 7,
+        "n": 465,
+        "k": 46,
+        "pct": 9.89247311827957
+      }
+    ],
+    "overall": {
+      "d1": {
+        "from": "2026-10-05",
+        "to": "2026-11-02",
+        "days": 29,
+        "n": 1787,
+        "k": 678,
+        "pct": 37.94068270844991
+      },
+      "d7": {
+        "from": "2026-10-05",
+        "to": "2026-10-27",
+        "days": 23,
+        "n": 1419,
+        "k": 196,
+        "pct": 13.812544045102184
+      },
+      "d14": {
+        "from": "2026-10-05",
+        "to": "2026-10-20",
+        "days": 16,
+        "n": 1003,
+        "k": 97,
+        "pct": 9.67098703888335
+      }
+    }
+  },
+  "benchmark": {
+    "ranking": {
+      "source": "https://www.appbrain.com/apps/popular/word-games",
+      "as_of": "2026-11-04",
+      "criterion": "Worldwide Google Play Word installs over last 30 days",
+      "titles": [
+        {
+          "rank": 1,
+          "name": "Words of Wonders: Crossword",
+          "publisher": "Fugo",
+          "d1": null,
+          "d7": null,
+          "ad_free_conversion": null,
+          "rewarded_completed_per_request": null
+        },
+        {
+          "rank": 2,
+          "name": "Word Search Explorer",
+          "publisher": "PlaySimple",
+          "d1": null,
+          "d7": null,
+          "ad_free_conversion": null,
+          "rewarded_completed_per_request": null
+        },
+        {
+          "rank": 3,
+          "name": "Zen Word",
+          "publisher": "Oakever",
+          "d1": null,
+          "d7": null,
+          "ad_free_conversion": null,
+          "rewarded_completed_per_request": null
+        }
+      ],
+      "null_meaning": "No compatible public per-title value found; not zero"
+    },
+    "word_median": {
+      "source": "https://www.gameanalytics.com/reports/2025-mobile-gaming-benchmarks",
+      "data_year": 2024,
+      "platforms": [
+        "iOS",
+        "Android"
+      ],
+      "geography": "worldwide",
+      "sample_games": 11600,
+      "d1_monthly_range_pct": [
+        17.55,
+        19.73
+      ],
+      "d7_monthly_range_pct": [
+        3.77,
+        4.67
+      ],
+      "range_meaning": "min and max published monthly genre medians; not a confidence interval"
+    },
+    "mobile_p90": {
+      "source": "https://www.gameanalytics.com/reports/2026-mobile-pc-gaming-benchmarks",
+      "data_year": 2025,
+      "platforms": [
+        "iOS",
+        "Android"
+      ],
+      "geography": "worldwide",
+      "genres": "all mobile, no Word table available",
+      "sample_games_min": 16000,
+      "minimum_mau": 1000,
+      "d1_approx_pct": 40,
+      "d7_approx_range_pct": [
+        11,
+        12
+      ]
+    },
+    "method_source": "https://docs.gameanalytics.com/events-metrics-and-filtering/metrics/",
+    "comparability": "GA exact calendar UTC; AppMetrica calendar with app timezone not verified. Different years, OS/store/geography/acquisition and game mix. No exact rank for Slova inferred."
+  },
+  "limitations": [
+    "Live reports may backfill events; this is a snapshot. AppMetrica displayed service limitations.",
+    "Event ratios are not joined user funnels or causal effects; repeated events within a user are correlated.",
+    "Weekly unique users cannot be summed from daily unique users. userDays is sum of daily users and explicitly not WAU.",
+    "Nested word properties cover the main schema2 stream, not every legacy flat event. Version/level/content mix remains uncontrolled.",
+    "rewarded_completed/requested is a custom app result ratio, not SDK fill rate or video completion among impressions.",
+    "No revenue, ROAS or actual sale count was inferred from ad/subscription event counts.",
+    "Null retention and missing pre-launch subscription windows are unavailable, not zero."
+  ],
+  "evidence": [
+    {
+      "id": "WEEK-20261104-UI",
+      "source": "https://appmetrica.yandex.com/statistic?report=events&appId=6321823&period=month&group=day&accuracy=medium",
+      "date": "2026-11-04",
+      "type": "observation",
+      "limitation": "UI daily counts aggregated by disjoint full weeks; current filters without app-version restrictions"
+    },
+    {
+      "id": "WEEK-20261104-RET",
+      "source": "https://appmetrica.yandex.com/statistic?report=retention&appId=6321823&period=month&group=day&accuracy=medium",
+      "date": "2026-11-04",
+      "type": "observation",
+      "limitation": "Calendar retention, mature targets only, weeks about 400–500 installs"
+    },
+    {
+      "id": "WEEK-20261104-RANK",
+      "source": "https://www.appbrain.com/apps/popular/word-games",
+      "date": "2026-11-04",
+      "type": "observation",
+      "limitation": "Install ranking; does not reveal retention or monetization"
+    },
+    {
+      "id": "WEEK-20261104-GA24",
+      "source": "https://www.gameanalytics.com/reports/2025-mobile-gaming-benchmarks",
+      "date": "2026-11-04",
+      "type": "observation",
+      "limitation": "2024 global Word medians, both OS"
+    },
+    {
+      "id": "WEEK-20261104-GA25",
+      "source": "https://www.gameanalytics.com/reports/2026-mobile-pc-gaming-benchmarks",
+      "date": "2026-11-04",
+      "type": "observation",
+      "limitation": "2025 global mobile all-genre P90 approximate figures, both OS"
+    },
+    {
+      "id": "WEEK-20261104-CAUSE",
+      "source": "Interpretation of weekly observations",
+      "date": "2026-11-04",
+      "type": "hypothesis",
+      "limitation": "Rewarded readiness, difficulty/word policy and acquisition mix need separate verification"
+    }
+  ],
+  "decisions": [
+    {
+      "priority": 1,
+      "action": "Diagnose rewarded wheel by placement, app version and lifecycle stage",
+      "evidence_ids": [
+        "WEEK-20261104-UI"
+      ],
+      "reconsider_when": "A matched version/placement split explains the change without delivery failures"
+    },
+    {
+      "priority": 2,
+      "action": "Audit invalid submits within the same level/content/app-version segments",
+      "evidence_ids": [
+        "WEEK-20261104-UI"
+      ],
+      "reconsider_when": "The trend is explained by progression mix and within-level rates stay stable"
+    },
+    {
+      "priority": 3,
+      "action": "Monitor D7 on the next mature cohort, split paid/organic and versions",
+      "evidence_ids": [
+        "WEEK-20261104-RET"
+      ],
+      "reconsider_when": "Later mature cohorts recover or the apparent change remains within uncertainty"
+    }
+  ],
+  "next_action": "Use matched placement/version and level/content cohorts to diagnose the two strongest observed deteriorations; do not attribute genre medians to specific competitors."
+}

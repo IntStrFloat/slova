@@ -2,7 +2,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
-import { track } from '@/features/analytics';
+import { track, trackOnce } from '@/features/analytics';
+import { MARATHON } from '@/core/config/marathon';
 import { getMarathonStatus, useMarathon } from '@/features/marathon';
 import { startFocusedRefresh } from '@/features/retention-ui/foregroundRefresh';
 import { AppButton, AppText, colors, GlassPanel, Icon } from '@/ui';
@@ -11,7 +12,14 @@ export function MarathonEntry() {
   const router = useRouter();
   const marathon = useMarathon();
   const [now, setNow] = useState(Date.now);
-  useFocusEffect(useCallback(() => startFocusedRefresh(() => setNow(Date.now())), []));
+  useFocusEffect(useCallback(() => startFocusedRefresh(() => {
+    const at = Date.now();
+    setNow(at);
+    if (at >= MARATHON.startAtMs && at < MARATHON.endAtMs) {
+      trackOnce('feature_eligible', MARATHON.id, { feature: 'marathon', eligibility_version: MARATHON.id,
+        eventInstanceId: MARATHON.id, occurredAtMs: at });
+    }
+  }), []));
   const event = getMarathonStatus(marathon, now);
   if (event.status === 'ended' && event.completionCount === 0) return null;
   return <GlassPanel tone="cream" style={{ gap: 8, borderBottomWidth: 3 }}>

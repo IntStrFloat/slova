@@ -57,7 +57,7 @@ export function isStalled(activeSeconds: number, failedAttempts: number, mode: H
     activeSeconds < 0 || failedAttempts < 0) return false;
   if (mode === 'intro') return activeSeconds >= 18;
   return (activeSeconds >= 60 && failedAttempts >= 3)
-    || (activeSeconds >= 120 && failedAttempts >= 1);
+    || activeSeconds >= 120;
 }
 
 /** Persist before displaying so a brief process restart cannot reset either cap. */

@@ -1,0 +1,32 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.appmetrica'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.appmetrica"
+  // The QA CMake fixture must use Expo's installed/pinned NDK, not AGP's auto-download default.
+  ndkVersion rootProject.ext.ndkVersion
+  buildFeatures { buildConfig true }
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+    buildConfigField 'boolean', 'SLOVA_CRASH_QA', (findProperty('slova.crashQa') == 'true' ? 'true' : 'false')
+    consumerProguardFiles 'consumer-rules.pro'
+  }
+  if (findProperty('slova.crashQa') == 'true') {
+    sourceSets.main.java.srcDir 'src/crashQa/java'
+    externalNativeBuild { cmake { path file('src/crashQa/cpp/CMakeLists.txt') } }
+  }
+}
+
+dependencies {
+  // Версия синхронизирована с plugins/withAppMetrica.js (активация SDK в MainApplication).
+  // Артефакт на mavenCentral (репозиторий уже в generated build.gradle, как и для активации).
+  implementation "io.appmetrica.analytics:analytics:8.6.0"
+  // Actual optional Crashpad handler; the analytics-ndkcrashes-api contract alone is a no-op.
+  implementation "io.appmetrica.analytics:analytics-ndk-crashes:3.1.0"
+}

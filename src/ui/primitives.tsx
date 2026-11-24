@@ -1,27 +1,31 @@
 import { ReactNode } from 'react';
 import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { trackUiAction } from '@/features/analytics/navigationTelemetry';
 
 import { AppText } from './AppText';
 import { Icon, type IconName } from './Icon';
 import { colors, radius, shadowCard } from './theme';
 
-type ButtonVariant = 'primary' | 'accent' | 'glass';
+type ButtonVariant = 'primary' | 'accent' | 'glass' | 'cream';
 
 const VARIANT_BG: Record<ButtonVariant, string> = {
   primary: colors.playGreenDark,
   accent: colors.amber,
   glass: colors.glassStrong,
+  cream: colors.cream,
 };
 const VARIANT_EDGE: Record<ButtonVariant, string> = {
   primary: colors.playGreen,
   accent: colors.amberDeep,
   glass: colors.glassBorder,
+  cream: colors.goldBorder,
 };
 const VARIANT_FG: Record<ButtonVariant, string> = {
   primary: colors.onGreen,
   accent: colors.onAmber,
   glass: colors.text,
+  cream: colors.brown,
 };
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -33,6 +37,7 @@ export function AppButton({
   icon,
   large = false,
   disabled = false,
+  analyticsId,
   style,
 }: {
   label: string;
@@ -41,15 +46,20 @@ export function AppButton({
   icon?: IconName;
   large?: boolean;
   disabled?: boolean;
+  analyticsId?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const scale = useSharedValue(1);
   const reducedMotion = useReducedMotion();
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
+  const foreground = disabled && variant !== 'cream' ? colors.disabled : VARIANT_FG[variant];
 
   return (
     <AnimatedPressable
-      onPress={disabled ? undefined : onPress}
+      onPress={disabled ? undefined : () => {
+        if (analyticsId) trackUiAction(analyticsId);
+        onPress();
+      }}
       onPressIn={() => { if (!disabled && !reducedMotion) scale.set(withTiming(0.97, { duration: 110 })); }}
       onPressOut={() => { scale.set(withTiming(1, { duration: 140 })); }}
       disabled={disabled}
@@ -60,24 +70,24 @@ export function AppButton({
         styles.btn,
         shadowCard,
         {
-          backgroundColor: disabled ? colors.glass : VARIANT_BG[variant],
+          backgroundColor: disabled ? variant === 'cream' ? colors.creamDeep : colors.glass : VARIANT_BG[variant],
           minHeight: large ? 62 : 52,
           paddingVertical: large ? 16 : 12,
           paddingHorizontal: large ? 28 : 22,
-          borderColor: disabled ? colors.glassBorder : VARIANT_EDGE[variant],
+          borderColor: disabled && variant !== 'cream' ? colors.glassBorder : VARIANT_EDGE[variant],
           opacity: disabled ? 0.62 : 1,
         },
         style,
         animatedStyle,
       ]}
     >
-      {icon ? <Icon name={icon} size={large ? 26 : 22} color={disabled ? colors.disabled : VARIANT_FG[variant]} /> : null}
+      {icon ? <Icon name={icon} size={large ? 26 : 22} color={foreground} /> : null}
       <AppText
         preset={large ? 'title' : 'label'}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.75}
-        style={{ color: disabled ? colors.disabled : VARIANT_FG[variant], flexShrink: 1, textAlign: 'center' }}
+        style={{ color: foreground, flexShrink: 1, textAlign: 'center' }}
       >
         {label}
       </AppText>

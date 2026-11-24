@@ -2,6 +2,9 @@ import { create } from 'zustand';
 
 import { getJSON, getString, KEYS, storage } from '@/core/storage';
 import { ECONOMY } from '@/core/config/economy';
+import { isAnalyticsCollectionEnabled, trackOnce } from '@/features/analytics';
+import { captureRetentionMilestoneTimes } from './milestones';
+import { recordRetentionEligibilityUse } from '@/features/remote-config/consumption';
 
 import {
   compensateUnavailableQuests,
@@ -178,16 +181,20 @@ export const useRetention = create<RetentionState>((set, get) => ({
     const invalidated = getFeatureGates(prepared).quests
       && hasUnavailablePinnedContent(pinned, verified.contentProof, prepared);
     const next = compensateUnavailableQuests(prepared, verified, invalidated).snapshot;
+    recordRetentionEligibilityUse(get());
     if (JSON.stringify(next) === JSON.stringify(get() as RetentionSnapshot)) return;
-    persist(next);
-    set(next);
+    const timed = captureRetentionMilestoneTimes(get(), next, Date.now(), typeof isAnalyticsCollectionEnabled === 'function' && isAnalyticsCollectionEnabled());
+    persist(timed);
+    set(timed);
   },
   recordCompletion: (action) => {
     const verified = verifiedForAction(get(), action.actionDay);
     const result = reduceCompletion(get(), { ...action, ...verified });
     if (!result.accepted) return { accepted: false, effects: result.effects };
-    persist(result.snapshot);
-    set(result.snapshot);
+    recordRetentionEligibilityUse(get());
+    const timed = captureRetentionMilestoneTimes(get(), result.snapshot, action.completedAtMs, typeof isAnalyticsCollectionEnabled === 'function' && isAnalyticsCollectionEnabled());
+    persist(timed);
+    set(timed);
     return { accepted: true, effects: result.effects };
   },
   recordWord: (action) => {
@@ -199,8 +206,10 @@ export const useRetention = create<RetentionState>((set, get) => ({
       availableBonusWords: verified.availableBonusWords + (action.manual && action.bonus ? 1 : 0),
     });
     if (!result.accepted) return { accepted: false, effects: [] };
-    persist(result.snapshot);
-    set(result.snapshot);
+    recordRetentionEligibilityUse(get());
+    const timed = captureRetentionMilestoneTimes(get(), result.snapshot, action.occurredAtMs ?? Date.now(), typeof isAnalyticsCollectionEnabled === 'function' && isAnalyticsCollectionEnabled());
+    persist(timed);
+    set(timed);
     return { accepted: true, effects: result.effects };
   },
   reconcileRewards: (applyCoinOnce) => {
@@ -210,7 +219,11 @@ export const useRetention = create<RetentionState>((set, get) => ({
     for (const [id, amount] of outstanding) {
       // A false result means the effect was already in the wallet ledger.
       // Wallet persistence errors throw and retain this outbox entry.
-      applyCoinOnce(id, amount);
+      try { applyCoinOnce(id, amount); } catch (error) {
+        try { trackOnce('reward_grant_failed', `${id}:failure`, { rewardId: id, operation_id: id,
+          attempt_no: 1, source: 'retention', reason: 'save_failed', retryable: true }); } catch { /* preserve the pending reward */ }
+        throw error;
+      }
       const next = copy(get());
       delete next.pendingCoinGrants[id];
       persist(next);
@@ -260,8 +273,9 @@ export const useRetention = create<RetentionState>((set, get) => ({
       next.rewardGrants[allId] = { id: allId, kind: 'coins', amount, source: 'quest' };
       next.pendingCoinGrants[allId] = amount;
     }
-    persist(next);
-    set(next);
+    const timed = captureRetentionMilestoneTimes(get(), next, Date.now(), typeof isAnalyticsCollectionEnabled === 'function' && isAnalyticsCollectionEnabled());
+    persist(timed);
+    set(timed);
     return true;
   },
 }));

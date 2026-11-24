@@ -4,6 +4,7 @@ import { ECONOMY } from '@/core/config/economy';
 import { getString, KEYS, storage } from '@/core/storage';
 import { dayKey, daysBetween, effectiveToday, isDayKey } from '@/core/time';
 import { useCurrency } from '@/features/currency';
+import { trackOnce } from '@/features/analytics';
 
 export interface DailyBonusState {
   lastDay: string | null;
@@ -27,6 +28,7 @@ interface ClaimResult {
   reward: number | null;
   day: number;
   error?: 'save_failed';
+  occurredAtMs?: number;
 }
 
 const CAL = ECONOMY.daily.loginCalendar;
@@ -102,8 +104,9 @@ export function loadDailyBonus(): Saved {
 function persist(next: Saved, previous: Saved): boolean {
   try {
     storage.set(KEYS.dailyBonusBackup, JSON.stringify(previous));
-    storage.set(KEYS.dailyBonus, JSON.stringify(next));
-    return true;
+    const serialized = JSON.stringify(next);
+    storage.set(KEYS.dailyBonus, serialized);
+    return storage.getString(KEYS.dailyBonus) === serialized;
   } catch {
     return false;
   }
@@ -139,6 +142,8 @@ export const useDailyBonus = create<Store>((set, get) => ({
         }
       }
     } catch {
+      try { trackOnce('reward_grant_failed', `${pending.effectId}:failure`, { rewardId: pending.effectId,
+        operation_id: pending.effectId, attempt_no: 1, source: 'daily_bonus', reason: 'save_failed', retryable: true }); } catch { /* retry preserved */ }
       return { reward: null, day: pending.index + 1, error: 'save_failed' };
     }
     const previous = saved(get);
@@ -151,7 +156,7 @@ export const useDailyBonus = create<Store>((set, get) => ({
     };
     if (!persist(next, previous)) return { reward: null, day: pending.index + 1, error: 'save_failed' };
     set(next);
-    return { reward: pending.reward, day: pending.index + 1 };
+    return { reward: pending.reward, day: pending.index + 1, occurredAtMs: Date.now() };
   },
   claim: () => {
     if (get().pendingGift) return get().reconcilePending();

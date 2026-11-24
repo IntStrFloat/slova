@@ -1,6 +1,7 @@
 import { ECONOMY } from '@/core/config/economy';
 import { COLLECTIBLE_CATALOG, RETENTION, type CollectibleKind } from '@/core/config/retention';
 import { normalizeWord } from '@/core/engine/normalize';
+import { getRetentionUnlocks } from '@/core/config/runtimePolicy';
 
 export type PuzzleMode = 'campaign' | 'daily';
 export type RewardKind = 'coins' | 'ticket' | 'collectible';
@@ -101,6 +102,9 @@ export interface RetentionSnapshot {
   completionEffectIds: Record<string, string[]>;
   pendingCoinGrants: Record<string, number>;
   ticketSpendIds: Record<string, 1>;
+  /** Original domain timestamps; legacy milestones deliberately have no entry. */
+  analyticsTimes?: Record<string, number>;
+  analyticsSuppressed?: Record<string, 1>;
 }
 
 export interface CompletionAction {
@@ -121,6 +125,7 @@ export interface CompletionAction {
 }
 
 export interface WordAction {
+  occurredAtMs?: number;
   mode: PuzzleMode;
   puzzleKey: string;
   puzzleDay?: string;
@@ -382,15 +387,15 @@ export function getCompletionRewards(
 
 export function getFeatureGates(snapshot: RetentionSnapshot) {
   const wins = campaignWins(snapshot);
-  const gate = RETENTION.unlockAfterCampaignWins;
+  const gate = getRetentionUnlocks();
   const flags = RETENTION.featureFlags;
   return {
     campaignWins: wins,
     journey: wins >= gate.journey,
     daily: flags.daily && wins >= gate.daily,
     week: flags.week && wins >= gate.week,
-    quests: flags.quests && wins >= gate.quests,
-    event: flags.event && wins >= gate.event,
+    quests: flags.quests && (Object.keys(snapshot.questInstances).length > 0 || wins >= gate.quests),
+    event: flags.event && (Object.keys(snapshot.eventInstances).length > 0 || wins >= gate.event),
   };
 }
 

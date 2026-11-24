@@ -3,6 +3,7 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <application>
     <receiver android:name="expo.modules.reminders.ReminderReceiver" android:exported="false" />
+    <receiver android:name="expo.modules.reminders.RemotePushReceiptReceiver" android:exported="false" />
     <receiver android:name="expo.modules.reminders.ReminderBootReceiver" android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.BOOT_COMPLETED" />

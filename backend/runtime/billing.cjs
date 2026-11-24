@@ -1,12 +1,15 @@
 const crypto = require('node:crypto');
 const { Buffer } = require('node:buffer');
 const { isDeepStrictEqual } = require('node:util');
+const { isEmail } = require('./email.cjs');
+const { createBillingAnalytics, snapshotBilling } = require('./billing-analytics.cjs');
 
 const DAY = 86_400_000;
 const RETRY_WINDOW = 23 * 60 * 60 * 1000; // YooKassa retains idempotence keys for 24h.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROVIDER_ID = /^[A-Za-z0-9_-]{1,64}$/;
-const EMAIL = /^[^\s@\u0000-\u001f]{1,64}@[^\s@\u0000-\u001f.]+(?:\.[^\s@\u0000-\u001f.]+)+$/;
+// Preserve old immutable attempts for reconciliation; new input uses SMTP rules.
+const LEDGER_EMAIL = /^[^\s@\u0000-\u001f]{1,64}@[^\s@\u0000-\u001f.]+(?:\.[^\s@\u0000-\u001f.]+)+$/;
 const RECOVERY = /^[A-Za-z0-9_-]{32}$/;
 const DEFAULT_PLAN = Object.freeze({
   id: 'no_ads_30', title: 'Без рекламных пауз', amount: '99.00', currency: 'RUB',
@@ -35,7 +38,7 @@ function httpsUrl(value) {
 
 // This store is independent from progress/profile writes. Run one backend process
 // for this JSON store; the queue serializes short read/check/write transactions.
-function createBilling({ store, gateway, notices, now = () => new Date(), enabled = false, mode = 'test', plan = DEFAULT_PLAN }) {
+function createYooKassaBilling({ store, gateway, notices, now = () => new Date(), enabled = false, mode = 'test', plan = DEFAULT_PLAN, analyticsOptions = {} }) {
   const currentPlan = { ...DEFAULT_PLAN, ...plan };
   if (!store || typeof store.read !== 'function' || typeof store.write !== 'function' ||
       !['test', 'live'].includes(mode) || currentPlan.currency !== 'RUB' || !cents(currentPlan.amount) ||
@@ -74,13 +77,17 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
   async function transaction(action) {
     const task = queue.then(() => {
       const data = read();
+      const before = snapshotBilling(data);
       const result = action(data);
+      analytics.capture(data, before);
       try { store.write(data); } catch { throw billingError('billing_store_unavailable', 503); }
       return result;
     });
     queue = task.catch(() => {});
     return task;
   }
+  const analytics = createBillingAnalytics({ ...analyticsOptions, read, transaction, now: clock, mode,
+    scope: JSON.stringify(['yookassa', mode]) });
   function requireAvailable() { if (!available) throw billingError('billing_unavailable', 503); }
   function subscriptionFor(data, userId) {
     return Object.values(data.subscriptions).find((sub) => sub.userId === userId) ?? null;
@@ -163,7 +170,7 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
         typeof attempt.planId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(attempt.planId) ||
         typeof attempt.consentVersion !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(attempt.consentVersion) ||
         typeof attempt.title !== 'string' || !attempt.title.trim() || attempt.title.length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(attempt.title) ||
-        typeof attempt.receiptEmail !== 'string' || attempt.receiptEmail.length > 254 || !EMAIL.test(attempt.receiptEmail) ||
+        typeof attempt.receiptEmail !== 'string' || attempt.receiptEmail.length > 254 || !LEDGER_EMAIL.test(attempt.receiptEmail) ||
         !Number.isSafeInteger(attempt.cancelGeneration) || attempt.cancelGeneration < 0 ||
         !Number.isSafeInteger(attempt.createdAt) || attempt.createdAt < 0 ||
         (attempt.firstSentAt !== null && (!Number.isSafeInteger(attempt.firstSentAt) || attempt.firstSentAt < attempt.createdAt)) ||
@@ -258,7 +265,10 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
         attempt.state = 'succeeded';
       } else if (payment.status === 'canceled' && attempt.state !== 'succeeded') {
         attempt.state = 'canceled';
-        if (attempt.kind === 'renewal') stopRecurring(sub);
+        if (attempt.kind === 'renewal') {
+          attempt.errorCode = 'billing_payment_canceled';
+          stopRecurring(sub);
+        }
       }
       if (attempt.state !== 'pending' && sub.pendingAttemptId === attemptId) sub.pendingAttemptId = null;
       return publicStatus(data, sub);
@@ -386,7 +396,6 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
     validUser(userId);
     if (typeof requestId !== 'string' || !UUID.test(requestId)) throw billingError('billing_bad_request_id');
     if (consentVersion !== currentPlan.consentVersion) throw billingError('billing_consent_required');
-    if (typeof email !== 'string' || email.length > 254 || !EMAIL.test(email)) throw billingError('billing_receipt_email_required');
     const attemptId = await transaction((data) => {
       if (data.requests[requestId]) {
         const attempt = data.attempts[data.requests[requestId]];
@@ -399,6 +408,7 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
         data.requests[requestId] = sub.pendingAttemptId;
         return sub.pendingAttemptId;
       }
+      if (!isEmail(email)) throw billingError('billing_receipt_email_required');
       if (sub && (sub.autoRenew || (sub.activeUntil ?? 0) > clock())) throw billingError('billing_already_subscribed', 409);
       if (!sub) {
         const id = crypto.randomUUID();
@@ -428,6 +438,25 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
     return transaction((data) => {
       const sub = subscriptionFor(data, userId);
       if (sub) stopRecurring(sub);
+      return publicStatus(data, sub);
+    });
+  }
+  async function updateEmail(userId, { email } = {}) {
+    validUser(userId);
+    if (!isEmail(email)) throw billingError('billing_receipt_email_required');
+    return transaction((data) => {
+      const sub = subscriptionFor(data, userId);
+      if (!sub) throw billingError('billing_subscription_not_found', 404);
+      if (sub.mode !== mode) throw billingError('billing_mode_conflict', 409);
+      if (sub.email === email) return publicStatus(data, sub);
+      // A dispatched or uncertain payment keeps its frozen receipt contact and
+      // idempotency payload. Reconcile it before allowing contact changes.
+      if (sub.pendingAttemptId) throw billingError('billing_email_change_pending', 409);
+      sub.email = email;
+      // Also invalidate prior notices if the player later switches back to an
+      // earlier address. No payment is pending, so no frozen attempt is changed.
+      sub.cancelGeneration += 1;
+      clearRenewalNotice(sub);
       return publicStatus(data, sub);
     });
   }
@@ -534,6 +563,7 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
     requireAvailable();
     const pendingIds = Object.values(read().attempts).filter((attempt) => attempt.state === 'pending').map((attempt) => attempt.id);
     let failures = 0;
+    let blockedNotices = 0;
     for (const id of pendingIds) {
       try { await reconcile(id); } catch { failures += 1; }
     }
@@ -546,6 +576,8 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
       let notice = null;
       if (noticeRequired) {
         try { notice = await notices.ensureNotice(captured); } catch { failures += 1; continue; }
+        if (notice?.ready !== true && !['renewal_notice_waiting', 'renewal_notice_too_early',
+          'renewal_notice_cancelled', 'renewal_notice_subscription_changed'].includes(notice?.reason)) blockedNotices += 1;
       }
       const id = await transaction((data) => {
         const sub = data.subscriptions[captured.id];
@@ -568,15 +600,49 @@ function createBilling({ store, gateway, notices, now = () => new Date(), enable
     for (const id of ids) {
       try { await reconcile(id); } catch { failures += 1; }
     }
-    return { attempted: ids.length, reconciled: pendingIds.length, failures };
+    return { attempted: ids.length, reconciled: pendingIds.length, failures, blockedNotices };
   }
   function runRenewals() {
     if (renewalRun) return renewalRun;
     renewalRun = renewals().finally(() => { renewalRun = null; });
     return renewalRun;
   }
+  // Process-local operator view only: aggregate counts, never contacts or IDs.
+  function diagnostics() {
+    const data = read();
+    const subscriptions = Object.values(data.subscriptions).filter((sub) => sub.mode === mode);
+    const attempts = Object.values(data.attempts).filter((attempt) => attempt.mode === mode);
+    const latest = new Map();
+    for (const attempt of attempts) latest.set(attempt.subscriptionId, attempt);
+    return {
+      pendingPayments: attempts.filter((attempt) => attempt.state === 'pending').length,
+      // Operational alert after 24h, including known provider IDs. This is not
+      // a payment expiry: only provider confirmation resolves the attempt.
+      stalePendingPayments: attempts.filter((attempt) => attempt.state === 'pending' &&
+        Number.isSafeInteger(attempt.createdAt) && clock() - attempt.createdAt >= DAY).length,
+      failedPayments: [...latest.values()].filter((attempt) => attempt.state === 'failed' ||
+        (attempt.kind === 'renewal' && attempt.state === 'canceled' && attempt.errorCode === 'billing_payment_canceled')).length,
+      manualReconciliationPayments: attempts.filter((attempt) => attempt.state === 'pending' &&
+        (attempt.errorCode === 'billing_manual_reconciliation_required' || (!attempt.paymentId &&
+          attempt.firstSentAt !== null && clock() - attempt.firstSentAt >= RETRY_WINDOW))).length,
+      overdueSubscriptions: subscriptions.filter((sub) => sub.autoRenew && (sub.activeUntil ?? Infinity) <= clock()).length,
+      invalidEmails: subscriptions.filter((sub) => !isEmail(sub.email)).length,
+      notices: typeof notices?.diagnostics === 'function' ? notices.diagnostics(subscriptions)
+        : { pending: 0, failed: 0, quarantined: 0 },
+    };
+  }
   return { catalog: () => ({ available: Boolean(available), mode, plan: { ...currentPlan } }),
-    status, checkout, cancel, recovery, restore, manage, webhook, runRenewals };
+    status, checkout, cancel, updateEmail, recovery, restore, manage, webhook, runRenewals, diagnostics,
+    setAnalyticsBinding: (userId, input) => { validUser(userId); return analytics.bind(userId, input); },
+    flushAnalytics: analytics.flush, analyticsDiagnostics: analytics.diagnostics,
+    reconcileAnalyticsImport: analytics.reconcileImport };
+}
+
+function createBilling(options) {
+  if (options.provider === 'robokassa' || options.gateway?.identity?.provider === 'robokassa') {
+    return require('./billing-robokassa.cjs').createRobokassaBilling(options);
+  }
+  return createYooKassaBilling(options);
 }
 
 module.exports = { createBilling, billingError, DEFAULT_PLAN };

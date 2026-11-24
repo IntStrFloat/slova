@@ -15,15 +15,19 @@ function buildContentCatalog(levelsDir) {
     .map(([version, catalog]) => [version, { levels: { ...catalog.levels } }]));
   const files = fs.readdirSync(levelsDir).filter((name) => /^world\d+\.json$/.test(name));
   if (files.length === 0) throw new Error('No shipped world packs found');
-  for (const file of files) {
+  const packs = files.map((file) => {
     const pack = JSON.parse(fs.readFileSync(path.join(levelsDir, file), 'utf8'));
     if (!Array.isArray(pack.levels) || pack.world !== file.slice(0, -5)) {
       throw new Error(`Invalid world pack: ${file}`);
     }
+    return { file, pack };
+  });
+  const campaignLevelCount = packs.reduce((sum, { pack }) => sum + pack.levels.length, 0);
+  for (const { file, pack } of packs) {
     for (const level of pack.levels) {
       const version = level.contentVersion ?? pack.contentVersion;
       if (typeof version !== 'string' || !VERSION.test(version) || INTRO_CATALOGS[version] ||
-          !Number.isSafeInteger(level.globalId) || level.globalId < 1 || level.globalId > 1000 ||
+          !Number.isSafeInteger(level.globalId) || level.globalId < 1 || level.globalId > campaignLevelCount ||
           !SHA256.test(level.fingerprint) || level.world !== pack.world ||
           !Array.isArray(level.letters) || level.letters.length < 3 ||
           level.letters.some((letter) => !LETTER.test(letter))) {

@@ -18,6 +18,7 @@ describe('worlds/landmarks', () => {
       cards.forEach(([id, threshold]) => {
         expect(landmarkUnlockedAt(`world${index + 1}`, threshold)?.id).toBe(id);
         expect(landmarkUnlockedAt(`world${index + 8}`, threshold + 500)?.id).toBe(`${id}-route2`);
+        expect(landmarkUnlockedAt(`world${index + 15}`, threshold + 1000)?.id).toBe(`${id}-route3`);
       });
     });
   });
@@ -35,15 +36,19 @@ describe('worlds/landmarks', () => {
     expect(landmarkUnlockedAt('world8', 505)?.id).toBe('paris-river-islands-route2');
     expect(landmarkUnlockedAt('world8', 510)?.id).toBe('eiffel-route2');
     expect(landmarkUnlockedAt('world14', 1000)?.id).toBe('spb-palacebridge-route2');
+    expect(landmarkUnlockedAt('world15', 1005)?.id).toBe('paris-river-islands-route3');
+    expect(landmarkUnlockedAt('world21', 1500)?.id).toBe('spb-palacebridge-route3');
     expect(landmarkUnlockedAt('world1', 11)).toBeNull();
     expect(landmarkUnlockedAt('world4', 266)).toBeNull();
   });
 
-  test('keeps all 14 world ranges, with no card gap exceeding ten levels', () => {
-    expect(WORLDS).toHaveLength(14);
+  test('keeps all 21 world ranges, with no card gap exceeding ten levels', () => {
+    expect(WORLDS).toHaveLength(21);
     expect(WORLDS[0]).toMatchObject({ startsAt: 1, endsAt: 90 });
     expect(WORLDS[6]).toMatchObject({ startsAt: 431, endsAt: 500 });
     expect(WORLDS[13]).toMatchObject({ startsAt: 931, endsAt: 1000 });
+    expect(WORLDS[14]).toMatchObject({ startsAt: 1001, endsAt: 1090 });
+    expect(WORLDS[20]).toMatchObject({ startsAt: 1431, endsAt: 1500 });
     for (const world of WORLDS) {
       let previous = world.startsAt - 1;
       for (const landmark of world.landmarks) {
@@ -54,10 +59,10 @@ describe('worlds/landmarks', () => {
       expect(previous).toBe(world.endsAt);
     }
     const cards = allLandmarks();
-    expect(cards).toHaveLength(116);
-    expect(new Set(cards.map((card) => card.id)).size).toBe(116);
+    expect(cards).toHaveLength(174);
+    expect(new Set(cards.map((card) => card.id)).size).toBe(174);
     expect(new Set(cards.map((card) => card.world))).toEqual(
-      new Set(Array.from({ length: 14 }, (_, index) => `world${index + 1}`)),
+      new Set(Array.from({ length: 21 }, (_, index) => `world${index + 1}`)),
     );
   });
 
@@ -68,7 +73,9 @@ describe('worlds/landmarks', () => {
     expect(routeCardProgress(10)).toMatchObject({ nextCardId: 'louvre', targetLevel: 20, remaining: 10 });
     expect(routeCardProgress(90)).toMatchObject({ nextCardId: 'newyork-battery', nextWorldId: 'world2', targetLevel: 100, remaining: 10 });
     expect(routeCardProgress(500)).toMatchObject({ nextCardId: 'paris-river-islands-route2', targetLevel: 505, remaining: 5 });
-    expect(routeCardProgress(1000)).toBeNull();
+    expect(routeCardProgress(1000)).toMatchObject({ nextCardId: 'paris-river-islands-route3', nextWorldId: 'world15', targetLevel: 1005, remaining: 5 });
+    expect(routeCardProgress(1499)).toMatchObject({ nextCardId: 'spb-palacebridge-route3', targetLevel: 1500, remaining: 1 });
+    expect(routeCardProgress(1500)).toBeNull();
   });
 
   test('backfills passed card milestones once without granting currency', () => {

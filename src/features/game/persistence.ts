@@ -1,5 +1,8 @@
 import { initPlayState, type CompletionSource, type HintType, type Level, type PlayState } from '@/core/engine/types';
 import { getJSON, getString, KEYS, removeKey, setJSON, storage } from '@/core/storage';
+import { getAnalyticsConsentEpoch } from '@/features/analytics';
+import { recordGameSave } from './saveTelemetry';
+import { DEFAULT_POLICY, getRuntimePolicy, restoreRuntimePolicy, type RuntimePolicySnapshot } from '@/core/config/runtimePolicy';
 
 /** Versioned, mode-separated in-level snapshots. */
 export const SNAPSHOT_VERSION = 2;
@@ -22,6 +25,12 @@ export interface GameSnapshot {
   createdAt?: string;
   /** Foreground, focused gameplay only; excludes menus and result overlays. */
   activeTimeMs?: number;
+  /** Undefined marks old telemetry; a changed consent epoch makes aggregates censored. */
+  measurementConsentEpoch?: number | null;
+  /** Persisted independently of letter hints so semantic-only wins remain assisted. */
+  semanticHelpUsed?: boolean;
+  /** Time of the last manually accepted target; never contains the submitted word. */
+  lastSuccessAt?: string;
   mode: PlayMode;
   attemptId: string;
   globalLevel: number;
@@ -31,6 +40,8 @@ export interface GameSnapshot {
   contentVersion: string;
   levelFingerprint: string;
   policyRevision: number | null;
+  /** Eligibility/ad policy for this attempt; missing legacy fields always mean local control. */
+  runtimePolicy?: RuntimePolicySnapshot;
   filled: Record<string, string>;
   solvedWords: string[];
   foundBonus: string[];
@@ -97,7 +108,9 @@ function dailySnapshots(): Record<string, GameSnapshot> {
 
 function writeCritical(key: string, value: unknown): void {
   // The caller must know when a gameplay write failed before announcing success.
-  storage.set(key, JSON.stringify(value));
+  const encoded = JSON.stringify(value);
+  storage.set(key, encoded);
+  if (storage.getString(key) !== encoded) throw new Error('Gameplay save was not persisted');
 }
 
 function sameMultiset(a: string[], b: string[]): boolean {
@@ -143,6 +156,10 @@ export function serializeGame(
     updatedAt: new Date().toISOString(),
     createdAt: previous ? previous.createdAt : new Date().toISOString(),
     activeTimeMs: previous?.activeTimeMs ?? 0,
+    measurementConsentEpoch: previous ? previous.measurementConsentEpoch
+      : typeof getAnalyticsConsentEpoch === 'function' ? getAnalyticsConsentEpoch() : null,
+    semanticHelpUsed: previous?.semanticHelpUsed === true,
+    lastSuccessAt: previous?.lastSuccessAt,
     mode,
     attemptId: id,
     globalLevel: level.globalId ?? level.id,
@@ -152,6 +169,7 @@ export function serializeGame(
     contentVersion: level.contentVersion ?? 'legacy',
     levelFingerprint: fingerprint(level),
     policyRevision: level.policyRevision ?? null,
+    runtimePolicy: previous ? restoreRuntimePolicy(previous.runtimePolicy) ?? DEFAULT_POLICY : getRuntimePolicy(),
     filled: { ...play.filled },
     solvedWords: [...play.solvedWords],
     foundBonus: [...play.foundBonus],
@@ -167,6 +185,11 @@ export function serializeGame(
         : undefined,
     },
   };
+}
+
+export function hasCurrentMeasurementEpoch(snapshot: GameSnapshot): boolean {
+  const current = typeof getAnalyticsConsentEpoch === 'function' ? getAnalyticsConsentEpoch() : null;
+  return snapshot.measurementConsentEpoch !== undefined && snapshot.measurementConsentEpoch === current;
 }
 
 function migrateLegacy(level: Level, mode: PlayMode): GameSnapshot | null {
@@ -204,7 +227,7 @@ export function loadGameSnapshot(mode: PlayMode = 'normal', level?: Level, daily
   return level ? migrateLegacy(level, mode) : null;
 }
 
-export function saveGameSnapshot(mode: PlayMode, snapshot?: GameSnapshot): void {
+function writeGameSnapshot(mode: PlayMode, snapshot?: GameSnapshot): void {
   // Compatibility with the old one-argument helper during incremental migration.
   const actualMode = snapshot ? mode : 'normal';
   const actualSnapshot = snapshot ?? (mode as unknown as GameSnapshot);
@@ -218,6 +241,25 @@ export function saveGameSnapshot(mode: PlayMode, snapshot?: GameSnapshot): void 
   const previous = readSnapshot(KEYS.gameCurrentNormal);
   if (previous) writeCritical(KEYS.gameCurrentNormalBackup, previous);
   writeCritical(slotKey(actualMode), actualSnapshot);
+}
+
+export function saveGameSnapshot(mode: PlayMode, snapshot?: GameSnapshot): void {
+  const startedAt = Date.now();
+  try {
+    writeGameSnapshot(mode, snapshot);
+  } catch (error) {
+    try {
+      recordGameSave('failure', typeof mode === 'string' ? mode : 'normal', Date.now() - startedAt);
+    } catch {
+      // Diagnostic delivery cannot replace the original gameplay failure.
+    }
+    throw error;
+  }
+  try {
+    recordGameSave('success', typeof mode === 'string' ? mode : 'normal', Date.now() - startedAt);
+  } catch {
+    // A committed save stays successful if analytics storage is unavailable.
+  }
 }
 
 export function clearGameSnapshot(mode: PlayMode = 'normal', dailyId?: string): void {
@@ -276,6 +318,7 @@ export function restoreGame(
     disk,
     snapshot: {
       ...snap, filled, solvedWords, foundBonus, wordDates, disk,
+      runtimePolicy: restoreRuntimePolicy(snap.runtimePolicy) ?? DEFAULT_POLICY,
       mistakes: Number.isFinite(snap.mistakes) ? Math.max(0, Math.trunc(snap.mistakes!)) : 0,
     },
   };

@@ -4,6 +4,8 @@ const crypto = require('node:crypto');
 const { Buffer } = require('node:buffer');
 const { Duplex } = require('node:stream');
 const { createTimewebMailTransport } = require('../runtime/timeweb-mail.cjs');
+const { createRenewalNotices } = require('../runtime/renewal-notices.cjs');
+const { createMemoryStore } = require('../runtime/store.cjs');
 
 const USER = 'billing@example.com';
 const PASSWORD = 'fake-private-mail-password';
@@ -26,7 +28,7 @@ class FakeSmtpSocket extends Duplex {
     if (this.destroyed) return;
     if (step.close) { this.destroy(); return; }
     if (step.end) { this.push(null); return; }
-    if (step.error) { this.destroy(new Error(step.error)); return; }
+    if (step.error) { this.destroy(Object.assign(new Error(step.error), { code: step.errorCode })); return; }
     if (step.timeout) return;
     const chunks = step.chunks ?? [step.reply];
     for (const chunk of chunks) this.push(Buffer.from(chunk, 'utf8'));
@@ -157,10 +159,10 @@ test('folds long UTF-8 subjects and display names on character boundaries', asyn
 for (const [phase, ambiguous] of [['ehlo', false], ['data', true], ['body', true]]) {
   for (const action of ['timeout', 'close', 'end', 'error']) {
     test(`${action} at ${phase} produces a sanitized ${ambiguous ? 'ambiguous' : 'known unsent'} failure`, async () => {
-      const response = action === 'error' ? { error: `untrusted socket error ${PASSWORD}` } : { [action]: true };
+      const response = action === 'error' ? { error: `untrusted socket error ${PASSWORD}`, errorCode: 'ECONNRESET' } : { [action]: true };
       const fake = fixture({ stage: phase, response });
       await assert.rejects(fake.transport.send(MESSAGE, KEY),
-        errorMatches('renewal_notice_gateway_unavailable', { ambiguous }));
+        errorMatches('renewal_notice_gateway_unavailable', { retryable: !ambiguous, ambiguous }));
       assert.equal(fake.connections.length, 1); // No hidden reconnect/resend.
       assert.ok(fake.sockets[0].destroyed);
     });
@@ -195,12 +197,88 @@ test('connect exceptions never expose authentication or arbitrary provider detai
 });
 
 test('invalid injected connections fail with sanitized errors', async () => {
-  for (const socket of [null, {}, { on() {}, once() {}, write() {}, destroy() { throw new Error(PASSWORD); } },
+  for (const socket of [null, {},
     { on() { throw new Error(PASSWORD); }, once() {}, write() {}, destroy() {} }]) {
     const transport = createTimewebMailTransport({ username: USER, password: PASSWORD, sender: SENDER,
       connectImpl: () => socket, timeoutMs: 1 });
     await assert.rejects(transport.send(MESSAGE, KEY), errorMatches('renewal_notice_gateway_unavailable'));
   }
+});
+
+for (const code of ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'ENETUNREACH', 'EHOSTUNREACH']) {
+  test(`transient connection failure ${code} is safe to retry without sending DATA`, async () => {
+    const transport = createTimewebMailTransport({ username: USER, password: PASSWORD, sender: SENDER,
+      connectImpl: () => { throw Object.assign(new Error(PASSWORD), { code }); } });
+    await assert.rejects(transport.send(MESSAGE, KEY),
+      errorMatches('renewal_notice_gateway_unavailable', { retryable: true }));
+  });
+}
+
+for (const code of ['CERT_HAS_EXPIRED', 'ERR_TLS_CERT_ALTNAME_INVALID', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'ERR_INVALID_ARG_VALUE', undefined]) {
+  test(`certificate, configuration or unknown error ${code} is terminal before DATA`, async () => {
+    const transport = createTimewebMailTransport({ username: USER, password: PASSWORD, sender: SENDER,
+      connectImpl: () => { throw Object.assign(new Error(PASSWORD), { code }); } });
+    await assert.rejects(transport.send(MESSAGE, KEY), errorMatches('renewal_notice_gateway_unavailable'));
+    const fake = fixture({ stage: 'ehlo', response: { error: PASSWORD, errorCode: code } });
+    await assert.rejects(fake.transport.send(MESSAGE, KEY), errorMatches('renewal_notice_gateway_unavailable'));
+  });
+}
+
+test('TLS connection timeout is retryable before any data and destroys the socket', async () => {
+  let destroyed = false;
+  const transport = createTimewebMailTransport({ username: USER, password: PASSWORD, sender: SENDER,
+    connectImpl: () => ({ on() {}, once() {}, write() {}, destroy() { destroyed = true; } }), timeoutMs: 1 });
+  await assert.rejects(transport.send(MESSAGE, KEY),
+    errorMatches('renewal_notice_gateway_unavailable', { retryable: true }));
+  assert.equal(destroyed, true);
+});
+
+test('a temporary SMTP outage retries one durable notice and waits 24h after successful acceptance', async () => {
+  const HOUR = 3_600_000;
+  const start = Date.parse('2026-10-16T12:00:00Z');
+  let time = start;
+  let attempts = 0;
+  const fake = fixture();
+  const transport = createTimewebMailTransport({ username: USER, password: PASSWORD, sender: SENDER,
+    connectImpl: (options) => {
+      attempts += 1;
+      if (attempts === 1) throw Object.assign(new Error(PASSWORD), { code: 'ECONNREFUSED' });
+      return fake.connectImpl(options);
+    }, timeoutMs: 30 });
+  const sub = { id: 'subscription-id', mode: 'live', email: MESSAGE.to[0], autoRenew: true,
+    savedMethodId: 'saved-method', activeUntil: start, cancelGeneration: 0,
+    plan: { id: 'no_ads_30', title: 'Без рекламы', amount: '99.00', currency: 'RUB', periodDays: 30, consentVersion: 'v3' } };
+  let store = createMemoryStore({});
+  const options = { mode: 'live', sender: SENDER, supportEmail: MESSAGE.reply_to,
+    publicBase: 'https://slova.example.com', transport, now: () => time };
+  let notices = createRenewalNotices({ ...options, store });
+  assert.equal((await notices.ensureNotice(sub)).ready, false);
+  const before = Object.values(store.read().notices)[0];
+  assert.equal(before.state, 'retry');
+  assert.equal(before.notifiedAt, null);
+  assert.equal(before.retryAt, start + 60_000);
+  time += 59_999;
+  assert.equal((await notices.ensureNotice(sub)).ready, false);
+  assert.equal(attempts, 1);
+  // Restart during the outage: only a proven unsent attempt may be retried.
+  store = createMemoryStore(store.read());
+  notices = createRenewalNotices({ ...options, store });
+  time = start + 2 * HOUR;
+  const sent = await notices.ensureNotice(sub);
+  assert.equal(sent.notifiedAt, time);
+  assert.equal(sent.notBefore, time + 24 * HOUR);
+  const records = Object.values(store.read().notices);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].state, 'sent');
+  assert.equal(records[0].providerKey, before.providerKey);
+  assert.deepEqual(records[0].message, before.message);
+  assert.equal(attempts, 2);
+  assert.equal(fake.sockets.length, 1);
+  time = sent.notBefore - 1;
+  assert.equal((await notices.ensureNotice(sub)).ready, false);
+  time += 1;
+  assert.equal((await notices.ensureNotice(sub)).ready, true);
+  assert.equal(attempts, 2);
 });
 
 for (const [name, changes] of [

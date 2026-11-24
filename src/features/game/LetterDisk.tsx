@@ -711,7 +711,7 @@ export function LetterDisk({
             {positions.map((point, index) => <SelectionHighlight key={`${lettersKey}:highlight:${index}`}
               point={point} index={index} radius={tileR + 8} highlights={uiHighlights}
               selection={uiSelection} preview={uiPreview} />)}
-            <Svg width={diskSize} height={diskSize}>
+            <Svg width={diskSize} height={diskSize} style={{ position: 'relative' }}>
 
             {/* Р»РёРЅРёСЏ СЃРІСЏР·Рё РІС‹Р±СЂР°РЅРЅС‹С… Р±СѓРєРІ */}
             {positions.slice(1).map((_, i) => <SelectionConnection

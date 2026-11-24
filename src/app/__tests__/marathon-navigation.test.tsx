@@ -11,7 +11,7 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null }, useRouter: () => ({ push: mockPush }), useFocusEffect: jest.fn(),
 }));
 jest.mock('@/core/nav', () => ({ useGoBack: () => jest.fn() }));
-jest.mock('@/core/config/worlds', () => ({ totalCampaignLevels: () => 1000 }));
+jest.mock('@/core/config/worlds', () => ({ totalCampaignLevels: () => 1500 }));
 jest.mock('@/features/analytics', () => ({ track: jest.fn() }));
 jest.mock('@/features/currency', () => ({ useCurrency: (selector: (value: { coins: number }) => unknown) => selector({ coins: 150 }) }));
 jest.mock('@/features/game/marathonRewards', () => ({ applyMarathonCoinsOnce: jest.fn() }));
@@ -49,18 +49,23 @@ describe('marathon play destination', () => {
     expect(mockPush).toHaveBeenCalledWith('/game?source=marathon');
   });
   test('after campaign exhaustion the current daily remains playable', () => {
-    mockLevel = 1001;
+    mockLevel = 1501;
     press('Кроссворд текущего дня');
     expect(mockPush).toHaveBeenCalledWith('/daily?source=marathon');
   });
   test('a pending final result is opened before changing modes', () => {
-    mockLevel = 1001; mockPending = 1000;
+    mockLevel = 1501; mockPending = 1500;
     press('Играть в марафоне');
     expect(mockPush).toHaveBeenCalledWith('/game?source=marathon');
   });
   test('disabled daily sends an exhausted player to the album', () => {
-    mockLevel = 1001; mockDaily = false;
+    mockLevel = 1501; mockDaily = false;
     press('Открыть альбом');
     expect(mockPush).toHaveBeenCalledWith('/collection');
+  });
+  test('a former second-route finisher continues the campaign during the marathon', () => {
+    mockLevel = 1001;
+    press('Играть в марафоне');
+    expect(mockPush).toHaveBeenCalledWith('/game?source=marathon');
   });
 });

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { AppState, ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LetterDisk } from '@/features/game/LetterDisk';
 import type { FeedbackKind } from '@/features/game/accessibility';
+import { getAnalyticsConsentEpoch, isAnalyticsCollectionEnabled, trackOnce } from '@/features/analytics';
 import { AppButton, AppText, colors, GlassPanel, WorldBackground } from '@/ui';
 
 import { firstUnsolvedIntroWord } from './onboardingHelp';
@@ -20,15 +21,66 @@ export function PracticeLesson({ onDone }: { onDone: () => void }) {
   const [demoRequestId, setDemoRequestId] = useState(0);
   const interacted = useRef(false);
   const firstDemoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const measurement = useRef({ id: `practice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+    activeTimeMs: 0, since: AppState.currentState === 'background' || AppState.currentState === 'inactive' ? null : Date.now(),
+    assistance: false, terminal: false,
+    consentEpoch: typeof getAnalyticsConsentEpoch === 'function' ? getAnalyticsConsentEpoch() : null });
+  const emit = (stage: 'start' | 'step' | 'completed' | 'exit', stepId?: string) => {
+    const current = measurement.current;
+    if (typeof isAnalyticsCollectionEnabled !== 'function' || !isAnalyticsCollectionEnabled()) {
+      current.activeTimeMs = 0; current.since = null; current.assistance = false;
+      return;
+    }
+    const epoch = typeof getAnalyticsConsentEpoch === 'function' ? getAnalyticsConsentEpoch() : null;
+    if (current.consentEpoch !== epoch) {
+      current.id = `practice_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+      current.activeTimeMs = 0; current.since = Date.now(); current.assistance = false;
+      current.consentEpoch = epoch;
+    }
+    if (current.since != null) {
+      current.activeTimeMs += Math.max(0, Date.now() - current.since);
+      current.since = Date.now();
+    }
+    trackOnce('practice_lifecycle', `${current.id}:${stage}:${stepId ?? 'terminal'}`, {
+      practice_id: current.id, stage, step_id: stepId,
+      activeTimeMs: current.activeTimeMs, assistance: current.assistance,
+    });
+  };
+  const showDemo = () => {
+    measurement.current.assistance = true;
+    emit('step', 'gesture_demo');
+    setDemoRequestId((value) => value + 1);
+  };
+  const finishPractice = () => {
+    if (!measurement.current.terminal) {
+      emit('exit');
+      measurement.current.terminal = true;
+    }
+    onDone();
+  };
 
   useEffect(() => {
+    const current = measurement.current;
+    emit('start');
+    const appState = AppState.addEventListener('change', (state) => {
+      const current = measurement.current;
+      if (current.since != null) current.activeTimeMs += Math.max(0, Date.now() - current.since);
+      current.since = state === 'active' ? Date.now() : null;
+    });
     firstDemoTimer.current = setTimeout(() => {
       firstDemoTimer.current = null;
-      if (!interacted.current) setDemoRequestId((value) => value + 1);
+      if (!interacted.current) showDemo();
     }, 500);
     return () => {
       if (firstDemoTimer.current) clearTimeout(firstDemoTimer.current);
+      appState.remove();
+      if (!current.terminal) {
+        emit('exit');
+        current.terminal = true;
+      }
     };
+    // The practice ID and its measurement interval belong to this mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onUserInteraction = () => {
@@ -46,6 +98,11 @@ export function PracticeLesson({ onDone }: { onDone: () => void }) {
     const next = [...solvedRef.current, word];
     solvedRef.current = next;
     setSolved(next);
+    emit('step', `target_${next.length}`);
+    if (next.length === PRACTICE_LEVEL.answers.length && !measurement.current.terminal) {
+      emit('completed');
+      measurement.current.terminal = true;
+    }
     return 'grid';
   };
 
@@ -75,8 +132,8 @@ export function PracticeLesson({ onDone }: { onDone: () => void }) {
             onUserInteraction={onUserInteraction}
           />
           <View style={{ width: '100%', maxWidth: 360, gap: 8 }}>
-            <AppButton label="Показать жест" variant="glass" icon="play" onPress={() => setDemoRequestId((value) => value + 1)} />
-            <AppButton label="Готово" variant="primary" icon="check" onPress={onDone} />
+            <AppButton label="Показать жест" variant="glass" icon="play" onPress={showDemo} />
+            <AppButton label="Готово" variant="primary" icon="check" onPress={finishPractice} />
           </View>
         </ScrollView>
       </SafeAreaView>

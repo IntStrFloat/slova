@@ -19,6 +19,13 @@ import world11 from '../../../assets/levels/world11.json';
 import world12 from '../../../assets/levels/world12.json';
 import world13 from '../../../assets/levels/world13.json';
 import world14 from '../../../assets/levels/world14.json';
+import world15 from '../../../assets/levels/world15.json';
+import world16 from '../../../assets/levels/world16.json';
+import world17 from '../../../assets/levels/world17.json';
+import world18 from '../../../assets/levels/world18.json';
+import world19 from '../../../assets/levels/world19.json';
+import world20 from '../../../assets/levels/world20.json';
+import world21 from '../../../assets/levels/world21.json';
 
 
 interface Pack {
@@ -41,6 +48,13 @@ const PACKS: Record<string, Pack> = {
   world12: world12 as unknown as Pack,
   world13: world13 as unknown as Pack,
   world14: world14 as unknown as Pack,
+  world15: world15 as unknown as Pack,
+  world16: world16 as unknown as Pack,
+  world17: world17 as unknown as Pack,
+  world18: world18 as unknown as Pack,
+  world19: world19 as unknown as Pack,
+  world20: world20 as unknown as Pack,
+  world21: world21 as unknown as Pack,
 };
 
 const WORLD_ORDER = WORLDS.map((world) => world.id);

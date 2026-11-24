@@ -1,6 +1,7 @@
 import app from '../../../app.json';
 import { normalizeSubmission } from '@/core/engine';
 import { ENV } from '@/core/config/env';
+import { totalCampaignLevels } from '@/core/config/worlds';
 import { getJSON, storage } from '@/core/storage';
 import { getIntroLevelForFingerprint } from '@/features/onboarding/introPack';
 import { useProfile } from '@/features/profile';
@@ -140,7 +141,7 @@ function newReportId(): string {
 
 function validContext(context: WordReportContext): boolean {
   return Number.isSafeInteger(context.globalLevel) && context.globalLevel >= 1 &&
-    context.globalLevel <= 1000 && /^[a-z0-9_-]{1,64}$/i.test(context.world) &&
+    context.globalLevel <= totalCampaignLevels() && /^[a-z0-9_-]{1,64}$/i.test(context.world) &&
     (context.mode === 'normal' || context.mode === 'daily') &&
     /^[A-Za-z0-9._-]{1,128}$/.test(context.contentVersion) &&
     (context.policyRevision === null ||

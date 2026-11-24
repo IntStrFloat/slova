@@ -1,5 +1,6 @@
 import { COLLECTIBLE_CATALOG } from '@/core/config/retention';
 import { makeInitialSnapshot } from '@/features/retention/model';
+import { captureRetentionMilestoneTimes } from '@/features/retention/milestones';
 
 import { sanitizeProperties } from '../privacy';
 import { observedRetentionMilestones } from '../retentionEvents';
@@ -55,7 +56,7 @@ test('daily completion uses committed product dates and ignores legacy migration
   const events = observedRetentionMilestones(snapshot, now);
   expect(events.filter((event) => event.name === 'daily_completed')).toEqual([{
     name: 'daily_completed', key: '2026-09-25',
-    properties: { dateKey: '2026-09-25', actionDay: '2026-09-26', mode: 'daily', firstTime: true },
+    properties: { dateKey: '2026-09-25', actionDay: '2026-09-26', mode: 'daily', firstTime: true, timeKnown: false },
   }]);
   expect(events.some((event) => event.name === 'collectible_unlocked')).toBe(false);
 });
@@ -76,4 +77,23 @@ test('period and event closure are observed only after their end date', () => {
   const after = observedRetentionMilestones(snapshot, Date.parse('2026-10-04T12:00:00.000Z'));
   expect(after.map((event) => event.name)).toContain('weekly_period_closed');
   expect(after.map((event) => event.name)).toContain('event_finished');
+});
+
+
+test('recovery preserves the committed original time instead of the observation time', () => {
+  const snapshot = makeInitialSnapshot({ newProfile: true });
+  const original = now - 86_400_000;
+  snapshot.dailyCompletions['2026-09-24'] = '2026-09-25';
+  snapshot.analyticsTimes = { 'daily_completed:2026-09-24': original };
+  const completion = observedRetentionMilestones(snapshot, now).find((event) => event.name === 'daily_completed');
+  expect(completion?.properties).toMatchObject({ occurredAtMs: original, timeKnown: true, actionDay: '2026-09-25' });
+});
+
+
+test('facts captured while analytics is disabled stay suppressed after later observation', () => {
+  const previous = makeInitialSnapshot({ newProfile: false });
+  const next = { ...previous, dailyCompletions: { '2026-09-24': '2026-09-25' } };
+  const disabled = captureRetentionMilestoneTimes(previous, next, now - 86_400_000, false);
+  expect(disabled.dailyCompletions).toEqual(next.dailyCompletions);
+  expect(observedRetentionMilestones(disabled, now).some((event) => event.name === 'daily_completed')).toBe(false);
 });

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeInDown, FadeOut, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSpring, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -134,11 +134,11 @@ export function LevelComplete({
   heroIcon, heroImage, heroCaption,
   cardProgress, giftProgress: nextGiftProgress,
   rewardPending = false, saveError, onRetrySave,
-  introComplete = false, onDaily,
+  introComplete = false, onDaily, secondaryAction,
 }: {
   coins: number;
   onNext: () => boolean | void | Promise<boolean | void>;
-  onMenu?: () => void | Promise<void>;
+  onMenu?: () => boolean | void | Promise<boolean | void>;
   onDouble?: () => void | Promise<void>;
   canDouble?: boolean;
   doubled?: boolean;
@@ -157,6 +157,7 @@ export function LevelComplete({
   onRetrySave?: () => void;
   introComplete?: boolean;
   onDaily?: () => boolean | void | Promise<boolean | void>;
+  secondaryAction?: ReactNode;
 }) {
   const showDouble = canDouble && !doubled && onDouble && coins > 0 && !rewardPending;
   const [locked, setLocked] = useState(false);
@@ -195,7 +196,7 @@ export function LevelComplete({
   const menuOnce = async () => {
     if (locked || !onMenu) return;
     setLocked(true);
-    try { await onMenu(); } catch { setLocked(false); }
+    try { if (await onMenu() === false) setLocked(false); } catch { setLocked(false); }
   };
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -298,6 +299,7 @@ export function LevelComplete({
                   />
                   {introComplete && onDaily ? <AppButton label="Открыть кроссворд дня" icon="daily" variant="glass" disabled={locked} onPress={() => void dailyOnce()} style={styles.secondaryButton} /> : null}
                   {showDouble ? <AppButton label={t('doubleReward')} icon="play" variant="accent" disabled={locked} onPress={() => void doubleOnce()} style={styles.secondaryButton} /> : null}
+                  {!locked ? secondaryAction : null}
                   {onMenu ? (
                     <Pressable onPress={() => void menuOnce()} disabled={locked} accessibilityRole="button" accessibilityState={{ disabled: locked }} style={styles.menuButton}>
                       <Icon name="back" size={18} color={colors.text} /><AppText preset="label" style={styles.menuLabel}>В меню</AppText>

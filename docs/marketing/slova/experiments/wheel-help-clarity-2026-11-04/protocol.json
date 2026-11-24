@@ -1,0 +1,235 @@
+{
+  "game_id": "slova",
+  "run_id": "slova-wheel-help-clarity-2026-11-04",
+  "experiment_id": "EXP-SLOVA-20261104-WHEEL-HELP",
+  "date": "2026-11-04",
+  "status": "draft",
+  "product_version": "Unassigned future production build; verify v3 rollout first",
+  "geography": "Existing Slova audience; log geography/source if available",
+  "store": "RuStore",
+  "question": "Does clear explanation of coin benefits and return to the selected hint increase completion of the original puzzle after an insufficient-balance help request?",
+  "hypothesis": "Preserving the help context and explaining actual reward sufficiency makes the path useful to the player.",
+  "control": "Control presentation after the same common readiness/reward durability, truthful economic constraints and exact-attempt recovery/navigation fixes.",
+  "treatment": "Remaining clarity presentation package: explicit selected-hint price/balance/deficit, guaranteed-versus-random labels and contextual recovery presentation. The common safety and exact-attempt navigation are not treatment-only benefits.",
+  "scope": "UX package effect; not individual effect of each text or navigation change.",
+  "prerequisites": [
+    "Confirm relevant events from production app version",
+    "Fix technical reward/readiness defects in both arms",
+    "Verify origin linkage and dedupe from exposure through wallet/hint/completion",
+    "Measure baseline primary outcome and eligible-user arrival rate",
+    "Freeze horizon, MDE, minimum useful effect, sample size and product guardrail margins before assignment"
+  ],
+  "eligibility": "First explicit paid-help request with insufficient balance in a non-free, not-already-owned hint context, with a stable current attemptId and a puzzle never previously completed by the player. Check these conditions before assignment; no need to infer stuck state.",
+  "unit": "Consenting native SDK-player deviceId string with reviewed continuity/history proof; one first eligible request per explicit measurement phase/eligibility epoch. Installation UUID is a private continuity check, not assignment unit.",
+  "assignment": {
+    "mechanism": "Eligibility-gated durable SDK-player assignment at the captured first-request logical occurrence, before actual UI exposure. No generic startup sdk_install assignment.",
+    "expected_allocation": {
+      "control": 0.5,
+      "treatment": 0.5
+    },
+    "analysis": "intention-to-treat",
+    "exclusions": "QA/test/analytics opt-out and ineligible requests defined before assignment",
+    "post_treatment_exclusion": false,
+    "unit_type": "sdk_player",
+    "production_allocation_version": null
+  },
+  "primary_metric": {
+    "name": "original_puzzle_completed_within_window",
+    "numerator": "Assigned eligible players with durable completion of the exact origin attemptId within the fixed window",
+    "denominator": "All assigned eligible players whose outcome window has elapsed",
+    "time_origin": "First eligible help request before UI treatment",
+    "window_minutes_proposed": 10,
+    "clock": "wall clock, includes ad wait and background",
+    "window_status": "Draft: validate against baseline then freeze before experiment",
+    "dedupe": "one first eligible request per player",
+    "identity_and_restart_rule": "Freeze origin attemptId before assignment. Resume of the same attempt is eligible; a restart with a new attemptId is not primary success. Exclude previously completed puzzles before assignment because puzzle_completed is deduplicated per puzzle.",
+    "window_minutes_frozen": null
+  },
+  "secondary_metrics": [
+    "wheel open per true entry exposure",
+    "rewarded readiness at eligible entry",
+    "shown per show intent",
+    "earned reward to persisted wallet grant",
+    "reward sufficiency for selected hint",
+    "return and selected help use within 10 minutes of grant",
+    "raw and fixed-level-mix invalid share"
+  ],
+  "guardrails": [
+    "reward loss or duplicate grants",
+    "ad failures and time to readiness",
+    "active and wall-clock time to puzzle completion",
+    "exit after help request",
+    "mature experiment-return D1/D7 after first eligible request/assignment, separately from install-retention",
+    "coin grant/spend and balance distributions"
+  ],
+  "guardrail_return_definition": "Exact calendar Day1/Day7 return after first eligible request/assignment, common fixed report timezone, all assigned players with matured windows; do not substitute install-based cohorts.",
+  "secondary_analysis_limit": "Exposure-conditioned and reward-conditioned rates are diagnostic; treatment may change membership. They are not independent causal estimates. Primary effect uses all assigned eligible players.",
+  "sample_plan": {
+    "baseline": null,
+    "minimum_useful_effect_pp": null,
+    "mde_pp": null,
+    "alpha": 0.05,
+    "power": 0.8,
+    "alternative": "two-sided",
+    "n_per_arm": null,
+    "max_duration_days": null,
+    "eligible_users_per_week": null,
+    "reason": "The new linked primary metric has not yet been measured; historical rewarded completion is not its baseline."
+  },
+  "budget": {
+    "additional_acquisition_spend": 0,
+    "currency": "RUB",
+    "change_to_existing_campaigns": false
+  },
+  "stop_rules": {
+    "functional": "Stop affected variant on reward loss, duplicate grant, critical crash or broken checkout; investigate data/assignment loss before effect analysis",
+    "statistical": "Fixed sample/horizon once preregistered; no early winner at first favorable p-value; wait for primary and guardrail maturity",
+    "product_margin": "TBD before launch; unresolved guards prevent declaring ready",
+    "measurement": "Assignment SRM/data loss/identity/scope uncertainty stops effect interpretation before causal claims; no post-treatment denominator filtering.",
+    "non_incidents": [
+      "ordinary ad or checkout cancellation",
+      "validation/missing consent",
+      "pending retry",
+      "repeated delivery of the same transaction"
+    ]
+  },
+  "decision_rules": {
+    "ship": "Valid assignment/data, useful primary effect supported, product guards within preregistered margins",
+    "inconclusive": "Interval allows useful benefit and harm or sample/horizon incomplete; keep control and decide a new measured follow-up",
+    "do_not_claim": "More wheel opens or ad views alone do not establish player benefit or retention lift"
+  },
+  "evidence": [
+    {
+      "id": "DRAFT-20261104-METRICS",
+      "source": "../../research/metrics-weeks-global-word-2026-11-04.json",
+      "date": "2026-11-04",
+      "type": "observation",
+      "limitation": "Aggregated historical events are not a causal experiment or baseline for the new primary metric"
+    },
+    {
+      "id": "DRAFT-20261104-CODE",
+      "source": "src/app/wheel.tsx;src/app/game.tsx;src/core/config/economy.ts;src/features/analytics/schema.ts",
+      "date": "2026-11-04",
+      "type": "observation",
+      "limitation": "Local implementation is not proof of deployment"
+    },
+    {
+      "id": "DRAFT-20261104-HYPOTHESIS",
+      "source": "User's hypothesis and proposed contextual UX",
+      "date": "2026-11-04",
+      "type": "hypothesis",
+      "limitation": "Player comprehension and causal outcome effect are unmeasured"
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Draft one UX experiment after technical fixes and baseline measurement",
+      "evidence_ids": [
+        "DRAFT-20261104-METRICS",
+        "DRAFT-20261104-CODE",
+        "DRAFT-20261104-HYPOTHESIS"
+      ],
+      "reconsider_when": "Readiness, grant or origin linkage is unreliable; choose technical diagnosis instead"
+    }
+  ],
+  "next_action": {
+    "owner": "Product/implementation owner",
+    "action": "Keep production phases disabled/null; finish P7 independent review and formal checks. Obtain actual scoped raw baseline/rollout/delivery/identity/history/guard/stop proofs, then explicitly review and freeze trial parameters before any enrollment.",
+    "condition": "No experiment launch or spend is authorized by drafting this protocol"
+  },
+  "measurement_contract": {
+    "implementation_id": "slova_wheel_help_clarity_20261104",
+    "eligibility_version": "help_deficit_v1",
+    "properties": [
+      "measurement_phase",
+      "eligibility_epoch",
+      "first_eligible_request",
+      "previously_completed",
+      "trial_plan_fingerprint"
+    ],
+    "first_claim_scope": "implementation+eligibilityVersion+phase+declaredEpoch+SDK; trial assignment also allocationVersion",
+    "missing_phase_rule": "unproven_phase_or_epoch; never infer baseline from missing assignment",
+    "baseline": {
+      "enabled": false,
+      "eligibility_epoch": null,
+      "enrollment_from": null,
+      "enrollment_to_exclusive": null,
+      "analysis_window_minutes": null,
+      "ui": "control",
+      "requires_trial_sample_or_mde": false
+    },
+    "trial": {
+      "enabled": false,
+      "eligibility_epoch": null,
+      "enrollment_from": null,
+      "enrollment_to_exclusive": null,
+      "allocation_version": null,
+      "primary_window_minutes": null
+    },
+    "identity_policy": null,
+    "supported_identity_candidate": "known_pre_epoch_continuity_only_v1",
+    "history_policy": null,
+    "scope_boundary": "Do not trim outside-enrollment outcomes, consent facts or conflict alternatives; known legal positives remain valid across consent epochs, absence through proven/potential gaps stays unknown.",
+    "native_context": "Operational context only <=24 keys/8192 bytes; phase/assignment/SDK snapshots stay outside receipts.",
+    "trial_plan_fingerprint": {
+      "format": "32 lowercase hex",
+      "scope": "JS-only original trial request/rejection/assignment/exposure; absent from native receipts and baseline requirements",
+      "canonicalization": "Shared pure src/core/analyticsKeyToken.cjs; sorted full-config JSON with UTF-16/code-unit object keys and unchanged arrays",
+      "missing_or_mixed": "Keep all actual scoped SDK assignments in ITT with unknown/bounds; block SRM/effect, never select matching-only cohort",
+      "audit": "Non-cryptographic lookup token; whole config/evidence/input SHA256 remains separate"
+    },
+    "assignment_origin_proof": "Known SDK/install plus exact canonical original attempt/content and origin identity, validated before completion/return. Contradictory/unproven context retains original assigned arm and denominator with unknown/bounds; no favorable copy or post-treatment exclusion."
+  },
+  "measurement_gates": {
+    "stages": [
+      "baseline collection readiness",
+      "trial prelaunch readiness",
+      "observed assignment/data health",
+      "fixed final effect/guard decision"
+    ],
+    "no_deadlock": "Baseline collection needs no prior baseline/MDE/n; trial prelaunch needs no already observed trial SRM or D7. N0 is missing, not safe or statistical failure.",
+    "srm": {
+      "method_candidate": "exact_binomial_50_50_v1",
+      "family_alpha": null,
+      "look_at": null,
+      "multiplicity": null,
+      "minimum_assigned_per_look": null,
+      "denominator": "all actual target scoped SDK assignments, including known-variant orphans; never exposure/ad-conditioned"
+    },
+    "data_loss": {
+      "rules": null,
+      "independent_delivery_proof": null,
+      "observed_union": "conditional on exported first-claim/assignment union",
+      "population_denominator": "unknown unless independently reconciled; both sides absent cannot be inferred"
+    },
+    "interval_method": null,
+    "sample_method": null,
+    "missing_outcome_policy": null,
+    "minimum_useful_effect_pp": null,
+    "mde_pp": null,
+    "n_per_arm": null,
+    "harm_margins": null,
+    "horizon": null,
+    "complete_reviewed_baseline_rule": "No omitted first-eligible SDK units: unknownOutcomes=immatureUnits=0 and firstEligibleSdkUnits===matureN===successes+knownFailures for trial planning. Partial read-only baseline and collection remain independent."
+  },
+  "stop_control": {
+    "remote_config_key": "slova_help_experiment_stop_v1",
+    "schema": {
+      "schemaVersion": 1,
+      "experimentId": "slova_wheel_help_clarity_20261104",
+      "eligibilityEpoch": "declared string",
+      "allocationVersion": "positive safe integer",
+      "revision": "positive safe integer",
+      "disabledVariants": "control/treatment array"
+    },
+    "local_contract": "Locally independently reviewed typed scope/revision controller and bounded monotonic live lease. Missing/stale/unsupported/invalid scope denies trial; disables clamp affected presentation without deleting original ITT or blocking reward recovery.",
+    "baseline_requires_trial_lease": false,
+    "production_console_value": null,
+    "console_fleet_and_connection_verified": false,
+    "provided_evidence_ref_is_actual_connection": false,
+    "unsupported_loss_crash_proof": "closed readiness gate unless independently supplied; diagnostic technical_operation alone is not authoritative proof",
+    "local_review": "output/product-improvements-2026-11-04/reviews/point7-stop-review-2.json",
+    "native_compile_verified": false,
+    "checkout_proof": "Only legal included stage/live/technical-reason shapes bound to reconciled canonical event. Authoritative followup timing/scope comes from that legal fact, never QA/future/quarantined copies; private alternatives may only create possible/unknown."
+  }
+}

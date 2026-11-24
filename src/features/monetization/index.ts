@@ -8,8 +8,10 @@ export { MONETIZATION, PRODUCT_IDS };
 export { AdBanner } from './AdBanner';
 export { NoCoinsModal } from './NoCoinsModal';
 export { requestRewarded, isRewardedReady } from './rewarded';
+export { useRewardedReady, useRewardedState } from './useRewardedReady';
 export { getAds, getIap } from './providers';
 export { useEntitlements } from './entitlements';
+export { recordInterstitialPolicySkip } from './adTelemetry';
 export {
   EMPTY_ADS_META,
   evaluateInterstitial,
@@ -30,6 +32,7 @@ export type {
   Product,
   PurchaseResult,
   RewardConfirmation,
+  RewardedObservation,
   RewardedResult,
 } from './types';
 

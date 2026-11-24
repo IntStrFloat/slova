@@ -124,6 +124,173 @@ test('explicit consent, UUID request and receipt contact required before creatin
   assert.equal(JSON.stringify(f.creates[0].payload).includes('player@example.com'), false);
 });
 
+test('checkout rejects addresses the SMTP transport cannot deliver before creating a payment', async () => {
+  const f = fixture();
+  for (const email of ['player@-example.com', 'player@example-.com', '.player@example.com',
+    'player..name@example.com', 'игрок@example.com', 'player@пример.рф', 'player@example.com\n',
+    'player\n@example.com', `player@${'a'.repeat(64)}.com`]) {
+    await assert.rejects(f.billing.checkout('player', { ...f.request(), email }), { code: 'billing_receipt_email_required' });
+  }
+  assert.equal(f.creates.length, 0);
+  assert.deepEqual(f.store.read(), {});
+});
+
+test('legacy checkout replay preserves its durable ID and frozen email after validation is tightened', async () => {
+  const f = fixture();
+  const original = f.gateway.createPayment;
+  f.gateway.createPayment = async () => { throw new Error('unknown old checkout outcome'); };
+  const request = f.request();
+  await assert.rejects(f.billing.checkout('player', request));
+  const data = f.store.read();
+  const attempt = Object.values(data.attempts)[0];
+  attempt.receiptEmail = 'player@-example.com';
+  Object.values(data.subscriptions)[0].email = attempt.receiptEmail;
+  f.store.write(data);
+  f.gateway.createPayment = original;
+  await createBilling(f.options).checkout('player', { ...request, email: attempt.receiptEmail });
+  assert.equal(f.creates.length, 1);
+  assert.equal(f.creates[0].key, attempt.id);
+  assert.deepEqual(f.creates[0].payload, attempt.payload);
+  assert.equal(Object.values(f.store.read().attempts)[0].receiptEmail, attempt.receiptEmail);
+});
+
+test('email correction validates input, preserves access and receipts, and works with paused sales', async () => {
+  const f = fixture();
+  await f.purchase();
+  const before = await f.billing.status('player');
+  const paused = createBilling({ ...f.options, enabled: false });
+  await assert.rejects(paused.updateEmail('player', { email: 'player@-example.com' }), { code: 'billing_receipt_email_required' });
+  await assert.rejects(paused.updateEmail('missing', { email: 'new@example.com' }), { code: 'billing_subscription_not_found' });
+  const after = await paused.updateEmail('player', { email: 'new+receipts@example.com' });
+  assert.deepEqual(after, before);
+  assert.equal(Object.values(f.store.read().subscriptions)[0].email, 'new+receipts@example.com');
+  assert.equal(Object.values(f.store.read().payments)[0].receiptEmail, 'player@example.com');
+  assert.equal(after.email, undefined);
+  assert.equal(f.creates.length, 1);
+});
+
+test('pending checkout and unknown renewal keep their frozen contact until reconciliation', async () => {
+  const f = fixture();
+  const checkout = await f.billing.checkout('player', f.request());
+  await assert.rejects(f.billing.updateEmail('player', { email: 'new@example.com' }), { code: 'billing_email_change_pending' });
+  await f.billing.updateEmail('player', { email: 'player@example.com' });
+  f.succeed(checkout.paymentId);
+  await f.billing.webhook(f.notification(checkout.paymentId));
+  f.advance(30 * DAY);
+  f.gateway.createPayment = async () => { throw new Error('unknown charge outcome'); };
+  await f.billing.runRenewals();
+  const before = f.store.read();
+  await assert.rejects(f.billing.updateEmail('player', { email: 'new@example.com' }), { code: 'billing_email_change_pending' });
+  assert.deepEqual(f.store.read(), before);
+});
+
+test('email change during notice delivery wins the race and requires a new notification lead period', async () => {
+  const f = noticeFixture();
+  await f.purchase();
+  f.advance(30 * DAY);
+  const accepted = deferred();
+  const original = f.transport.send;
+  f.transport.send = async (...args) => { await accepted.promise; return original(...args); };
+  const running = f.billing.runRenewals();
+  await new Promise((resolve) => setImmediate(resolve));
+  await f.billing.updateEmail('player', { email: 'new@example.com' });
+  accepted.resolve();
+  await running;
+  assert.equal(f.creates.length, 1);
+  assert.equal((await f.billing.status('player')).nextPaymentAt, null);
+  await f.billing.runRenewals();
+  assert.equal(f.emails.length, 2);
+  await f.billing.updateEmail('player', { email: 'player@example.com' });
+  assert.equal((await f.billing.status('player')).nextPaymentAt, null);
+  await f.billing.runRenewals();
+  assert.equal(f.emails.length, 3);
+  assert.deepEqual(f.emails[1].message.to, ['new@example.com']);
+  assert.equal(f.creates.length, 1);
+  f.advance(25 * 3_600_000);
+  await f.billing.runRenewals();
+  assert.equal(f.creates.length, 2);
+});
+
+test('email correction invalidates accepted notice proof but an unchanged address does not resend', async () => {
+  const f = noticeFixture();
+  await f.purchase();
+  f.advance(30 * DAY);
+  await f.billing.runRenewals();
+  const postponed = (await f.billing.status('player')).nextPaymentAt;
+  await f.billing.updateEmail('player', { email: 'player@example.com' });
+  assert.equal((await f.billing.status('player')).nextPaymentAt, postponed);
+  await f.billing.runRenewals();
+  assert.equal(f.emails.length, 1);
+  await f.billing.updateEmail('player', { email: 'new@example.com' });
+  assert.equal((await f.billing.status('player')).nextPaymentAt, null);
+  await f.billing.runRenewals();
+  assert.equal(f.emails.length, 2);
+});
+
+test('blocked notices are observable as counts without exposing private payment or contact data', async () => {
+  const f = noticeFixture();
+  await f.purchase();
+  f.advance(30 * DAY);
+  f.transport.send = async () => { throw new Error('private email player@example.com and credentials'); };
+  const outcome = await f.billing.runRenewals();
+  assert.equal(outcome.blockedNotices, 1);
+  const diagnostics = f.billing.diagnostics();
+  assert.equal(diagnostics.overdueSubscriptions, 1);
+  assert.deepEqual(diagnostics.notices, { pending: 0, failed: 0, quarantined: 1 });
+  const serialized = JSON.stringify(diagnostics);
+  for (const privateValue of ['player@example.com', 'saved-method-id', 'credentials', 'private']) {
+    assert.equal(serialized.includes(privateValue), false);
+  }
+  await f.billing.updateEmail('player', { email: 'new@example.com' });
+  assert.equal(f.billing.diagnostics().notices.quarantined, 0);
+});
+
+test('diagnostics identify invalid legacy emails and payments requiring manual reconciliation', async () => {
+  const f = fixture();
+  f.gateway.createPayment = async () => { throw new Error('unknown charge'); };
+  await assert.rejects(f.billing.checkout('player', f.request()));
+  f.advance(24 * 3_600_000);
+  assert.equal(createBilling({ ...f.options, enabled: false }).diagnostics().manualReconciliationPayments, 1);
+  await f.billing.runRenewals();
+  const data = f.store.read();
+  Object.values(data.subscriptions)[0].email = 'player@-example.com';
+  f.store.write(data);
+  assert.equal(f.billing.diagnostics().manualReconciliationPayments, 1);
+  assert.equal(f.billing.diagnostics().invalidEmails, 1);
+});
+
+test('known pending checkout becomes stale at 24 hours and clears after provider confirmation', async () => {
+  const f = fixture();
+  const checkout = await f.billing.checkout('player', f.request());
+  assert.equal((await f.billing.status('player')).autoRenew, false);
+  assert.equal(f.billing.diagnostics().stalePendingPayments, 0);
+  f.advance(DAY - 1);
+  assert.equal(f.billing.diagnostics().stalePendingPayments, 0);
+  f.advance(1);
+  assert.equal(createBilling({ ...f.options, enabled: false }).diagnostics().stalePendingPayments, 1);
+  assert.equal(f.billing.diagnostics().manualReconciliationPayments, 0);
+  f.succeed(checkout.paymentId);
+  await f.billing.webhook(f.notification(checkout.paymentId));
+  assert.equal(f.billing.diagnostics().stalePendingPayments, 0);
+});
+
+test('diagnostics distinguish provider-declined renewals from unsent user cancellations', async () => {
+  const f = fixture();
+  await f.purchase();
+  f.advance(30 * DAY);
+  await f.billing.runRenewals();
+  const paymentId = (await f.billing.status('player')).pendingPaymentId;
+  Object.assign(f.payments.get(paymentId), { status: 'canceled', paid: false });
+  await f.billing.webhook(f.notification(paymentId, 'payment.canceled'));
+  assert.equal(f.billing.diagnostics().failedPayments, 1);
+  const data = f.store.read();
+  // The same journal state without a provider rejection describes an unsent
+  // reservation canceled locally; that is not a failed customer payment.
+  delete Object.values(data.attempts).find((attempt) => attempt.kind === 'renewal').errorCode;
+  f.store.write(data);
+  assert.equal(f.billing.diagnostics().failedPayments, 0);
+});
+
 test('pending checkout grants no access; concurrent retries reuse one durable attempt', async () => {
   const f = fixture();
   const req = f.request();

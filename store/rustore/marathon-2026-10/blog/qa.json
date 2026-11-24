@@ -1,52 +1,71 @@
 {
-  "status": "final-native-images-included-alternative-render-reviewed-with-pagination-limitations",
-  "articleCharacterCountIncludingMetadataAndFAQ": 6429,
-  "docxTextCharactersIncludingMetadataCaptionsAndFAQ": 6491,
-  "seoTitleCharacters": 54,
-  "descriptionCharacters": 138,
-  "meaningfulSectionCount": 5,
-  "faqCount": 7,
-  "styleReferences": "No suitable writing references found in the returned results",
-  "bundledPython": "C:\\Users\\Dima2\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-  "pythonIsolationFlag": "-I",
-  "bundledLibreOffice": null,
-  "renderBlocker": "The 26.904.11930 Windows runtime contains no soffice or LibreOffice binary. The packaged render_docx.py was attempted with PATH restricted to bundled binary directories and failed with FileNotFoundError: LibreOffice soffice.exe was not found on PATH. No desktop LibreOffice was used and nothing was installed.",
-  "renderDiagnostic": "render-blocker.log",
-  "docxCreated": true,
-  "artifactMarkerSuccessfulRunCount": 1,
-  "structuralChecks": {
-    "zipIntegrity": "passed",
-    "font": "Arial",
-    "heading1CountIncludingTitleAndFAQQuestions": 14,
-    "tables": 0,
-    "embeddedImages": 3,
-    "onlyHyperlink": "https://www.rustore.ru/catalog/app/com.intstrfloat.slova",
-    "bonusRewardsFactChecked": "src/core/engine/play.ts; only part of accepted bonus words earns coins",
-    "marathonFactChecked": "src/core/config/marathon.ts and src/features/marathon/model.ts; 26 October through 1 November 2026 Moscow time, cumulative thresholds 1/3/6/9/13/17/21, 7 times 10 plus 80 equals 150"
-  },
-  "currentGameplayScreenshot": "Actual Android capture from the current code, output/marathon-2026-10/native/qa-level-one.png, supplied and confirmed by native QA through the leader",
-  "finalMarathonScreenshot": "Actual Android production capture in the 26 October event window, output/marathon-2026-10/native/production-active-final.png, verified emulator-5574; production APK SHA256 3dfddd7b2b5a6b1c7eea8d2b769206ff08f5882f4ec4c50ede624e365778e270",
-  "docxSizeBytes": 3810505,
-  "docxLimitBytes": 5000000,
-  "coverCompatibilityFix": "Inserted standard APP0/JFIF metadata in the original JPEG without recompression; decoded RGB pixels are byte-for-byte identical to the source",
-  "alternativeRenderer": {
-    "package": "@oai/artifact-tool",
-    "version": "2.8.59",
-    "api": "DocumentFile.importDocx, layoutDocumentPages, preloadDocumentImageBitmaps, drawDocumentToCtx",
-    "originalDocxImported": true,
-    "rebuiltFromText": false,
-    "report": "render-artifact-tool/render-report.json",
-    "sourceSha256": "fa4ba60afa1c2a60afd47ef0767cf373d4d67c233956a08b424ebb5baab4c580",
-    "pages": 5,
-    "embeddedImagesDecoded": 3,
-    "allPagesVisuallyInspected": true,
-    "visualObservations": "Every final page was inspected at original resolution. All body text and all three original images appear with Cyrillic glyphs intact and without clipping or overlaps. The renderer splits one FAQ answer between pages 4 and 5; Word-compatible widow/orphan behavior remains unverified.",
-    "paginationLimitation": "Source Heading1 OOXML includes keepNext and keepLines. Imported document model and bundled JS engine expose no keepNext, keepWithNext, keepLines, pageBreakBefore, or widowControl support. Therefore this renderer cannot prove Word-compatible pagination or prevent orphaned headings.",
-    "fullWordCompatibleLayoutVerified": false
-  },
-  "uniquenessThresholdRequiredPercent": 90,
-  "externalUniquenessCheckPerformed": false,
-  "pagesRendered": 5,
-  "allPagesVisuallyInspected": true,
-  "fullLayoutVerified": false
+  "status": "revised-and-structurally-verified",
+  "checkedAt": "2026-10-20",
+  "sourceCharacters": 5900,
+  "docxCharacters": 5922,
+  "seoTitleCharacters": 53,
+  "descriptionCharacters": 134,
+  "mainSections": 5,
+  "faqCount": 6,
+  "faqAnswerLengths": [
+    162,
+    166,
+    203,
+    123,
+    187,
+    223
+  ],
+  "heading1Count": 13,
+  "font": "Arial",
+  "embeddedImages": 3,
+  "images": [
+    {
+      "file": "01_обложка_без_надписей.jpg",
+      "width": 1672,
+      "height": 941,
+      "bytes": 522571
+    },
+    {
+      "file": "02_буквы_и_кроссворд.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 2313408
+    },
+    {
+      "file": "03_марафон.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 1057170
+    }
+  ],
+  "externalLinks": [
+    "https://www.rustore.ru/catalog/app/com.intstrfloat.slova"
+  ],
+  "docxBytes": 3927955,
+  "sha256": "dd142726c3a2681e3d45ef31f66ac44950bf8a0b332a00d11a85ffcd957cd64b",
+  "render": "output/blog-revision-2026-10-20/render-reviewed/render-report.json",
+  "renderer": "bundled @oai/artifact-tool imported original DOCX",
+  "canonicalRendererUnavailable": "Bundled dependencies contain no LibreOffice; render_docx.py fails with FileNotFoundError",
+  "wordPaginationVerified": false,
+  "uniquenessPercent": null,
+  "uniquenessCheck": "Text.ru was opened in Chrome; checks are disabled for unregistered users",
+  "submitted": false,
+  "eventRequestStatusObservedInChrome": "In Progress",
+  "factCheckSources": [
+    "src/features/onboarding/introPack.ts",
+    "src/features/game/LetterDisk.tsx",
+    "src/core/engine/play.ts",
+    "src/core/config/worlds.ts",
+    "src/core/config/marathon.ts",
+    "src/features/marathon/model.ts"
+  ],
+  "editorialGuideline": "https://www.rustore.ru/help/developers/advertising-and-promotion/blog-publication",
+  "allFivePagesVisuallyReviewed": true,
+  "independentReview": "PASS; no clipping, overlap, detached headings or captions; generous whitespace accepted for editorial DOCX",
+  "simplifications": [
+    "Replaced generic tips with sequential gameplay review",
+    "Explained genre and goal before tactics",
+    "Replaced hypothetical KOT/TOK with verified level",
+    "Removed promotional overlays from cover"
+  ]
 }

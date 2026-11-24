@@ -42,7 +42,7 @@ export default function Profile() {
       <WorldBackground world="world1" />
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.toolbar}>
-          <AppButton label={t('map')} variant="glass" icon="back" onPress={goBack} style={styles.backButton} />
+          <AppButton analyticsId="profile_back" label={t('map')} variant="glass" icon="back" onPress={goBack} style={styles.backButton} />
         </View>
         <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
@@ -62,7 +62,7 @@ export default function Profile() {
                     : 'Создаём профиль…'}
                 </AppText>
                 {error ? (
-                  <AppButton label={busy ? '...' : 'Повторить'} icon="profile" onPress={() => ensure()} />
+                  <AppButton analyticsId="profile_retry" label={busy ? '...' : 'Повторить'} icon="profile" onPress={() => ensure()} />
                 ) : null}
               </>
             )}
@@ -111,6 +111,7 @@ export default function Profile() {
                 </AppText>
               ) : null}
               <AppButton
+                analyticsId="profile_rename"
                 label={busy ? 'Сохранение…' : 'Сохранить ник'}
                 icon="profile"
                 disabled={busy || nick.trim().length < 2 || nick.trim() === profile.nickname}

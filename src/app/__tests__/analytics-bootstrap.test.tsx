@@ -9,7 +9,7 @@ jest.mock('@expo-google-fonts/nunito', () => ({
   useFonts: () => [mockFontsLoaded],
   Nunito_600SemiBold: 'semibold', Nunito_700Bold: 'bold', Nunito_800ExtraBold: 'extra-bold',
 }));
-jest.mock('expo-router', () => ({ useRouter: () => mockRouter, Stack: () => null }));
+jest.mock('expo-router', () => ({ useRouter: () => mockRouter, usePathname: () => '/', Stack: () => null }));
 jest.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: jest.fn(async () => {}), hideAsync: jest.fn(async () => {}),
 }));
@@ -20,6 +20,7 @@ jest.mock('react-native-gesture-handler', () => ({
 jest.mock('@/core/native/appmetrica', () => ({
   reportEvent: (...args: unknown[]) => mockReport(...args),
   isAppMetricaAvailable: () => true,
+  isAppMetricaTestDevice: () => false,
 }));
 jest.mock('@/core/platform/yandexGames', () => ({
   isYandexGamesBuild: () => false, markYandexGameReady: async () => {},
@@ -29,14 +30,19 @@ jest.mock('@/features/monetization', () => ({ getAds: () => ({ init: async () =>
 jest.mock('@/features/monetization/subscription', () => ({
   useSubscription: { getState: () => ({ sync: async () => {} }) },
 }));
+jest.mock('@/features/monetization/subscriptionAutoSync', () => ({
+  startSubscriptionAutoSync: () => () => {},
+}));
 jest.mock('@/features/profile', () => ({
-  useProfile: { getState: () => ({ ensure: async () => true }) },
+  useProfile: { getState: () => ({ ensure: async () => true }), subscribe: () => () => {} },
 }));
 jest.mock('@/features/word-report', () => ({ flushWordReports: async () => {} }));
 jest.mock('@/features/collection/store', () => ({ backfillUnlockedLandmarks: () => {} }));
 jest.mock('@/features/progression/store', () => ({ backfillCompletedChestCoins: () => {} }));
-jest.mock('@/features/retention', () => ({ reconcileRewards: () => {} }));
+jest.mock('@/features/retention', () => ({ reconcileRewards: () => {}, useRetention: { getState: () => ({}) } }));
+jest.mock('@/features/marathon', () => ({ recoverMarathonProgress: () => {}, reconcileMarathonRewards: () => {} }));
 jest.mock('@/features/notifications', () => ({
+  PushNavigationRoot: () => null,
   getPush: () => ({ init: async () => {}, onNotificationTap: () => () => {} }),
   startDailyReminderTelemetry: () => () => {},
   startLevelExpansionAudienceSync: () => () => {},
@@ -83,12 +89,14 @@ function reports(name: string) {
 const unmount: (() => void)[] = [];
 
 beforeEach(() => {
+  Object.defineProperty(globalThis, '__DEV__', { value: false, configurable: true, writable: true });
   mockFontsLoaded = false;
   mockReport.mockClear();
   jest.spyOn(console, 'log').mockImplementation(() => {});
 });
 
 afterEach(() => {
+  Object.defineProperty(globalThis, '__DEV__', { value: true, configurable: true, writable: true });
   unmount.splice(0).forEach((dispose) => dispose());
   jest.restoreAllMocks();
   jest.useRealTimers();
@@ -109,13 +117,15 @@ test('fresh bootstrap assigns the introduction before events even while fonts ar
     expect(envelope).toMatchObject({ onboarding_version: 'intro-v2', variant_id: 'intro-v2' });
   }
   expect(reports('onboarding_assigned')[0][1]).toMatchObject({
-    properties: { onboardingVersion: 'intro-v2' },
+    schema_version: 3, onboardingVersion: 'intro-v2',
   });
 
   const firstEvents = mockReport.mock.calls.map(([name]) => name);
   mockFontsLoaded = true;
   await renderer.act(async () => { tree.update(React.createElement(RootLayout)); });
-  expect(mockReport.mock.calls.map(([name]) => name)).toEqual(firstEvents);
+  expect(mockReport.mock.calls.map(([name]) => name).slice(0, firstEvents.length)).toEqual(firstEvents);
+  expect(reports('screen_viewed')).toHaveLength(1);
+  expect(reports('app_ready')).toHaveLength(1);
   expect(onboarding.getAssignedIntroVersion()).toBe('intro-v2');
 });
 
@@ -183,6 +193,6 @@ test('the real gameplay clock preserves the winning partial interval through sav
   lifecycle.trackPuzzleCompletion(level, restored, { introPlayer: true, assisted: false });
   expect(reports('puzzle_completed')).toHaveLength(1);
   expect(reports('puzzle_completed')[0][1]).toMatchObject({
-    properties: { attemptId, activeTimeMs: 3_500, durationSec: 3.5, assisted: false },
+    schema_version: 3, attemptId, activeTimeMs: 3_500, durationSec: 3.5, assisted: false,
   });
 });

@@ -1,14 +1,8 @@
 const { createRunOncePlugin, withProjectBuildGradle } = require('expo/config-plugins');
-
-const RUSTORE_MAVEN_URL = 'https://nexus-external.rustore.ru/repository/maven-rustore-exposed';
+const { patchRuStoreRepositories } = require('./rustoreRepositories');
 
 function patchProjectBuildGradle(contents) {
-  if (contents.includes(RUSTORE_MAVEN_URL)) return contents;
-  const pattern = /(allprojects\s*\{\s*repositories\s*\{)([\s\S]*?)(\n\s*\})/;
-  if (!pattern.test(contents)) {
-    throw new Error('RuStore Review: allprojects.repositories block was not found in android/build.gradle');
-  }
-  return contents.replace(pattern, `$1$2\n    maven { url '${RUSTORE_MAVEN_URL}' }$3`);
+  return patchRuStoreRepositories(contents);
 }
 
 function withRuStoreReview(config) {

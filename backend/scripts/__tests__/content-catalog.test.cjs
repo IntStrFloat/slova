@@ -14,7 +14,7 @@ test('catalog includes the five installed intro fingerprints and shipped SHA lev
   const versions = Object.keys(catalog.contentVersions).filter((version) => !INTRO_CATALOGS[version]);
   const count = versions.reduce((sum, version) => sum + Object.keys(catalog.contentVersions[version].levels).length, 0);
   const { campaign: archived } = require('../../../assets/content/legacy-early-levels.json');
-  assert.equal(count, 1000 + archived.length);
+  assert.equal(count, 1500 + archived.length);
   const validator = createCatalogValidators(catalog).validateReportContext;
   for (const [version, intro] of Object.entries(INTRO_CATALOGS)) {
     for (const [id, level] of Object.entries(intro.levels)) {
@@ -38,6 +38,22 @@ test('catalog includes the five installed intro fingerprints and shipped SHA lev
       levelFingerprint: level.fingerprint, normalizedWord: level.answers[0].word }), true);
     assert.deepEqual(Object.keys(catalog.contentVersions[level.contentVersion].levels[level.globalId]).sort(),
       ['fingerprint', 'letters', 'world']);
+  }
+});
+
+test('third-route catalog validates the actual first and final shipped fingerprints', () => {
+  const catalog = buildContentCatalog(path.resolve(__dirname, '../../../assets/levels'));
+  const validate = createCatalogValidators(catalog).validateReportContext;
+  for (const [world, localIndex, globalId] of [['world15', 0, 1001], ['world21', 69, 1500]]) {
+    const level = require(`../../../assets/levels/${world}.json`).levels[localIndex];
+    assert.equal(level.globalId, globalId);
+    const metadata = catalog.contentVersions[level.contentVersion].levels[globalId];
+    assert.deepEqual(metadata, { world, fingerprint: level.fingerprint, letters: level.letters });
+    const context = { contentVersion: level.contentVersion, globalLevel: globalId, world,
+      levelFingerprint: level.fingerprint, normalizedWord: level.answers[0].word };
+    assert.equal(validate(context), true);
+    assert.equal(validate({ ...context, globalLevel: 1501 }), 'unknown_content_level');
+    assert.equal(validate({ ...context, world: 'world1' }), 'unknown_content_level');
   }
 });
 

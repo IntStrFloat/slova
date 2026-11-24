@@ -65,4 +65,14 @@ describe('foreground gameplay timing', () => {
     act(() => { tree = create(<Clock active />); jest.advanceTimersByTime(1_000); });
     expect(() => act(() => flush())).not.toThrow();
   });
+  it('retries a failed timing write without losing or double-counting its interval', () => {
+    record.mockImplementationOnce(() => { throw new Error('temporary storage failure'); });
+    act(() => { tree = create(<Clock active />); });
+    act(() => { jest.advanceTimersByTime(1_000); flush(); });
+    expect(record).toHaveBeenLastCalledWith('attempt-a', 1_000);
+    act(() => { jest.advanceTimersByTime(1_000); flush(); });
+    expect(record).toHaveBeenLastCalledWith('attempt-a', 2_000);
+    act(() => { jest.advanceTimersByTime(1_000); flush(); });
+    expect(record).toHaveBeenLastCalledWith('attempt-a', 1_000);
+  });
 });

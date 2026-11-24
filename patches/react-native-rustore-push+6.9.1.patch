@@ -1,13 +1,647 @@
+diff --git a/node_modules/react-native-rustore-push/android/build.gradle b/node_modules/react-native-rustore-push/android/build.gradle
+index b8c1b48..b437cea 100644
+--- a/node_modules/react-native-rustore-push/android/build.gradle
++++ b/node_modules/react-native-rustore-push/android/build.gradle
+@@ -64,6 +64,7 @@ android {
+   compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
+ 
+   defaultConfig {
++    testInstrumentationRunner "com.rustorepush.PushReliabilityTestRunner"
+     minSdkVersion getExtOrIntegerDefault("minSdkVersion")
+     targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
+     buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+@@ -88,9 +89,6 @@ android {
+ rootProject.allprojects {
+     repositories {
+         mavenLocal()
+-        maven {
+-            url = uri("https://artifactory-external.vkpartner.ru/artifactory/maven")
+-        }
+         google()
+         mavenCentral()
+     }
+@@ -104,7 +102,7 @@ dependencies {
+   //noinspection GradleDynamicVersion
+   implementation "com.facebook.react:react-native:+"
+   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+-  implementation "ru.rustore.sdk:pushclient:6.9.1"
++  implementation "ru.rustore.sdk:pushclient:7.4.0"
+ }
+ 
+ if (isNewArchitectureEnabled()) {
+diff --git a/node_modules/react-native-rustore-push/android/src/androidTest/java/com/rustorepush/PushReliabilityTestRunner.kt b/node_modules/react-native-rustore-push/android/src/androidTest/java/com/rustorepush/PushReliabilityTestRunner.kt
+new file mode 100644
+index 0000000..6b04634
+--- /dev/null
++++ b/node_modules/react-native-rustore-push/android/src/androidTest/java/com/rustorepush/PushReliabilityTestRunner.kt
+@@ -0,0 +1,79 @@
++package com.rustorepush
++
++import android.app.Activity
++import android.app.Instrumentation
++import android.content.Context
++import android.content.Intent
++import android.os.Bundle
++import android.os.Build
++import ru.rustore.sdk.pushclient.messaging.model.RemoteMessage
++
++/** Local policy/cache/actual native queue tests only. Never initializes or sends through the SDK. */
++class PushReliabilityTestRunner : Instrumentation() {
++  override fun onCreate(arguments: Bundle?) { super.onCreate(arguments); start() }
++  override fun onStart() {
++    val passed = mutableListOf<String>()
++    try {
++      check(context.packageName.endsWith(".test")) { "Requires isolated library test package" }
++      val info = context.packageManager.getPackageInfo(context.packageName, 0)
++      @Suppress("DEPRECATION")
++      val actualVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
++      check(SlovaPushState.nativeVersionCode(context) == actualVersion.toDouble())
++      passed.add("actual_installed_package_version_without_js_manifest")
++      val prefs = context.getSharedPreferences("slova.push.delivery.v1", Context.MODE_PRIVATE)
++      prefs.edit().clear().commit()
++      SlovaPushState.setContext(context, true, "qa-owner")
++      val epoch = SlovaPushState.epoch(context)
++      val message = RemoteMessage("native-message", 1, 3600, "test", null,
++        mapOf("route" to "/daily", "campaign_id" to "daily-reminder-v1", "auth_token" to "private-secret"),
++        "private-raw-data".toByteArray(), null)
++      val entry = requireNotNull(SlovaPushState.remember(context, message))
++      check(!entry.toString().contains("private"))
++      check(entry.getJSONObject("data").length() == 2)
++      passed.add("sanitized_durable_routing_cache")
++
++      val at = System.currentTimeMillis()
++      val warm = Intent().putExtra("vkpns.analytics_payload.message_id", "native-message")
++        .putExtra("slovaNotificationOpenedAtMs", at)
++      // MainActivity sets its sanitized intent before Expo/RN can drop an early callback.
++      lateinit var activity: Activity
++      runOnMainSync { activity = Activity().apply { intent = warm } }
++      val restoredContext = context.createPackageContext(context.packageName, 0)
++      val restored = requireNotNull(SlovaPushState.initialEntry(restoredContext, activity.intent))
++      check(restored.getString("messageId") == "native-message" && restored.getLong("openedAtMs") == at)
++      passed.add("warm_intent_before_js_recovers_from_current_activity")
++      prefs.edit().putString("pendingOpenedId", "native-message").putLong("pendingOpenedAt", at).commit()
++      check(SlovaPushState.initialEntry(restoredContext, Intent())?.getString("messageId") == "native-message")
++      SlovaPushState.acknowledgeOpen(restoredContext, "native-message")
++      check(SlovaPushState.initialEntry(restoredContext, Intent()) == null)
++      passed.add("opened_journal_fallback_and_ack")
++
++      SlovaPushState.setContext(context, true, "other-owner")
++      check(SlovaPushState.epoch(context) != epoch && SlovaPushState.initialEntry(context, warm) == null)
++      SlovaPushState.setContext(context, false, "other-owner")
++      check(SlovaPushState.remember(context, message) == null)
++      passed.add("owner_epoch_and_refusal_clear_routing")
++
++      val order = mutableListOf<String>()
++      var firstComplete: (() -> Unit)? = null
++      var nextComplete: (() -> Unit)? = null
++      var subscribed = false
++      SlovaPushOperations.enqueue { complete -> order.add("subscribe_started"); firstComplete = complete }
++      SlovaPushOperations.enqueue { complete -> subscribed = false; order.add("deleted"); complete() }
++      SlovaPushOperations.enqueue { complete -> order.add("next_owner"); nextComplete = complete }
++      SlovaPushOperations.enqueue { complete -> order.add("last"); complete() }
++      check(order == listOf("subscribe_started")) { "Actual transport lifetime must hold ownership" }
++      subscribed = true // Late SDK success, after the public JS deadline and opt-out.
++      requireNotNull(firstComplete).invoke()
++      check(!subscribed && order == listOf("subscribe_started", "deleted", "next_owner"))
++      firstComplete?.invoke()
++      check(order.last() == "next_owner") { "Stale completion cannot release the next owner's operation" }
++      requireNotNull(nextComplete).invoke()
++      check(order.last() == "last")
++      passed.add("actual_transport_fifo_and_stale_completion_guard")
++      finish(Activity.RESULT_OK, Bundle().apply { putInt("tests_passed", passed.size); putString("passed", passed.joinToString(",")) })
++    } catch (error: Throwable) {
++      finish(Activity.RESULT_CANCELED, Bundle().apply { putString("Error", error.stackTraceToString()); putString("passed", passed.joinToString(",")) })
++    }
++  }
++}
+diff --git a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RuStorePushClientParams.kt b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RuStorePushClientParams.kt
+index 6b0d58c..e87dc40 100644
+--- a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RuStorePushClientParams.kt
++++ b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RuStorePushClientParams.kt
+@@ -1,13 +1,25 @@
+ package com.rustorepush
+ 
+ import android.content.Context
+-import ru.rustore.sdk.pushclient.common.logger.DefaultLogger
++import androidx.annotation.Keep
+ import ru.rustore.sdk.pushclient.common.logger.Logger
+ import ru.rustore.sdk.pushclient.provider.AbstractRuStorePushClientParams
+ 
++@Keep
+ class RuStorePushClientParams(context: Context) : AbstractRuStorePushClientParams(context) {
+ 
+-  override fun getLogger(): Logger = DefaultLogger("ReactRuStorePushClient")
++  override fun getLogger(): Logger = SilentPushLogger
+ 
+   override fun getTestModeEnabled(): Boolean = false
+ }
++
++/** SDK diagnostics are mapped to bounded application events, never raw payloads or tokens. */
++private object SilentPushLogger : Logger {
++  override fun verbose(message: String, throwable: Throwable?) {}
++  override fun debug(message: String, throwable: Throwable?) {}
++  override fun info(message: String, throwable: Throwable?) {}
++  override fun warn(message: String, throwable: Throwable?) {}
++  override fun error(message: String, throwable: Throwable?) {}
++  override fun createLogger(tag: String): Logger = this
++  override fun createLogger(tag: Any): Logger = this
++}
 diff --git a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushModule.kt b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushModule.kt
-index fcbccdf..404802a 100644
+index fcbccdf..1d6b6e4 100644
 --- a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushModule.kt
 +++ b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushModule.kt
-@@ -38,7 +38,7 @@ class RustorePushModule(private val reactContext: ReactApplicationContext) :
+@@ -1,12 +1,9 @@
+ package com.rustorepush
+ 
+ import android.content.Intent
+-import android.util.Log
+-import com.facebook.react.bridge.ActivityEventListener
+ import com.facebook.react.bridge.BaseActivityEventListener
+ import com.facebook.react.bridge.Promise
+ import com.facebook.react.bridge.ReactApplicationContext
+-import com.facebook.react.bridge.ReactContext
+ import com.facebook.react.bridge.ReactContextBaseJavaModule
+ import com.facebook.react.bridge.ReactMethod
+ import com.facebook.react.bridge.ReadableMap
+@@ -14,199 +11,151 @@ import com.facebook.react.bridge.WritableMap
+ import com.facebook.react.bridge.WritableNativeMap
+ import com.facebook.react.modules.core.DeviceEventManagerModule
+ import com.rustorepush.utils.DataMapper.deconstructReadableMap
+-import com.rustorepush.utils.DataMapper.remoteMessageToWritableMap
+ import com.rustorepush.utils.PushEvents
+ import com.rustorepush.utils.RuStorePushEmitter
+-import ru.rustore.sdk.core.exception.RuStoreException
+ import ru.rustore.sdk.core.feature.model.FeatureAvailabilityResult
++import ru.rustore.sdk.core.tasks.Task
+ import ru.rustore.sdk.pushclient.RuStorePushClient
+ import ru.rustore.sdk.pushclient.messaging.model.RemoteMessage
+ import ru.rustore.sdk.pushclient.messaging.model.TestNotificationPayload
+-import ru.rustore.sdk.pushclient.utils.resolveForPush
++import java.util.concurrent.atomic.AtomicBoolean
+ 
+-class RustorePushModule(private val reactContext: ReactApplicationContext) :
+-  ReactContextBaseJavaModule(reactContext) {
++class RustorePushModule(private val reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
++  @Volatile private var alive = true
++  @Volatile private var moduleEpoch = SlovaPushState.epoch(reactContext)
++  private var ownedEmitter: RuStorePushEmitter? = null
++  private fun isLive() = alive && reactContext.hasActiveReactInstance()
++  override fun getName(): String = "RustorePush"
+ 
+-  companion object {
+-    private var allowNativeErrorHandling = true
+-    private const val TAG = "RustorePushModule"
+-    private const val MESSAGE_ID = "vkpns.analytics_payload.message_id"
+-  }
++  @ReactMethod(isBlockingSynchronousMethod = true)
++  fun getNativeVersionCode(): Double = SlovaPushState.nativeVersionCode(reactContext)
+ 
+-  override fun getName(): String {
+-    return "RustorePush"
++  @ReactMethod
++  fun setNotificationContext(enabled: Boolean, owner: String) {
++    if (!isLive()) return
++    SlovaPushState.setContext(reactContext, enabled, owner)
++    moduleEpoch = SlovaPushState.epoch(reactContext)
++  }
++
++  /** Resolve only this context; release transport ownership on the actual SDK callback, never a public timeout. */
++  private fun <T> sdkRequest(promise: Promise, allowDisabled: Boolean = false, stale: Any? = false,
++    call: () -> Task<T>, result: (T) -> Any?) {
++    val requestEpoch = moduleEpoch
++    SlovaPushOperations.enqueue { complete ->
++      if (!isLive() || requestEpoch != SlovaPushState.epoch(reactContext) ||
++        (!allowDisabled && !SlovaPushState.enabled(reactContext))) {
++        try { if (isLive()) promise.resolve(stale) } finally { complete() }
++        return@enqueue
++      }
++      val settled = AtomicBoolean(false)
++      try {
++        call().addOnSuccessListener { value ->
++          if (settled.compareAndSet(false, true)) {
++            try {
++              val current = requestEpoch == SlovaPushState.epoch(reactContext) &&
++                (allowDisabled || SlovaPushState.enabled(reactContext))
++              if (isLive()) promise.resolve(if (current) result(value) else stale)
++            } catch (_: Exception) { /* A destroyed JS context cannot receive a result. */ }
++            finally { complete() }
++          }
++        }.addOnFailureListener {
++          if (settled.compareAndSet(false, true)) {
++            try { if (isLive()) promise.reject("push_error", "Push operation failed") }
++            catch (_: Exception) { /* Context was destroyed after the readiness check. */ }
++            finally { complete() }
++          }
++        }
++      } catch (_: Exception) {
++        if (settled.compareAndSet(false, true)) {
++          try { if (isLive()) promise.reject("push_error", "Push operation unavailable") }
++          catch (_: Exception) { /* Context no longer exists. */ }
++          finally { complete() }
++        }
++      }
++    }
    }
  
-   private val activityEventListener: ActivityEventListener = object : BaseActivityEventListener() {
+-  private val activityEventListener: ActivityEventListener = object : BaseActivityEventListener() {
 -    override fun onNewIntent(intent: Intent?) {
++  private val activityEventListener = object : BaseActivityEventListener() {
 +    override fun onNewIntent(intent: Intent) {
        super.onNewIntent(intent)
-       Log.i(TAG, "onNewIntent")
-       val messageId = getMessageIdFromIntent(intent) ?: return
+-      Log.i(TAG, "onNewIntent")
+-      val messageId = getMessageIdFromIntent(intent) ?: return
+-      Log.i(TAG, "messageId: $messageId")
+-      val message = RustorePushService.messages[messageId] ?: return
+-      Log.i(TAG, "message: $message")
+-      sendEvent(reactContext, PushEvents.ON_OPENED.name, remoteMessageToWritableMap(message))
+-      }
++      val payload = SlovaPushState.initial(reactContext, intent) ?: return
++      sendEvent(PushEvents.ON_OPENED.name, payload)
++    }
+   }
+ 
+   @ReactMethod
+   fun getInitialNotification(promise: Promise) {
+-    Log.i(TAG, "getInitialNotification")
+-    val messageId = getMessageIdFromIntent(reactContext.currentActivity?.intent)
+-    Log.i(TAG, "messageId: $messageId")
+-    val message = RustorePushService.messages[messageId]
+-    Log.i(TAG, "message: $message")
+-    promise.resolve(if (message != null) remoteMessageToWritableMap(message) else null)
++    try { if (isLive()) promise.resolve(SlovaPushState.initial(reactContext, reactContext.currentActivity?.intent)) }
++    catch (_: Exception) { if (isLive()) promise.resolve(null) }
++  }
++  @ReactMethod
++  fun acknowledgeNotificationOpen(id: String) {
++    if (isLive() && moduleEpoch == SlovaPushState.epoch(reactContext)) SlovaPushState.acknowledgeOpen(reactContext, id)
+   }
+ 
+   @ReactMethod
+   fun checkPushAvailability(promise: Promise) {
+-    RuStorePushClient.checkPushAvailability()
+-      .addOnSuccessListener { result ->
+-        when (result) {
+-          is FeatureAvailabilityResult.Available -> {
+-            promise.resolve(true)
+-          }
+-
+-          is FeatureAvailabilityResult.Unavailable -> {
+-            handleNativeError(result.cause)
+-            promise.resolve(result.cause.message)
+-          }
+-        }
+-      }
+-      .addOnFailureListener { throwable ->
+-        promise.reject(throwable)
+-      }
++    sdkRequest(promise, call = { RuStorePushClient.checkPushAvailability() }) { it is FeatureAvailabilityResult.Available }
+   }
+-
+   @ReactMethod
+   fun getToken(promise: Promise) {
+-    RuStorePushClient.getToken()
+-      .addOnSuccessListener { token ->
+-        promise.resolve(token)
+-      }
+-      .addOnFailureListener { throwable ->
+-        promise.reject(throwable)
+-      }
++    sdkRequest(promise, stale = "", call = { RuStorePushClient.getToken() }) { it }
+   }
+-
+   @ReactMethod
+   fun deleteToken(promise: Promise) {
+-    RuStorePushClient.deleteToken()
+-      .addOnSuccessListener {
+-        promise.resolve(true)
+-      }
+-      .addOnFailureListener { throwable ->
+-        promise.reject(throwable)
+-      }
++    sdkRequest(promise, allowDisabled = true, call = { RuStorePushClient.deleteToken() }) { true }
+   }
+-
+   @ReactMethod
+   fun subscribeToTopic(topic: String, promise: Promise) {
+-    RuStorePushClient.subscribeToTopic(topic)
+-      .addOnSuccessListener {
+-        promise.resolve(true)
+-      }
+-      .addOnFailureListener { throwable ->
+-        promise.reject(throwable)
+-      }
++    sdkRequest(promise, call = { RuStorePushClient.subscribeToTopic(topic) }) { true }
+   }
+-
+   @ReactMethod
+   fun unsubscribeFromTopic(topic: String, promise: Promise) {
+-    RuStorePushClient.unsubscribeFromTopic(topic)
+-      .addOnSuccessListener {
+-        promise.resolve(true)
+-      }
+-      .addOnFailureListener { throwable ->
+-        promise.reject(throwable)
+-      }
++    sdkRequest(promise, call = { RuStorePushClient.unsubscribeFromTopic(topic) }) { true }
+   }
+ 
+   @ReactMethod
+   fun createPushEmitter() {
++    if (!isLive() || !SlovaPushState.enabled(reactContext) || ownedEmitter != null) return
+     reactContext.addActivityEventListener(activityEventListener)
+-
+-    RustorePushService.emitter = object : RuStorePushEmitter {
+-
+-      override fun onNewToken(token: String) {
+-        val params = WritableNativeMap().apply {
+-          putString("token", token)
+-        }
+-        sendEvent(reactApplicationContext, PushEvents.ON_NEW_TOKEN.name, params)
+-      }
+-
++    ownedEmitter = object : RuStorePushEmitter {
++      override fun onNewToken(token: String) { sendEvent(PushEvents.ON_NEW_TOKEN.name, WritableNativeMap()) }
+       override fun onMessageReceived(message: RemoteMessage) {
+-        val notification = remoteMessageToWritableMap(message)
+-        sendEvent(reactContext, PushEvents.ON_MESSAGE_RECEIVED.name, notification)
+-      }
+-
+-      override fun onDeletedMessages() {
+-        val params = WritableNativeMap().apply {
+-          putString("callback", "onDeletedMessages")
+-        }
+-        sendEvent(reactApplicationContext, PushEvents.ON_DELETED_MESSAGES.name, params)
++        val payload = try { SlovaPushState.cache(reactContext, message) } catch (_: Exception) { null } ?: return
++        sendEvent(PushEvents.ON_MESSAGE_RECEIVED.name, payload)
+       }
+-
++      override fun onDeletedMessages() { sendEvent(PushEvents.ON_DELETED_MESSAGES.name, WritableNativeMap()) }
+       override fun onError(errors: String) {
+-        val params = WritableNativeMap().apply {
+-          putString("errors", errors)
+-        }
+-        sendEvent(reactApplicationContext, PushEvents.ON_ERROR.name, params)
++        sendEvent(PushEvents.ON_ERROR.name, WritableNativeMap().apply { putString("errors", "push_transport_error") })
+       }
+     }
++    RustorePushService.emitter = ownedEmitter
+   }
+ 
+   @ReactMethod
+   fun deletePushEmitter() {
+-    RustorePushService.emitter = null
++    if (RustorePushService.emitter === ownedEmitter) RustorePushService.emitter = null
++    ownedEmitter = null
+     reactContext.removeActivityEventListener(activityEventListener)
+   }
+-
++  override fun invalidate() { alive = false; deletePushEmitter(); super.invalidate() }
+   @ReactMethod
+-  fun offNativeErrorHandling() {
+-    allowNativeErrorHandling = false
+-  }
++  fun offNativeErrorHandling() { /* Native resolution UI is deliberately disabled. */ }
+ 
+   @ReactMethod
+   fun sendTestNotification(params: ReadableMap, promise: Promise) {
+-    val title = params.getString("title").orEmpty()
+-    val body = params.getString("body").orEmpty()
+-    val imgUrl = params.getString("imageUrl").orEmpty()
+-    val data = deconstructReadableMap(params.getMap("data"))
+-
+-    RuStorePushClient.sendTestNotification(TestNotificationPayload(title, body, imgUrl, data))
+-      .addOnSuccessListener {
+-        promise.resolve(true)
+-      }
+-      .addOnFailureListener { throwable ->
+-        promise.reject(throwable)
+-      }
++    val payload = TestNotificationPayload(params.getString("title").orEmpty(), params.getString("body").orEmpty(),
++      params.getString("imageUrl").orEmpty(), deconstructReadableMap(params.getMap("data")))
++    sdkRequest(promise, call = { RuStorePushClient.sendTestNotification(payload) }) { true }
+   }
+-
+   @ReactMethod
+-  fun addListener(eventName: String) {
+-    // Keep: Required for RN built in Event Emitter Calls.
+-  }
+-
++  fun addListener(eventName: String) { /* Required by RN NativeEventEmitter. */ }
+   @ReactMethod
+-  fun removeListeners(count: Int) {
+-    // Keep: Required for RN built in Event Emitter Calls.
+-  }
+-
+-
+-  private fun handleNativeError(throwable: Throwable) {
+-    if (allowNativeErrorHandling && throwable is RuStoreException)
+-      reactApplicationContext.currentActivity?.let { throwable.resolveForPush(it) }
+-  }
+-
+-  private fun sendEvent(reactContext: ReactContext, eventName: String, params: WritableMap?) {
+-    reactContext
+-      .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+-      .emit(eventName, params)
+-  }
++  fun removeListeners(count: Int) { /* Required by RN NativeEventEmitter. */ }
+ 
+-  private fun getMessageIdFromIntent(intent: Intent?) : String? {
+-    return intent?.extras?.getString(MESSAGE_ID)
++  private fun sendEvent(eventName: String, params: WritableMap) {
++    if (!isLive() || !SlovaPushState.enabled(reactContext) || moduleEpoch != SlovaPushState.epoch(reactContext)) return
++    try { reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit(eventName, params) }
++    catch (_: Exception) { /* Do not dispatch into a destroyed context. */ }
+   }
+ }
+diff --git a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushService.kt b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushService.kt
+index 4b50605..88098bf 100644
+--- a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushService.kt
++++ b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/RustorePushService.kt
+@@ -2,7 +2,6 @@ package com.rustorepush
+ 
+ import android.os.Handler
+ import android.os.Looper
+-import android.util.Log
+ import com.rustorepush.utils.RuStorePushEmitter
+ import ru.rustore.sdk.pushclient.messaging.exception.RuStorePushClientException
+ import ru.rustore.sdk.pushclient.messaging.model.RemoteMessage
+@@ -11,36 +10,40 @@ import ru.rustore.sdk.pushclient.messaging.service.RuStoreMessagingService
+ class RustorePushService : RuStoreMessagingService() {
+ 
+   companion object {
+-    val messages = mutableMapOf<String, RemoteMessage>()
+     var emitter: RuStorePushEmitter? = null
+   }
+ 
+   private val uiThreadHandler: Handler = Handler(Looper.getMainLooper())
+ 
+   override fun onNewToken(token: String) {
++    val epoch = SlovaPushState.epoch(this)
+     uiThreadHandler.post {
+-      emitter?.onNewToken(token)
++      if (SlovaPushState.epoch(this) == epoch && SlovaPushState.enabled(this)) emitter?.onNewToken(token)
+     }
+   }
+ 
+   override fun onMessageReceived(message: RemoteMessage) {
+-    message.messageId?.let {
+-      messages[it] = message
+-    }
++    val epoch = SlovaPushState.epoch(this)
++    try {
++      SlovaPushState.cache(this, message)
++      SlovaPushState.receipt(this, message)
++    } catch (_: Exception) { /* Optional notification bookkeeping cannot crash the service. */ }
+     uiThreadHandler.post {
+-      emitter?.onMessageReceived(message)
++      if (SlovaPushState.epoch(this) == epoch && SlovaPushState.enabled(this)) emitter?.onMessageReceived(message)
+     }
+   }
+ 
+   override fun onDeletedMessages() {
++    val epoch = SlovaPushState.epoch(this)
+     uiThreadHandler.post {
+-      emitter?.onDeletedMessages()
++      if (SlovaPushState.epoch(this) == epoch && SlovaPushState.enabled(this)) emitter?.onDeletedMessages()
+     }
+   }
+ 
+   override fun onError(errors: List<RuStorePushClientException>) {
++    val epoch = SlovaPushState.epoch(this)
+     uiThreadHandler.post {
+-      emitter?.onError(errors.toString())
++      if (SlovaPushState.epoch(this) == epoch && SlovaPushState.enabled(this)) emitter?.onError("push_transport_error")
+     }
+   }
+ }
+diff --git a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/SlovaPushOperations.kt b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/SlovaPushOperations.kt
+new file mode 100644
+index 0000000..2c4de34
+--- /dev/null
++++ b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/SlovaPushOperations.kt
+@@ -0,0 +1,27 @@
++package com.rustorepush
++
++import java.util.ArrayDeque
++import java.util.concurrent.atomic.AtomicBoolean
++
++/** One actual SDK-operation lifetime across React contexts; a JS deadline cannot release this queue. */
++internal object SlovaPushOperations {
++  private val pending = ArrayDeque<(complete: () -> Unit) -> Unit>()
++  private var running = false
++
++  fun enqueue(operation: (complete: () -> Unit) -> Unit) {
++    val start = synchronized(this) {
++      pending.addLast(operation)
++      if (running) false else { running = true; true }
++    }
++    if (start) next()
++  }
++
++  private fun next() {
++    val operation = synchronized(this) {
++      pending.pollFirst().also { if (it == null) running = false }
++    } ?: return
++    val finished = AtomicBoolean(false)
++    val complete = { if (finished.compareAndSet(false, true)) next() }
++    try { operation(complete) } catch (_: Exception) { complete() }
++  }
++}
+diff --git a/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/SlovaPushState.kt b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/SlovaPushState.kt
+new file mode 100644
+index 0000000..885d740
+--- /dev/null
++++ b/node_modules/react-native-rustore-push/android/src/main/java/com/rustorepush/SlovaPushState.kt
+@@ -0,0 +1,92 @@
++package com.rustorepush
++
++import android.content.Context
++import android.content.Intent
++import android.os.Build
++import com.facebook.react.bridge.WritableMap
++import com.facebook.react.bridge.WritableNativeMap
++import org.json.JSONArray
++import org.json.JSONObject
++import ru.rustore.sdk.pushclient.messaging.model.RemoteMessage
++import java.security.MessageDigest
++
++/** Only audited routing fields survive JS/process recreation. Never persist text, raw data or tokens. */
++internal object SlovaPushState {
++  private const val PREFS = "slova.push.delivery.v1"
++  private const val CACHE = "routing"
++  private val fields = listOf("route", "campaign_id", "min_version_code", "min_content_levels", "sender_admission_id")
++  private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++  /** Native package capability: independent of the mutable JS/OTA manifest and of Push consent. */
++  @Suppress("DEPRECATION")
++  fun nativeVersionCode(context: Context): Double = try {
++    val info = context.packageManager.getPackageInfo(context.packageName, 0)
++    val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
++    if (code in 1..Int.MAX_VALUE.toLong()) code.toDouble() else 0.0
++  } catch (_: Exception) { 0.0 }
++  fun enabled(context: Context): Boolean = prefs(context).getBoolean("enabled", false)
++  fun owner(context: Context): String = prefs(context).getString("owner", "") ?: ""
++  fun epoch(context: Context): Long = prefs(context).getLong("epoch", 0)
++  @Synchronized fun setContext(context: Context, enabled: Boolean, owner: String) {
++    val pref = prefs(context)
++    val edit = pref.edit().putBoolean("enabled", enabled).putString("owner", owner.take(96))
++    if (pref.getBoolean("enabled", false) != enabled || pref.getString("owner", "") != owner) edit.putLong("epoch", epoch(context) + 1)
++    if (!enabled || pref.getString("owner", "") != owner) edit.remove(CACHE).remove("pendingOpenedId").remove("pendingOpenedAt")
++    edit.commit()
++  }
++  private fun entries(context: Context): List<JSONObject> = try {
++    val array = JSONArray(prefs(context).getString(CACHE, "[]") ?: "[]")
++    (0 until minOf(array.length(), 32)).mapNotNull { array.optJSONObject(it) }.filter {
++      it.optString("ownerScope") == prefs(context).getString("owner", "") &&
++        System.currentTimeMillis() - it.optLong("receivedAtMs") in 0..30L * 24 * 60 * 60 * 1000
++    }
++  } catch (_: Exception) { emptyList() }
++  private fun map(entry: JSONObject): WritableMap = WritableNativeMap().apply {
++    putString("messageId", entry.optString("messageId"))
++    putString("ownerScope", entry.optString("ownerScope"))
++    putDouble("receivedAtMs", entry.optLong("receivedAtMs").toDouble())
++    if (entry.has("openedAtMs")) putDouble("openedAtMs", entry.optLong("openedAtMs").toDouble())
++    val data = entry.optJSONObject("data") ?: JSONObject()
++    putMap("data", WritableNativeMap().apply { fields.forEach { if (data.has(it)) putString(it, data.optString(it)) } })
++  }
++  @Synchronized fun remember(context: Context, message: RemoteMessage): JSONObject? {
++    if (!enabled(context)) return null
++    val id = message.messageId?.takeIf { it.isNotEmpty() && it.length <= 192 } ?: return null
++    val current = entries(context)
++    current.find { it.optString("messageId") == id }?.let { return it }
++    val data = JSONObject()
++    fields.forEach { key -> message.data[key]?.takeIf { it.length <= 512 }?.let { data.put(key, it) } }
++    if (message.notification?.clickActionType?.name == "DEEP_LINK") {
++      message.notification?.clickAction?.takeIf { it.length <= 128 }?.let { data.put("route", it) }
++    }
++    val item = JSONObject().put("messageId", id).put("ownerScope", prefs(context).getString("owner", ""))
++      .put("receivedAtMs", System.currentTimeMillis()).put("data", data)
++    val saved = JSONArray(); (current.takeLast(31) + item).forEach { saved.put(it) }
++    return if (prefs(context).edit().putString(CACHE, saved.toString()).commit()) item else null
++  }
++  fun cache(context: Context, message: RemoteMessage): WritableMap? = remember(context, message)?.let { map(it) }
++  @Synchronized fun initialEntry(context: Context, intent: Intent?): JSONObject? {
++    if (!enabled(context)) return null
++    val pref = prefs(context)
++    val id = intent?.getStringExtra("vkpns.analytics_payload.message_id") ?: pref.getString("pendingOpenedId", null) ?: return null
++    val openedAt = intent?.getLongExtra("slovaNotificationOpenedAtMs", pref.getLong("pendingOpenedAt", System.currentTimeMillis()))
++      ?: pref.getLong("pendingOpenedAt", System.currentTimeMillis())
++    return entries(context).find { it.optString("messageId") == id }?.let {
++      JSONObject(it.toString()).put("openedAtMs", openedAt.takeIf { value -> value in 0..9_007_199_254_740_991L } ?: System.currentTimeMillis())
++    }
++  }
++  fun initial(context: Context, intent: Intent?): WritableMap? = initialEntry(context, intent)?.let { map(it) }
++  @Synchronized fun acknowledgeOpen(context: Context, id: String) {
++    if (prefs(context).getString("pendingOpenedId", null) == id) {
++      prefs(context).edit().remove("pendingOpenedId").remove("pendingOpenedAt").commit()
++    }
++  }
++  fun receipt(context: Context, message: RemoteMessage) {
++    if (message.notification == null) return // Silent data updates are not automatically displayed notifications.
++    val admission = message.data["sender_admission_id"]?.takeIf { Regex("[a-f0-9]{32}").matches(it) }
++    val id = admission ?: MessageDigest.getInstance("SHA-256").digest(
++      (message.messageId?.take(192) ?: "missing:${System.currentTimeMillis() / 86_400_000}").toByteArray(),
++    ).joinToString("") { "%02x".format(it) }.take(32)
++    context.sendBroadcast(Intent().setClassName(context.packageName, "expo.modules.reminders.RemotePushReceiptReceiver")
++      .putExtra("notificationId", "remote_$id"))
++  }
++}

@@ -96,6 +96,14 @@ class RemindersModule : Module() {
       appContext.reactContext?.let { ReminderScheduler.sentHistory(it) } ?: "[]"
     }
 
+    Function("reserveRemoteNotification") { json: String ->
+      appContext.reactContext?.let { ReminderScheduler.reserveRemote(it, json) }
+        ?: "{\"allowed\":false,\"reason\":\"unavailable\"}"
+    }
+    Function("settleRemoteNotification") { id: String, acceptedOrUnknown: Boolean ->
+      appContext.reactContext?.let { ReminderScheduler.settleRemote(it, id, acceptedOrUnknown) } ?: false
+    }
+
     Function("readTelemetry") {
       appContext.reactContext?.let {
         ReminderScheduler.captureTap(it, appContext.currentActivity?.intent)

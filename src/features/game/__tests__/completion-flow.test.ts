@@ -21,7 +21,12 @@ const level: Level = {
 };
 
 describe('completion settlement regression', () => {
-  beforeEach(() => jest.resetModules());
+  beforeEach(() => {
+    jest.resetModules();
+    // Base settlement assertions run before the calendar marathon starts.
+    jest.useFakeTimers({ now: Date.parse('2026-10-25T12:00:00.000Z') });
+  });
+  afterEach(() => jest.useRealTimers());
 
   test('winning action pays before Next and replay cannot pay again', () => {
     jest.isolateModules(() => {

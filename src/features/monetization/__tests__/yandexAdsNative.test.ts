@@ -3,6 +3,9 @@ jest.mock('yandex-mobile-ads', () => ({
   InterstitialAdLoader: { create: jest.fn() },
   RewardedAdLoader: { create: jest.fn() },
 }));
+jest.mock('react-native', () => Object.create(jest.requireActual('react-native'), {
+  AppState: { value: { currentState: 'active', addEventListener: jest.fn() } },
+}));
 
 type MockRewardedAd = {
   show: jest.Mock<Promise<void>, []>;
@@ -96,5 +99,22 @@ describe('Yandex Android rewarded confirmation', () => {
       rewardId: ' ', persistGrant: jest.fn(() => true),
     })).resolves.toBe('unavailable');
     expect(ad.show).not.toHaveBeenCalled();
+  });
+
+  test('an earned grant survives a subsequent show error and releases the fullscreen lock', async () => {
+    const { provider, ad } = await loadedProvider();
+    const persistGrant = jest.fn(() => true);
+    const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const pending = provider.showRewarded('wheel', { rewardId: 'earned-before-error', persistGrant });
+      ad.onRewarded?.();
+      ad.onAdFailedToShow?.(new Error('late show error'));
+      await expect(pending).resolves.toBe('rewarded');
+      expect(persistGrant).toHaveBeenCalledTimes(1);
+      await provider.init();
+      expect(provider.isRewardedReady()).toBe(true);
+    } finally {
+      warning.mockRestore();
+    }
   });
 });

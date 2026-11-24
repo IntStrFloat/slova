@@ -1,9 +1,9 @@
 {
   "images": [
     {
-      "filename": "01_обложка.jpg",
-      "source": "../art/marathon-article-cover-1568x882.jpg, standard APP0/JFIF metadata added for python-docx compatibility; decoded pixels verified identical to the source",
-      "alt": "Иллюстрация семи этапов словесного марафона на фоне путешествия"
+      "filename": "01_обложка_без_надписей.jpg",
+      "source": "imagegen edit of original 01_обложка.jpg on 2026-10-20; removed promotional text, coins and game overlays; editorial cover illustration, not a gameplay screenshot",
+      "alt": "Иллюстрация горного пейзажа на закате без рекламных надписей"
     },
     {
       "filename": "02_буквы_и_кроссворд.png",
@@ -19,7 +19,7 @@
   "required": [
     {
       "kind": "cover",
-      "filename": "01_обложка.jpg",
+      "filename": "01_обложка_без_надписей.jpg",
       "insertAfter": "intro",
       "minimumWidth": 784,
       "minimumHeight": 440

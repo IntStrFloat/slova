@@ -16,6 +16,11 @@ interface LevelsState extends Saved {
   completeLevelOnce: (effectId: string, id: number) => boolean;
   reset: () => void;
 }
+let historyCoverageUncertain = false;
+function invalidateHistoryCoverage(): void {
+  historyCoverageUncertain = true;
+  try { storage.set(KEYS.campaignHistoryProof, JSON.stringify({ version: 1, complete: false })); } catch { /* unknown remains in memory */ }
+}
 
 function sanitizeCompleted(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
@@ -83,10 +88,15 @@ function parseSaved(raw: string | null): Saved | null {
 function loadProgress(): Saved {
   const primary = getString(KEYS.levelsProgress);
   const parsed = parseSaved(primary);
-  if (parsed) return parsed;
+  if (parsed) {
+    try { if (JSON.stringify(JSON.parse(primary!).completed) !== JSON.stringify(parsed.completed)) invalidateHistoryCoverage(); }
+    catch { invalidateHistoryCoverage(); }
+    return parsed;
+  }
   const backupRaw = getString(KEYS.levelsProgressBackup);
   const backup = parseSaved(backupRaw);
   if (backup) {
+    invalidateHistoryCoverage();
     // Restore only a validated snapshot. The damaged primary remains untouched
     // if this write fails, and the backup can be retried at next launch.
     storage.set(KEYS.levelsProgress, JSON.stringify(backup));
@@ -95,10 +105,27 @@ function loadProgress(): Saved {
   if (primary !== null || backupRaw !== null) {
     throw new Error('Levels progress is unreadable; preserving it for recovery');
   }
+  if (getString(KEYS.campaignHistoryProof) !== null) invalidateHistoryCoverage();
   return sanitizeSaved(null);
 }
 
 const init = loadProgress();
+// A missing/legacy history is never promoted to complete merely because the current list is empty.
+const historyAtLoad = getString(KEYS.levelsProgress);
+if (getString(KEYS.campaignHistoryProof) === null && historyAtLoad === null
+  && getString(KEYS.levelsProgressBackup) === null && (getString(KEYS.currency) === null
+    || getJSON<{ newProfile?: boolean }>(KEYS.currency, {}).newProfile === true)) {
+  storage.set(KEYS.campaignHistoryProof, JSON.stringify({ version: 1, complete: true }));
+}
+export function getCampaignPriorCompletion(levelId: number): boolean | null {
+  const saved = parseSaved(getString(KEYS.levelsProgress));
+  if (useLevels.getState().completed.includes(levelId) || saved?.completed.includes(levelId)) return true;
+  const proof = getJSON<{ version?: number; complete?: boolean }>(KEYS.campaignHistoryProof, {});
+  const raw = getString(KEYS.levelsProgress);
+  let intact = raw === null;
+  try { intact ||= saved !== null && JSON.stringify(JSON.parse(raw!).completed) === JSON.stringify(saved.completed); } catch { intact = false; }
+  return !historyCoverageUncertain && proof.version === 1 && proof.complete === true && intact ? false : null;
+}
 const rewardLedger = sanitizeRewardLedger(getJSON<Record<string, number> | null>(KEYS.levelsRewardLedger, null));
 
 function persist(previous: Saved, next: Saved): void {
@@ -137,6 +164,7 @@ export const useLevels = create<LevelsState>((set, get) => ({
     return true;
   },
   reset: () => {
+    storage.set(KEYS.campaignHistoryProof, JSON.stringify({ version: 1, complete: false }));
     const fresh = saveState(1, []);
     persist(currentSaved(get()), fresh);
     set(fresh);

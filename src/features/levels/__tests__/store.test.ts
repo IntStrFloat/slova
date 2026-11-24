@@ -54,15 +54,60 @@ describe('levels progress store', () => {
     });
   });
 
-  test('completing the new finale persists the campaign-end sentinel', () => {
+  test('completing level 1000 opens the third route exactly once', () => {
     jest.isolateModules(() => {
       const { storage, KEYS } = require('@/core/storage');
       storage.clearAll();
       jest.doMock('../loader', () => ({ DEFAULT_WORLD: 'world1' }));
       const { useLevels } = require('../store');
-      useLevels.getState().completeLevelOnce('completion-1000', 1000);
-      expect(useLevels.getState()).toMatchObject({ world: 'world14', currentLevel: 1001, completed: [1000] });
-      expect(JSON.parse(storage.getString(KEYS.levelsProgress))).toMatchObject({ world: 'world14', currentLevel: 1001, completed: [1000] });
+      expect(useLevels.getState().completeLevelOnce('completion-1000', 1000)).toBe(true);
+      expect(useLevels.getState().completeLevelOnce('completion-1000', 1000)).toBe(false);
+      expect(useLevels.getState()).toMatchObject({ world: 'world15', currentLevel: 1001, completed: [1000] });
+      expect(JSON.parse(storage.getString(KEYS.levelsProgress))).toMatchObject({ world: 'world15', currentLevel: 1001, completed: [1000] });
+    });
+  });
+
+  test('existing second-route finishers resume at 1001 without losing progress or replaying its completion', () => {
+    jest.isolateModules(() => {
+      const { storage, KEYS } = require('@/core/storage');
+      storage.clearAll();
+      jest.doMock('../loader', () => ({ DEFAULT_WORLD: 'world1' }));
+      const completed = Array.from({ length: 1000 }, (_, index) => index + 1);
+      storage.set(KEYS.levelsProgress, JSON.stringify({ world: 'world14', currentLevel: 1001, completed }));
+      storage.set(KEYS.levelsRewardLedger, JSON.stringify({ 'completion-1000': 123 }));
+
+      const { useLevels } = require('../store');
+      expect(useLevels.getState()).toMatchObject({ world: 'world15', currentLevel: 1001, completed });
+      expect(useLevels.getState().completeLevelOnce('completion-1000', 1000)).toBe(false);
+      expect(useLevels.getState().completeLevelOnce('completion-1001', 1001)).toBe(true);
+      expect(useLevels.getState()).toMatchObject({ world: 'world15', currentLevel: 1002, completed: [...completed, 1001] });
+      expect(JSON.parse(storage.getString(KEYS.levelsProgress))).toMatchObject({ currentLevel: 1002, completed: [...completed, 1001] });
+    });
+  });
+
+  test('completing the third-route finale persists and restores the campaign-end sentinel', () => {
+    const completed = Array.from({ length: 1500 }, (_, index) => index + 1);
+    let savedProgress = '';
+    let savedLedger = '';
+    jest.isolateModules(() => {
+      const { storage, KEYS } = require('@/core/storage');
+      storage.clearAll();
+      jest.doMock('../loader', () => ({ DEFAULT_WORLD: 'world1' }));
+      storage.set(KEYS.levelsProgress, JSON.stringify({ world: 'world21', currentLevel: 1500, completed: completed.slice(0, -1) }));
+      const { useLevels } = require('../store');
+      expect(useLevels.getState().completeLevelOnce('completion-1500', 1500)).toBe(true);
+      expect(useLevels.getState()).toMatchObject({ world: 'world21', currentLevel: 1501, completed });
+      expect(JSON.parse(storage.getString(KEYS.levelsProgress))).toMatchObject({ world: 'world21', currentLevel: 1501, completed });
+      savedProgress = storage.getString(KEYS.levelsProgress);
+      savedLedger = storage.getString(KEYS.levelsRewardLedger);
+    });
+    jest.isolateModules(() => {
+      const { storage, KEYS } = require('@/core/storage');
+      storage.set(KEYS.levelsProgress, savedProgress);
+      storage.set(KEYS.levelsRewardLedger, savedLedger);
+      const { useLevels } = require('../store');
+      expect(useLevels.getState()).toMatchObject({ world: 'world21', currentLevel: 1501, completed });
+      expect(useLevels.getState().completeLevelOnce('completion-1500', 1500)).toBe(false);
     });
   });
 

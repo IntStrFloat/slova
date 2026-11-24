@@ -16,6 +16,7 @@ describe('voluntary help accent', () => {
     expect(isStalled(60, 3)).toBe(true);
     expect(isStalled(119, 1)).toBe(false);
     expect(isStalled(120, 1)).toBe(true);
+    expect(isStalled(120, 0)).toBe(true);
     expect(isStalled(Number.NaN, 3, 'intro')).toBe(false);
     expect(isStalled(18, Number.NaN, 'intro')).toBe(false);
     expect(isStalled(-1, 0, 'intro')).toBe(false);

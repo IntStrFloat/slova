@@ -41,15 +41,31 @@ export function readReviewState(): ReviewState {
   };
 }
 
-export function isReviewEligible(context: ReviewContext, now = Date.now()): boolean {
+export type ReviewEligibilityReason = 'eligible' | 'daily' | 'repeated' | 'not_milestone' | 'threshold'
+  | 'invalid_time' | 'handled' | 'max_attempts' | 'same_level' | 'cooldown' | 'additional_progress';
+
+export function reviewEligibility(context: ReviewContext, now = Date.now()): {
+  eligible: boolean; reason: ReviewEligibilityReason;
+} {
   const state = readReviewState();
-  if (context.daily || !context.firstCompletion || !context.postcardMilestone
-    || !Number.isInteger(context.levelId) || context.levelId < REVIEW_POLICY.minimumCompleted
-    || !Number.isInteger(context.completedCount) || context.completedCount < REVIEW_POLICY.minimumCompleted
-    || !Number.isFinite(now) || state.handled || state.attempts >= REVIEW_POLICY.maximumAttempts
-    || state.lastLevelId === context.levelId) return false;
-  return state.lastAttemptAt === null || now - state.lastAttemptAt >= REVIEW_POLICY.cooldownMs
-    && context.completedCount - state.lastCompletedCount >= REVIEW_POLICY.additionalCompleted;
+  let reason: ReviewEligibilityReason = 'eligible';
+  if (context.daily) reason = 'daily';
+  else if (!context.firstCompletion) reason = 'repeated';
+  else if (!context.postcardMilestone) reason = 'not_milestone';
+  else if (!Number.isInteger(context.levelId) || context.levelId < REVIEW_POLICY.minimumCompleted
+    || !Number.isInteger(context.completedCount) || context.completedCount < REVIEW_POLICY.minimumCompleted) reason = 'threshold';
+  else if (!Number.isFinite(now)) reason = 'invalid_time';
+  else if (state.handled) reason = 'handled';
+  else if (state.attempts >= REVIEW_POLICY.maximumAttempts) reason = 'max_attempts';
+  else if (state.lastLevelId === context.levelId) reason = 'same_level';
+  else if (state.lastAttemptAt !== null && now - state.lastAttemptAt < REVIEW_POLICY.cooldownMs) reason = 'cooldown';
+  else if (state.lastAttemptAt !== null
+    && context.completedCount - state.lastCompletedCount < REVIEW_POLICY.additionalCompleted) reason = 'additional_progress';
+  return { eligible: reason === 'eligible', reason };
+}
+
+export function isReviewEligible(context: ReviewContext, now = Date.now()): boolean {
+  return reviewEligibility(context, now).eligible;
 }
 
 /** Durable reservation precedes SDK calls: retries, rapid taps and restarts cannot spam. */

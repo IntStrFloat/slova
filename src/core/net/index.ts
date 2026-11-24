@@ -50,9 +50,18 @@ export interface BillingPlan {
   currency: 'RUB';
   periodDays: number;
   consentVersion: string;
+  termsVersion: string;
+  privacyVersion: string;
+  consentText: string;
+  userAgreementVersion: string;
+  personalDataConsentVersion: string;
+  personalDataConsentText: string;
 }
 
 export interface BillingCatalog {
+  provider: 'robokassa';
+  protocol: 'robokassa-v3';
+  merchantLogin: string;
   available: boolean;
   mode: 'disabled' | 'test' | 'live';
   plan: BillingPlan;
@@ -67,11 +76,19 @@ export interface SubscriptionStatus {
   nextPaymentAt: number | null;
   pendingPaymentId: string | null;
   serverTime: number;
+  checkoutResolution?: { requestId: string; paymentId: string; state: 'pending' | 'succeeded' | 'canceled' | 'failed' } | null;
 }
 
 export interface SubscriptionCheckoutRequest {
+  provider: BillingCatalog['provider'];
+  protocol: BillingCatalog['protocol'];
+  merchantLogin: string;
+  mode: BillingCatalog['mode'];
   requestId: string;
   consentVersion: string;
+  recurringConsented: true;
+  personalDataConsented: true;
+  personalDataConsentVersion: string;
   email: string;
 }
 
@@ -79,6 +96,22 @@ export interface SubscriptionCheckout extends SubscriptionStatus {
   paymentId: string;
   confirmationUrl: string | null;
   recoveryCode: string | null;
+}
+
+export interface BillingDraftIdentity {
+  requestId: string;
+  paymentId: string | null;
+  provider: string;
+  protocol: string | null;
+  merchantLogin: string | null;
+  mode: BillingCatalog['mode'] | null;
+}
+
+export interface BillingMigrationResolution {
+  resolution: 'safe_to_discard';
+  reason: 'retired_test_payment' | 'operator_reviewed';
+  draft: BillingDraftIdentity;
+  target: Pick<BillingCatalog, 'provider' | 'protocol' | 'merchantLogin' | 'mode'>;
 }
 
 const BILLING_ERROR_CODES = new Set([
@@ -96,6 +129,10 @@ const BILLING_ERROR_CODES = new Set([
   'billing_checkout_canceled', 'billing_payment_pending', 'billing_manual_reconciliation_required',
   'billing_subscription_not_found', 'billing_restore_conflict',
   'billing_mode_conflict', 'billing_notification_rate_limited',
+  'billing_email_change_pending',
+  'billing_provider_migration_required', 'billing_client_update_required',
+  'billing_migration_unresolved',
+  'billing_personal_data_consent_required',
 ]);
 
 /** Never expose provider responses, credentials, or arbitrary exception text in the UI. */
@@ -105,6 +142,7 @@ export function safeBillingError(error: unknown): string {
 }
 
 export interface BackendClient {
+  bindSubscriptionAnalytics?(token: string, body: { consent: boolean; deviceId?: string; installationId?: string }): Promise<{ consent: boolean; bound: boolean }>;
   bootstrap(nickname: string): Promise<{ profile: Profile; authToken: string }>;
   rename(token: string, nickname: string): Promise<Profile>;
   submitProgress(token: string, levels: number): Promise<Snapshot>;
@@ -118,25 +156,39 @@ export interface BackendClient {
   teamJoin(token: string, id: string): Promise<{ team: Team }>;
   teamLeave(token: string): Promise<{ ok: boolean }>;
   billingCatalog(): Promise<BillingCatalog>;
-  subscription(token: string): Promise<SubscriptionStatus>;
+  subscription(token: string, checkoutRequestId?: string): Promise<SubscriptionStatus>;
   subscriptionCheckout(token: string, body: SubscriptionCheckoutRequest): Promise<SubscriptionCheckout>;
   cancelSubscription(token: string): Promise<SubscriptionStatus>;
   restoreSubscription(token: string, recoveryCode: string): Promise<SubscriptionStatus>;
   subscriptionRecovery(token: string): Promise<{ recoveryCode: string }>;
+  updateSubscriptionEmail(token: string, email: string): Promise<SubscriptionStatus>;
+  resolveSubscriptionMigration(token: string, draft: BillingDraftIdentity): Promise<BillingMigrationResolution>;
 }
 
 function makeHttp(base: string): BackendClient {
   async function req(path: string, method: string, token?: string, body?: unknown) {
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        'content-type': 'application/json',
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) throw new Error(`http_${res.status}`);
-    return res.json();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const res = await fetch(base + path, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`http_${res.status}`);
+      const result = await res.json();
+      if (controller.signal.aborted) throw new Error('timeout');
+      return result;
+    } catch (error) {
+      if (controller.signal.aborted) throw new Error('timeout');
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
   async function billing<T>(path: string, method: string, token?: string, body?: unknown): Promise<T> {
     const controller = new AbortController();
@@ -148,6 +200,7 @@ function makeHttp(base: string): BackendClient {
           method,
           headers: {
             'content-type': 'application/json',
+            'X-Slova-Billing-Protocol': 'robokassa-v3',
             ...(token ? { authorization: `Bearer ${token}` } : {}),
           },
           body: body === undefined ? undefined : JSON.stringify(body),
@@ -169,6 +222,7 @@ function makeHttp(base: string): BackendClient {
     }
   }
   return {
+    bindSubscriptionAnalytics: (token, body) => billing('/api/billing/analytics-binding', 'POST', token, body),
     bootstrap: (nickname) => req('/api/profile/bootstrap', 'POST', undefined, { nickname }),
     rename: (token, nickname) => req('/api/profile/rename', 'POST', token, { nickname }).then((r) => r.profile),
     submitProgress: (token, levels) => req('/api/progress', 'POST', token, { levels }),
@@ -182,15 +236,18 @@ function makeHttp(base: string): BackendClient {
     teamJoin: (token, id) => req(`/api/teams/${id}/join`, 'POST', token),
     teamLeave: (token) => req('/api/teams/me/leave', 'POST', token),
     billingCatalog: () => billing('/api/billing/catalog', 'GET'),
-    subscription: (token) => billing('/api/billing/subscription', 'GET', token),
+    subscription: (token, checkoutRequestId) => billing(`/api/billing/subscription${checkoutRequestId ? `?checkoutRequestId=${encodeURIComponent(checkoutRequestId)}` : ''}`, 'GET', token),
     subscriptionCheckout: (token, body) => billing('/api/billing/checkout', 'POST', token, body),
     cancelSubscription: (token) => billing('/api/billing/subscription/cancel', 'POST', token, {}),
     restoreSubscription: (token, recoveryCode) => billing('/api/billing/restore', 'POST', token, { recoveryCode }),
     subscriptionRecovery: (token) => billing('/api/billing/recovery', 'POST', token, {}),
+    updateSubscriptionEmail: (token, email) => billing('/api/billing/email', 'POST', token, { email }),
+    resolveSubscriptionMigration: (token, draft) => billing('/api/billing/migration/resolve', 'POST', token, draft),
   };
 }
 
 const NoopBackend: BackendClient = {
+  async bindSubscriptionAnalytics() { throw new Error('offline'); },
   async bootstrap() {
     throw new Error('offline');
   },
@@ -243,6 +300,12 @@ const NoopBackend: BackendClient = {
     throw new Error('offline');
   },
   async subscriptionRecovery() {
+    throw new Error('offline');
+  },
+  async updateSubscriptionEmail() {
+    throw new Error('offline');
+  },
+  async resolveSubscriptionMigration() {
     throw new Error('offline');
   },
 };

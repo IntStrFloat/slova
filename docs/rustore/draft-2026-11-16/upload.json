@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-16",
+  "appId": 2063728518,
+  "appName": "Игра в слова из букв: кроссворды без интернета",
+  "versionId": 2064958636,
+  "draftUrl": "https://console.rustore.ru/apps/2063728518/versions/2064958636/edit",
+  "status": "saved_as_draft",
+  "serverArtifactStatusAtVerification": "Processing",
+  "previousSavedDraftFound": false,
+  "publishedVersion": "0.1.28 (32)",
+  "uploadedVersion": "0.1.31 (35)",
+  "artifact": "output/release/slova-0.1.31-vc35-rustore.aab",
+  "artifactSHA256": "aab4fcb857f0cde6d1ed11392ee5152d0d6310c47542b3c688ad33134f203f09",
+  "certificateSHA256": "8888e53939d854a282a0ee40e9a78e21360b50d0dd077efc2d107da155bfadcd",
+  "uiEvidence": [
+    "Version saved as draft",
+    "New version — Draft",
+    "Reopened saved version contains slova-0.1.31-vc35-rustore.aab"
+  ],
+  "screenshot": "output/release/rustore-draft-0.1.31-vc35.jpg",
+  "submittedForModeration": false,
+  "published": false
+}

@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import type { SubscriptionStatus } from '@/core/net';
 import { isYandexGamesBuild } from '@/core/platform/yandexGames';
 import { getJSON, KEYS, setJSON } from '@/core/storage';
+import { trackSubscription } from '@/features/analytics/subscription';
+import { newMonetizationId } from './adTelemetry';
 
 interface Saved {
   schemaVersion?: number;
@@ -12,6 +14,7 @@ interface Saved {
   subscriptionUntil?: number | null;
   subscriptionOwnerId?: string | null;
   subscriptionExpiresAt?: number | null;
+  subscriptionAnalyticsMode?: 'live' | 'test' | 'disabled' | 'unknown';
 }
 
 interface EntitlementsState {
@@ -22,10 +25,11 @@ interface EntitlementsState {
   subscriptionOwnerId: string | null;
   /** Local deadline derived from the server clock, without changing the paid period. */
   subscriptionExpiresAt: number | null;
+  subscriptionAnalyticsMode: 'live' | 'test' | 'disabled' | 'unknown';
   isPro: () => boolean;
   setRemoveAds: (value: boolean) => void;
   setProUntil: (untilMs: number | null) => void;
-  applySubscription: (userId: string, status: SubscriptionStatus) => void;
+  applySubscription: (userId: string, status: SubscriptionStatus, mode?: 'live' | 'test' | 'disabled' | 'unknown') => void;
   refreshExpiration: (nowMs?: number) => void;
   clearSubscription: () => void;
 }
@@ -49,7 +53,21 @@ function persist(state: EntitlementsState): void {
     subscriptionUntil: state.subscriptionUntil,
     subscriptionOwnerId: state.subscriptionOwnerId,
     subscriptionExpiresAt: state.subscriptionExpiresAt,
+    subscriptionAnalyticsMode: state.subscriptionAnalyticsMode,
   });
+}
+
+function observeSubscriptionChange(previous: EntitlementsState, next: EntitlementsState, source: 'sync' | 'expiration' | 'clear') {
+  if (previous.subscriptionUntil === next.subscriptionUntil && previous.subscriptionOwnerId === next.subscriptionOwnerId) return;
+  const revision = newMonetizationId('en');
+  trackSubscription('subscription_entitlement_changed', {
+    entitlement_revision: revision,
+    old_status: previous.subscriptionUntil !== null ? 'active' : 'inactive',
+    new_status: next.subscriptionUntil !== null ? 'active' : 'inactive',
+    source: 'direct', trigger: source === 'sync' ? 'poll' : 'manual',
+    mode: next.subscriptionUntil !== null ? next.subscriptionAnalyticsMode : previous.subscriptionAnalyticsMode,
+    policy_version: 'server_verified_v1',
+  }, revision);
 }
 
 export const useEntitlements = create<EntitlementsState>((set, get) => ({
@@ -59,6 +77,7 @@ export const useEntitlements = create<EntitlementsState>((set, get) => ({
   subscriptionUntil: cachedSubscription ? saved.subscriptionUntil! : null,
   subscriptionOwnerId: cachedSubscription ? saved.subscriptionOwnerId! : null,
   subscriptionExpiresAt: cachedSubscription ? saved.subscriptionExpiresAt! : null,
+  subscriptionAnalyticsMode: saved.subscriptionAnalyticsMode ?? 'unknown',
   isPro: () => {
     const until = get().proUntil;
     return until !== null && until > Date.now();
@@ -72,7 +91,8 @@ export const useEntitlements = create<EntitlementsState>((set, get) => ({
     set({ proUntil: untilMs });
     persist(get());
   },
-  applySubscription: (userId, status) => {
+  applySubscription: (userId, status, mode = 'unknown') => {
+    const previous = get();
     const valid = !isYandexGamesBuild() && userId.length > 0 && status.active === true
       && typeof status.activeUntil === 'number' && Number.isFinite(status.activeUntil)
       && Number.isFinite(status.serverTime) && status.activeUntil > status.serverTime;
@@ -85,9 +105,11 @@ export const useEntitlements = create<EntitlementsState>((set, get) => ({
       subscriptionUntil: status.activeUntil,
       subscriptionOwnerId: userId,
       subscriptionExpiresAt,
+      subscriptionAnalyticsMode: mode,
       removeAds: true,
     });
     persist(get());
+    observeSubscriptionChange(previous, get(), 'sync');
   },
   refreshExpiration: (nowMs = Date.now()) => {
     const state = get();
@@ -96,6 +118,7 @@ export const useEntitlements = create<EntitlementsState>((set, get) => ({
     }
   },
   clearSubscription: () => {
+    const previous = get();
     set({
       subscriptionUntil: null,
       subscriptionOwnerId: null,
@@ -103,6 +126,7 @@ export const useEntitlements = create<EntitlementsState>((set, get) => ({
       removeAds: get().permanentRemoveAds,
     });
     persist(get());
+    observeSubscriptionChange(previous, get(), 'clear');
   },
 }));
 

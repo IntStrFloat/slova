@@ -220,8 +220,15 @@ export function recoverDailyPuzzle(currentRaw: string | null, backupRaw: string 
   };
 }
 
+let historyCoverageUncertain = false;
 export function loadDailyPuzzle(): DailyPuzzleState {
-  const recovered = recoverDailyPuzzle(getString(KEYS.dailyPuzzle), getString(KEYS.dailyPuzzleBackup));
+  const currentRaw = getString(KEYS.dailyPuzzle), backupRaw = getString(KEYS.dailyPuzzleBackup);
+  const recovered = recoverDailyPuzzle(currentRaw, backupRaw);
+  if (recovered.restorePrimary || recovered.migratePrimary || currentRaw !== null && !decodeStored(currentRaw)
+    || currentRaw === null && backupRaw === null && getString(KEYS.dailyHistoryProof) !== null) {
+    historyCoverageUncertain = true;
+    try { storage.set(KEYS.dailyHistoryProof, JSON.stringify({ version: 1, complete: false })); } catch { /* Missing coverage never authorizes a new first claim. */ }
+  }
   const state = recovered.state;
   if (recovered.restorePrimary) {
     try { storage.set(KEYS.dailyPuzzle, JSON.stringify(state)); } catch { /* retry on next accepted action */ }
@@ -235,6 +242,18 @@ export function loadDailyPuzzle(): DailyPuzzleState {
 }
 
 const init = loadDailyPuzzle();
+if (getString(KEYS.dailyHistoryProof) === null && getString(KEYS.dailyPuzzle) === null
+  && getString(KEYS.dailyPuzzleBackup) === null && (getString(KEYS.currency) === null
+    || (() => { try { return JSON.parse(getString(KEYS.currency)!).newProfile === true; } catch { return false; } })())) {
+  storage.set(KEYS.dailyHistoryProof, JSON.stringify({ version: 1, complete: true }));
+}
+export function getDailyPriorCompletion(date: string): boolean | null {
+  const saved = decodeStored(getString(KEYS.dailyPuzzle));
+  if (useDailyPuzzle.getState().solvedDates.includes(date) || saved?.state.solvedDates.includes(date)) return true;
+  let complete = false;
+  try { const proof = JSON.parse(getString(KEYS.dailyHistoryProof) ?? '{}'); complete = proof.version === 1 && proof.complete === true; } catch { /* unknown */ }
+  return !historyCoverageUncertain && isDayKey(date) && complete && (!getString(KEYS.dailyPuzzle) || saved && !saved.legacy) ? false : null;
+}
 
 /** Both slots must be writable before an action can become visible in memory. */
 function persist(next: DailyPuzzleState, previous: DailyPuzzleState): boolean {
@@ -358,6 +377,7 @@ export const useDailyPuzzle = create<Store>((set, get) => ({
     return { reward: result.reward, streak: get().solvedDates.length };
   },
   reset: () => {
+    storage.set(KEYS.dailyHistoryProof, JSON.stringify({ version: 1, complete: false }));
     const previous = saved(get);
     const next = fresh();
     if (persist(next, previous)) set({ ...next, streak: 0 });

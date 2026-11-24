@@ -1,0 +1,13 @@
+# Local SDK development and QA
+
+Owner instruction: implement and test locally; no RuStore update/publication, production campaign, server deployment, payment or production telemetry test. Reuse the single registered `Slova_Test_API35`, resolving its name to its current adb serial before each run. Preserve its main app/progress. Do not create another AVD.
+
+`node scripts/sdk-qa.cjs prebuild` generates Android only with a separate `com.intstrfloat.slova.sdkqa` application ID while preserving the ordinary native namespace. The original production `app.json` package/version/signing key are not changed. The QA label, test ads, empty optional AppMetrica key, missing Push project metadata and disabled Remote Config transport prevent the QA package using configured production destinations. The local backend uses its own `.omx/private/sdkqa-backend` files, binds `127.0.0.1:18788`, and has payment/mail/server-analytics capability disabled. Credentials are not loaded by this launcher.
+
+Run `node scripts/sdk-qa.cjs backend` and `node scripts/sdk-qa.cjs metro` as separate local processes. Metro uses port 18081 and offline/localhost mode. After verifying the owned AVD name, forward ports 18081 and 18788 with `adb -s <resolved serial> reverse`; do not copy a historical serial. Build the debug APK with `-PreactNativeDevServerPort=18081`, install only the `.sdkqa` package and launch its actual Activity. Root records the actual commands/results; these instructions alone do not prove a run.
+
+Actual SDK unavailable/offline/native lifecycle checks and fake-gateway scenario tests have separate evidence. Injected test responses are not real RuStore delivery, review submission or update download. New Remote Config assignments remain inactive until an actual protocol/cohort is chosen; Pay is rejected and GameCenter deferred. Existing main-package profile and paid rights are not QA fixtures.
+
+When returning the generated Android project to normal mode, run ordinary Android prebuild without `SLOVA_SDK_QA=1`, then the existing signing patch. The QA plugin restores the original cleartext policy; configured ordinary SDK plugins reapply their own settings. No QA key/project substitution is allowed in a future publication artifact. No upload is performed by any helper here.
+
+Configuration tests exercise local URL restrictions, independent application ID, normal-mode restoration and removal of inherited outbound financial credentials. Native build, APK/AAB signature, owned-device screenshots/progress and actual callbacks require their dated evidence records before local completion is claimed.
